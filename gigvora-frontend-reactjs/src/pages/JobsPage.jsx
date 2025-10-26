@@ -13,6 +13,9 @@ import { classNames } from '../utils/classNames.js';
 import { formatInteger, formatPercent } from '../utils/number.js';
 export { formatPercent };
 import JobManagementWorkspace from '../components/jobs/JobManagementWorkspace.jsx';
+import JobListView from '../components/jobs/JobListView.jsx';
+import JobDetailPanel from '../components/jobs/JobDetailPanel.jsx';
+import JobApplyDrawer from '../components/jobs/JobApplyDrawer.jsx';
 import OpportunityFilterPill from '../components/opportunity/OpportunityFilterPill.jsx';
 import SavedSearchList from '../components/explorer/SavedSearchList.jsx';
 import useSavedSearches from '../hooks/useSavedSearches.js';
@@ -113,6 +116,15 @@ export default function JobsPage() {
   const [savedSearchNotifyInApp, setSavedSearchNotifyInApp] = useState(true);
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
   const [applicationStages, setApplicationStages] = useState({});
+  const [selectedJobId, setSelectedJobId] = useState(null);
+  const [savedJobIds, setSavedJobIds] = useState([]);
+  const [applyDrawerOpen, setApplyDrawerOpen] = useState(false);
+  const resolveJobKey = (job) => job?.id ?? job?.slug ?? job?.title ?? null;
+
+  const savedJobsStorageKey = useMemo(() => {
+    const userKey = session?.id ?? session?.userId ?? 'anon';
+    return `gigvora:web:saved-jobs:${userKey}`;
+  }, [session?.id, session?.userId]);
 
   const memberships = useMemo(() => session?.memberships ?? [], [session?.memberships]);
   const canAccessJobs = useMemo(
@@ -120,6 +132,36 @@ export default function JobsPage() {
     [memberships],
   );
   const userId = session?.id ?? session?.userId ?? null;
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !savedJobsStorageKey) {
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(savedJobsStorageKey);
+      if (!raw) {
+        setSavedJobIds([]);
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        setSavedJobIds(parsed.filter((entry) => typeof entry === 'string' && entry.trim()));
+      }
+    } catch (error) {
+      console.warn('Unable to load saved jobs', error);
+    }
+  }, [savedJobsStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !savedJobsStorageKey) {
+      return;
+    }
+    try {
+      window.localStorage.setItem(savedJobsStorageKey, JSON.stringify(savedJobIds));
+    } catch (error) {
+      console.warn('Unable to persist saved jobs', error);
+    }
+  }, [savedJobIds, savedJobsStorageKey]);
 
   const {
     items: savedSearches,
@@ -157,6 +199,57 @@ export default function JobsPage() {
   const listing = data ?? {};
   const items = useMemo(() => (Array.isArray(listing.items) ? listing.items : []), [listing.items]);
   const totalJobs = listing.total ?? items.length;
+
+  const jobMap = useMemo(() => {
+    const map = new Map();
+    items.forEach((job) => {
+      const key = resolveJobKey(job);
+      if (key) {
+        map.set(key, job);
+      }
+    });
+    return map;
+  }, [items]);
+
+  useEffect(() => {
+    if (!items.length) {
+      setSelectedJobId(null);
+      return;
+    }
+    setSelectedJobId((current) => {
+      if (current != null && jobMap.has(current)) {
+        return current;
+      }
+      if (current === null) {
+        return resolveJobKey(items[0]) ?? null;
+      }
+      const fallback = resolveJobKey(items[0]);
+      return fallback ?? current;
+    });
+  }, [items, jobMap]);
+
+  useEffect(() => {
+    if (!applyDrawerOpen) {
+      setApplyJobId(null);
+    }
+  }, [applyDrawerOpen]);
+
+  const selectedJob = useMemo(() => {
+    if (!items.length) {
+      return null;
+    }
+    if (selectedJobId && jobMap.has(selectedJobId)) {
+      return jobMap.get(selectedJobId);
+    }
+    return items[0] ?? null;
+  }, [items, jobMap, selectedJobId]);
+
+  const applyJob = useMemo(() => {
+    if (applyJobId && jobMap.has(applyJobId)) {
+      return jobMap.get(applyJobId);
+    }
+    return selectedJob ?? null;
+  }, [applyJobId, jobMap, selectedJob]);
 
   const filterTelemetry = useMemo(
     () => ({
@@ -565,6 +658,15 @@ export default function JobsPage() {
 
   const handleApply = useCallback(
     (job) => {
+      if (!job) {
+        return;
+      }
+      const key = resolveJobKey(job);
+      if (key) {
+        setSelectedJobId(key);
+        setApplyJobId(key);
+        setApplyDrawerOpen(true);
+      }
       analytics.track(
         'web_job_apply_cta',
         {
@@ -578,6 +680,81 @@ export default function JobsPage() {
       );
     },
     [debouncedQuery, sort, filters],
+  );
+
+  const handleSelectJob = useCallback(
+    (job) => {
+      if (!job) {
+        return;
+      }
+      const key = resolveJobKey(job);
+      if (!key) {
+        return;
+      }
+      setSelectedJobId(key);
+      analytics.track(
+        'web_job_detail_viewed',
+        {
+          opportunityId: job.id ?? null,
+          title: job.title ?? null,
+          matchScore: job.matchScore ?? job.aiSignals?.total ?? null,
+          saved: savedJobIds.includes(key),
+        },
+        { source: 'web_app' },
+      );
+    },
+    [savedJobIds],
+  );
+
+  const handleToggleSavedJob = useCallback(
+    (job) => {
+      if (!job) {
+        return;
+      }
+      const key = resolveJobKey(job);
+      if (!key) {
+        return;
+      }
+      setSavedJobIds((current) => {
+        const next = new Set(current);
+        const willSave = !next.has(key);
+        if (willSave) {
+          next.add(key);
+        } else {
+          next.delete(key);
+        }
+        analytics.track(
+          'web_job_saved_toggle',
+          {
+            opportunityId: job.id ?? null,
+            title: job.title ?? null,
+            saved: willSave,
+          },
+          { source: 'web_app' },
+        );
+        return Array.from(next);
+      });
+    },
+    [],
+  );
+
+  const handleSubmitApplication = useCallback(
+    async ({ job: targetJob }) => {
+      analytics.track(
+        'web_job_application_submitted',
+        {
+          opportunityId: targetJob?.id ?? null,
+          title: targetJob?.title ?? null,
+          query: debouncedQuery || null,
+          sort,
+          filters,
+          saved: targetJob ? savedJobIds.includes(resolveJobKey(targetJob)) : false,
+        },
+        { source: 'web_app' },
+      );
+      await refresh();
+    },
+    [debouncedQuery, sort, filters, refresh, savedJobIds],
   );
 
   const handleStageTransition = useCallback((application, nextStage) => {
@@ -1088,127 +1265,21 @@ export default function JobsPage() {
             </div>
           </div>
         </div>
-        {error ? (
-          <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-            Unable to load the latest roles. {error.message || 'Try refreshing to sync again.'}
-          </div>
-        ) : null}
-        {loading && !items.length ? (
-          <div className="space-y-4">
-            {Array.from({ length: 3 }).map((_, index) => (
-              <div key={index} className="animate-pulse rounded-3xl border border-slate-200 bg-white p-6">
-                <div className="h-3 w-1/3 rounded bg-slate-200" />
-                <div className="mt-3 h-4 w-1/2 rounded bg-slate-200" />
-                <div className="mt-2 h-3 w-full rounded bg-slate-200" />
-                <div className="mt-1 h-3 w-5/6 rounded bg-slate-200" />
-              </div>
-            ))}
-          </div>
-        ) : null}
-        {!loading && !items.length ? (
-          <div className="rounded-3xl border border-dashed border-slate-300 bg-white/80 p-10 text-center text-sm text-slate-500">
-            {debouncedQuery
-              ? 'No jobs matched your filters yet. Try broadening your search.'
-              : 'Jobs curated from trusted teams will appear here as we sync the marketplace.'}
-          </div>
-        ) : null}
-        <div className="space-y-6">
-          {items.map((job) => (
-            <article
-              key={job.id}
-              className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
-                <div className="flex flex-wrap items-center gap-2">
-                  {job.location ? <span>{job.location}</span> : null}
-                  {job.employmentType ? (
-                    <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-600">
-                      {job.employmentType}
-                    </span>
-                  ) : null}
-                  {job.isRemote ? (
-                    <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 font-semibold text-emerald-700">
-                      Remote
-                    </span>
-                  ) : null}
-                </div>
-                <span className="text-slate-400">Updated {formatRelativeTime(job.updatedAt)}</span>
-              </div>
-              <h2 className="mt-3 text-xl font-semibold text-slate-900">{job.title}</h2>
-              <p className="mt-2 text-sm text-slate-600">{job.description}</p>
-              {Array.isArray(job.taxonomyLabels) && job.taxonomyLabels.length ? (
-                <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-slate-500">
-                  {job.taxonomyLabels.slice(0, 3).map((label) => (
-                    <span key={label} className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 font-semibold">
-                      {label}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
-              {(() => {
-                const signals = job?.aiSignals ?? {};
-                const matchScore = signals.total ?? job?.matchScore ?? null;
-                const scoreValue = Number(matchScore);
-                const matchLabel = Number.isFinite(scoreValue)
-                  ? formatPercent(scoreValue, { maximumFractionDigits: 0 })
-                  : null;
-                const components = [
-                  { key: 'freshness', label: 'Freshness', value: signals.freshness },
-                  { key: 'queryAffinity', label: 'Query match', value: signals.queryAffinity },
-                  { key: 'taxonomy', label: 'Tag alignment', value: signals.taxonomy },
-                  { key: 'remoteFit', label: 'Remote fit', value: signals.remoteFit },
-                  { key: 'reputation', label: 'Company reputation', value: signals.reputation },
-                ].filter((entry) => Number.isFinite(Number(entry.value)));
-
-                if (!matchLabel && !components.length && !resumeInsights?.score) {
-                  return null;
-                }
-
-                return (
-                  <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">AI match insights</p>
-                      {matchLabel ? (
-                        <span className="inline-flex items-center rounded-full bg-accentSoft px-3 py-1 text-xs font-semibold text-accent">
-                          Match {matchLabel}
-                        </span>
-                      ) : null}
-                    </div>
-                    {components.length ? (
-                      <dl className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
-                        {components.map((entry) => (
-                          <div key={entry.key} className="flex items-center justify-between gap-2">
-                            <dt className="text-slate-500">{entry.label}</dt>
-                            <dd className="font-semibold text-slate-900">
-                              {formatPercent(entry.value, { maximumFractionDigits: 0 })}
-                            </dd>
-                          </div>
-                        ))}
-                      </dl>
-                    ) : null}
-                    {resumeInsights?.score != null ? (
-                      <p className="mt-3 text-xs text-slate-500">
-                        Resume baseline {formatPercent(resumeInsights.score, { maximumFractionDigits: 0 })} quality.
-                      </p>
-                    ) : null}
-                  </div>
-                );
-              })()}
-              <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-                <div className="text-xs text-slate-500">{job.geo?.country ? <span>{job.geo.country}</span> : null}</div>
-                <button
-                  type="button"
-                  onClick={() => handleApply(job)}
-                  className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-xs font-semibold text-white shadow-soft transition hover:bg-accentDark"
-                >
-                  Apply now <span aria-hidden="true">→</span>
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{metrics}</div>
+        <JobListView
+          jobs={items}
+          loading={loading}
+          error={error}
+          query={debouncedQuery}
+          onSelectJob={handleSelectJob}
+          onApply={handleApply}
+          savedJobIds={savedJobIds}
+          onToggleSave={handleToggleSavedJob}
+          resumeInsights={resumeInsights}
+        />
       </div>
       <aside className="space-y-6">
+        <JobDetailPanel job={selectedJob} open={Boolean(selectedJob)} onApply={handleApply} resumeInsights={resumeInsights} />
         <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Saved searches</h3>
           <p className="mt-2 text-xs text-slate-500">
@@ -1816,6 +1887,14 @@ export default function JobsPage() {
           {activeTab === 'manage' ? manageContent : null}
         </div>
       </div>
+      <JobApplyDrawer
+        open={applyDrawerOpen}
+        job={applyJob}
+        onClose={() => setApplyDrawerOpen(false)}
+        onSubmit={handleSubmitApplication}
+        resumeInsights={resumeInsights}
+        session={session}
+      />
     </section>
   );
 }

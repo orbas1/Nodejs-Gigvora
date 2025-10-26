@@ -609,6 +609,7 @@ export { AgencyAiConfiguration, AgencyAutoBidTemplate } from './agencyAiModels.j
 const PIPELINE_OWNER_TYPES = ['freelancer', 'agency', 'company'];
 const TWO_FACTOR_METHODS = ['email', 'app', 'sms'];
 export const USER_STATUSES = ['invited', 'active', 'suspended', 'archived', 'deleted'];
+export const USER_RISK_LEVELS = ['low', 'medium', 'high'];
 const TWO_FACTOR_POLICY_ROLES = ['admin', 'staff', 'company', 'freelancer', 'agency', 'mentor', 'headhunter', 'all'];
 const TWO_FACTOR_ENFORCEMENT_LEVELS = ['optional', 'recommended', 'required'];
 const TWO_FACTOR_ENROLLMENT_METHODS = ['email', 'app', 'sms', 'security_key'];
@@ -846,6 +847,54 @@ UserLoginAudit.prototype.toPublicObject = function toPublicObject() {
     userAgent: plain.userAgent,
     metadata: plain.metadata ?? null,
     createdAt: plain.createdAt,
+  };
+};
+
+export const UserRiskAssessment = sequelize.define(
+  'UserRiskAssessment',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    riskLevel: { type: DataTypes.ENUM(...USER_RISK_LEVELS), allowNull: false, defaultValue: 'low' },
+    riskScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    riskSummary: { type: DataTypes.TEXT, allowNull: true },
+    riskFactors: { type: jsonType, allowNull: false, defaultValue: [] },
+    assessedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+  },
+  {
+    tableName: 'user_risk_assessments',
+    underscored: true,
+    indexes: [
+      { fields: ['user_id'], unique: true },
+      { fields: ['risk_level'] },
+      { fields: ['assessed_at'] },
+    ],
+  },
+);
+
+UserRiskAssessment.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const numeric = (value) => {
+    if (value == null) {
+      return null;
+    }
+    const coerced = Number(value);
+    return Number.isFinite(coerced) ? coerced : null;
+  };
+
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    riskLevel: plain.riskLevel ?? 'low',
+    riskScore: numeric(plain.riskScore),
+    riskSummary: plain.riskSummary ?? null,
+    riskFactors: Array.isArray(plain.riskFactors)
+      ? plain.riskFactors
+      : plain.riskFactors && typeof plain.riskFactors === 'object'
+      ? plain.riskFactors
+      : [],
+    assessedAt: plain.assessedAt ?? null,
+    createdAt: plain.createdAt ?? null,
+    updatedAt: plain.updatedAt ?? null,
   };
 };
 
@@ -9171,6 +9220,9 @@ export const MentorProfile = sequelize.define(
     region: { type: DataTypes.STRING(191), allowNull: true },
     discipline: { type: DataTypes.STRING(120), allowNull: true },
     expertise: { type: jsonType, allowNull: true },
+    industries: { type: jsonType, allowNull: true },
+    languages: { type: jsonType, allowNull: true },
+    goalTags: { type: jsonType, allowNull: true },
     searchVector: { type: DataTypes.TEXT, allowNull: true },
     sessionFeeAmount: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
     sessionFeeCurrency: { type: DataTypes.STRING(3), allowNull: true },
@@ -15283,6 +15335,13 @@ export const UserWebsitePreference = sequelize.define(
     contact: { type: jsonType, allowNull: true },
     seo: { type: jsonType, allowNull: true },
     social: { type: jsonType, allowNull: true },
+    personalizationTheme: { type: jsonType, allowNull: true, field: 'personalization_theme' },
+    personalizationLayout: { type: jsonType, allowNull: true, field: 'personalization_layout' },
+    personalizationSubscriptions: {
+      type: jsonType,
+      allowNull: true,
+      field: 'personalization_subscriptions',
+    },
   },
   { tableName: 'user_website_preferences' },
 );
@@ -15306,6 +15365,14 @@ UserWebsitePreference.prototype.toPublicObject = function toPublicObject() {
     contact: normalizeObject(plain.contact),
     seo: normalizeObject(plain.seo),
     social: normalizeObject(plain.social ?? { links: [] }, { links: [] }),
+    personalization: {
+      theme: normalizeObject(plain.personalizationTheme ?? {}, {}),
+      layout: normalizeObject(plain.personalizationLayout ?? { modules: [] }, { modules: [] }),
+      subscriptions: normalizeObject(
+        plain.personalizationSubscriptions ?? { categories: [] },
+        { categories: [] },
+      ),
+    },
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
@@ -21293,6 +21360,9 @@ User.hasOne(UserDashboardOverview, {
 });
 UserDashboardOverview.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
+User.hasOne(UserRiskAssessment, { foreignKey: 'userId', as: 'riskAssessment', onDelete: 'CASCADE' });
+UserRiskAssessment.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
 User.hasOne(Profile, { foreignKey: 'userId' });
 Profile.belongsTo(User, { foreignKey: 'userId' });
 Profile.hasMany(ProfileReference, { as: 'references', foreignKey: 'profileId', onDelete: 'CASCADE' });
@@ -24930,6 +25000,7 @@ export default {
   UserEventAsset,
   UserEventChecklistItem,
   UserLoginAudit,
+  UserRiskAssessment,
   CareerDocument,
   CareerDocumentVersion,
   CareerDocumentCollaborator,

@@ -2,6 +2,9 @@ import {
   projectGigManagementSequelize,
   Project,
   ProjectWorkspace,
+  ProjectWorkspaceBudgetLine,
+  ProjectWorkspaceTask,
+  ProjectWorkspaceMeeting,
   ProjectMilestone,
   ProjectCollaborator,
   ProjectIntegration,
@@ -20,6 +23,9 @@ import {
   GigSubmission,
   GigSubmissionAsset,
   GigChatMessage,
+  ClientAccount,
+  ClientKanbanCard,
+  ClientKanbanChecklistItem,
   StoryBlock,
   BrandAsset,
   ProjectBid,
@@ -124,6 +130,17 @@ function summarizeAssets(assets = []) {
     storageBytes,
     totalSizeBytes: storageBytes,
   };
+}
+
+function averageOrNull(values = []) {
+  const numeric = values
+    .map((value) => (value == null ? null : Number(value)))
+    .filter((value) => Number.isFinite(value));
+  if (!numeric.length) {
+    return null;
+  }
+  const total = numeric.reduce((sum, value) => sum + value, 0);
+  return total / numeric.length;
 }
 
 const PROJECT_TO_WORKSPACE_STATUS = Object.freeze({
@@ -343,6 +360,436 @@ function buildBoardMetrics(projects) {
   const completed = projects.filter((project) => project.workspace?.status === 'completed').length;
   const activeProjects = projects.length - completed;
   return { averageProgress, atRisk, completed, activeProjects };
+}
+
+function resolveOpportunityStage(project) {
+  const workspaceStatus = project.workspace?.status ?? resolveWorkspaceStatusFromProject(project.status);
+  const lifecycleClosed = project.lifecycleState === 'closed' || workspaceStatus === 'completed';
+  const bids = Array.isArray(project.bids) ? project.bids : [];
+  const invitations = Array.isArray(project.invitations) ? project.invitations : [];
+  const matches = Array.isArray(project.autoMatches) ? project.autoMatches : [];
+
+  if (lifecycleClosed || bids.some((bid) => bid.status === 'awarded')) {
+    return 'awarded';
+  }
+
+  if (
+    invitations.some((invite) => invite.status === 'accepted') ||
+    matches.some((match) => ['engaged', 'accepted'].includes(match.status))
+  ) {
+    return 'negotiation';
+  }
+
+  if (
+    invitations.some((invite) => invite.respondedAt) ||
+    matches.some((match) => match.status === 'contacted')
+  ) {
+    return 'interview';
+  }
+
+  if (bids.some((bid) => ['submitted', 'shortlisted'].includes(bid.status))) {
+    return 'pitching';
+  }
+
+  return 'discovery';
+}
+
+function computeOpportunityHealth(project) {
+  const workspace = project.workspace ?? {};
+  const explicitScore = normalizeNumber(workspace.healthScore, null);
+  if (explicitScore != null) {
+    return Math.max(0, Math.min(100, explicitScore));
+  }
+
+  const riskLevel = workspace.riskLevel ?? project.status;
+  const riskPenalty = riskLevel === 'high' || riskLevel === 'at_risk' ? 25 : riskLevel === 'medium' ? 10 : 0;
+  const progressScore = normalizeNumber(workspace.progressPercent, 0);
+  const satisfactionScore = normalizeNumber(workspace.clientSatisfaction, 0) * 20;
+  const composite = progressScore * 0.4 + satisfactionScore * 0.3 + 40 - riskPenalty;
+  return Math.max(0, Math.min(100, composite));
+}
+
+function buildOpportunityBlockers(project) {
+  const now = Date.now();
+  const milestones = Array.isArray(project.milestones) ? project.milestones : [];
+  return milestones
+    .filter((milestone) => milestone.status !== 'completed' && milestone.dueDate && new Date(milestone.dueDate).getTime() < now)
+    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+    .slice(0, 3)
+    .map((milestone) => ({
+      id: milestone.id,
+      label: milestone.title,
+      owner: milestone.metrics?.owner ?? null,
+      dueDate: milestone.dueDate,
+    }));
+}
+
+function buildOpportunityActivityLog(project, ordersByWorkspaceId) {
+  const events = [];
+  const milestones = Array.isArray(project.milestones) ? project.milestones : [];
+  milestones.slice(0, 6).forEach((milestone) => {
+    if (!milestone.updatedAt && !milestone.dueDate) {
+      return;
+    }
+    events.push({
+      label: `Milestone ${milestone.title}`,
+      at: milestone.updatedAt ?? milestone.dueDate,
+      actor: milestone.metrics?.owner ?? 'Milestone owner',
+    });
+  });
+
+  const retrospectives = Array.isArray(project.retrospectives) ? project.retrospectives : [];
+  retrospectives.slice(0, 4).forEach((retro) => {
+    events.push({
+      label: `Retro ${retro.milestoneTitle}`,
+      at: retro.generatedAt,
+      actor: retro.sentiment ?? 'Retrospective',
+    });
+  });
+
+  const workspaceId = project.workspace?.id ?? project.workspaceId ?? null;
+  if (workspaceId && ordersByWorkspaceId.has(workspaceId)) {
+    const relatedOrders = ordersByWorkspaceId.get(workspaceId);
+    relatedOrders.forEach((order) => {
+      const activities = Array.isArray(order.activities) ? order.activities : [];
+      activities.slice(0, 3).forEach((activity) => {
+        events.push({
+          label: activity.title,
+          at: activity.occurredAt,
+          actor: activity.metadata?.actorName ?? activity.activityType,
+        });
+      });
+    });
+  }
+
+  return events
+    .filter((event) => Boolean(event.at))
+    .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+    .slice(0, 10);
+}
+
+function computeAverageResponseTime(invitations = []) {
+  const durations = invitations
+    .filter((invite) => invite.inviteSentAt && invite.respondedAt)
+    .map((invite) => {
+      const sent = new Date(invite.inviteSentAt).getTime();
+      const responded = new Date(invite.respondedAt).getTime();
+      if (Number.isNaN(sent) || Number.isNaN(responded)) {
+        return null;
+      }
+      return Math.max(0, responded - sent) / (1000 * 60 * 60);
+    })
+    .filter((value) => value != null);
+
+  if (!durations.length) {
+    return null;
+  }
+  return durations.reduce((sum, value) => sum + value, 0) / durations.length;
+}
+
+function computeProposalQualityScore(bids = [], reviews = []) {
+  const reviewScores = reviews
+    .map((review) => normalizeNumber(review.ratingOverall, null))
+    .filter((value) => value !== null)
+    .map((score) => (score <= 5 ? (score / 5) * 100 : score));
+  const bidScores = bids
+    .map((bid) => normalizeNumber(bid.metadata?.qualityScore ?? bid.metadata?.score, null))
+    .filter((value) => value !== null);
+  const combined = [...reviewScores, ...bidScores];
+  return combined.length ? combined.reduce((sum, value) => sum + value, 0) / combined.length : null;
+}
+
+function computeFillRate(bids = []) {
+  const submitted = bids.filter((bid) => ['submitted', 'shortlisted', 'awarded'].includes(bid.status));
+  if (!submitted.length) {
+    return 0;
+  }
+  const awarded = submitted.filter((bid) => bid.status === 'awarded').length;
+  return (awarded / submitted.length) * 100;
+}
+
+function buildGigBoardOpportunities(projects, orders) {
+  const ordersByWorkspaceId = orders.reduce((acc, order) => {
+    const workspaceId = order.metadata?.workspaceId ?? null;
+    if (!workspaceId) {
+      return acc;
+    }
+    if (!acc.has(workspaceId)) {
+      acc.set(workspaceId, []);
+    }
+    acc.get(workspaceId).push(order);
+    return acc;
+  }, new Map());
+
+  return projects.map((project) => {
+    const bids = Array.isArray(project.bids) ? project.bids : [];
+    const invitations = Array.isArray(project.invitations) ? project.invitations : [];
+    const matches = Array.isArray(project.autoMatches) ? project.autoMatches : [];
+    const reviews = Array.isArray(project.reviews) ? project.reviews : [];
+    const stage = resolveOpportunityStage(project);
+    const blockers = buildOpportunityBlockers(project);
+    const activityLog = buildOpportunityActivityLog(project, ordersByWorkspaceId);
+    const workspace = project.workspace ?? {};
+    const personaFit = Array.isArray(project.skills) ? project.skills : [];
+    const responseTimeHours = computeAverageResponseTime(invitations);
+    const proposalQualityScore = computeProposalQualityScore(bids, reviews);
+    const fillRate = computeFillRate(bids);
+    const shortlistedCount = bids.filter((bid) => ['shortlisted', 'awarded'].includes(bid.status)).length;
+    const submittedCount = bids.filter((bid) => ['submitted', 'shortlisted', 'awarded'].includes(bid.status)).length;
+    const lastActivity = activityLog[0] ?? {
+      at: project.updatedAt ?? workspace.updatedAt ?? new Date().toISOString(),
+      actor: project.collaborators?.find((collaborator) => collaborator.status === 'active')?.fullName ?? 'Project team',
+    };
+
+    return {
+      id: project.id,
+      title: project.title,
+      client: project.metadata?.clientName ?? project.clientName ?? workspace.clientName ?? 'Client partner',
+      workspace: workspace.status ?? resolveWorkspaceStatusFromProject(project.status),
+      stage,
+      value: normalizeNumber(
+        project.budget?.allocated ?? bids.reduce((sum, bid) => sum + normalizeNumber(bid.amount), 0),
+        null,
+      ),
+      currency: project.budget?.currency ?? bids[0]?.currency ?? 'USD',
+      dueDate: workspace.nextMilestoneDueAt ?? project.dueDate ?? null,
+      tags: personaFit,
+      proposals: { submitted: submittedCount, shortlisted: shortlistedCount },
+      healthScore: computeOpportunityHealth(project),
+      responseTimeHours: responseTimeHours == null ? null : Number(responseTimeHours.toFixed(1)),
+      proposalQualityScore,
+      nextAction: workspace.nextMilestone ?? blockers[0]?.label ?? null,
+      owner:
+        project.collaborators?.find((collaborator) => collaborator.status === 'active')?.fullName ??
+        project.ownerName ??
+        null,
+      summary: project.description,
+      personaFit,
+      sentimentTrend:
+        workspace.riskLevel === 'high'
+          ? 'down'
+          : workspace.riskLevel === 'medium'
+          ? 'steady'
+          : workspace.velocityScore && workspace.velocityScore > 0
+          ? 'up'
+          : 'steady',
+      lastActivity,
+      blockers,
+      activityLog,
+      fillRate,
+      timeToInterview: responseTimeHours == null ? null : Number(responseTimeHours.toFixed(1)),
+    };
+  });
+}
+
+function buildGigBoardSummary(opportunities) {
+  const submitted = opportunities.reduce((total, opportunity) => total + (opportunity.proposals?.submitted ?? 0), 0);
+  const shortlisted = opportunities.reduce((total, opportunity) => total + (opportunity.proposals?.shortlisted ?? 0), 0);
+  const awarded = opportunities.filter((opportunity) => opportunity.stage === 'awarded').length;
+  const responseTimes = opportunities
+    .map((opportunity) => opportunity.responseTimeHours)
+    .filter((value) => Number.isFinite(value));
+  const proposalQualityScores = opportunities
+    .map((opportunity) => opportunity.proposalQualityScore)
+    .filter((value) => Number.isFinite(value));
+
+  return {
+    submittedProposals: submitted,
+    shortlisted,
+    awarded,
+    averageResponseTime: responseTimes.length ? averageOrNull(responseTimes) : null,
+    averageProposalQuality: proposalQualityScores.length ? averageOrNull(proposalQualityScores) : null,
+  };
+}
+
+function mapMilestoneToPhase(milestone) {
+  const statusMap = {
+    completed: 'done',
+    in_progress: 'in_progress',
+    waiting_on_client: 'pending',
+    planned: 'up_next',
+  };
+  return {
+    id: milestone.id,
+    label: milestone.title,
+    status: statusMap[milestone.status] ?? 'up_next',
+    dueDate: milestone.dueDate,
+  };
+}
+
+function mapChecklistItemToObligation(item, defaultOwner) {
+  const severity = item.metadata?.severity ?? item.metadata?.priority ?? 'medium';
+  return {
+    id: item.id,
+    label: item.title,
+    owner: item.metadata?.assignee ?? defaultOwner ?? null,
+    dueDate: item.dueDate ?? item.metadata?.dueDate ?? null,
+    severity: severity === 'critical' ? 'high' : severity,
+    type: item.metadata?.type ?? 'workspace',
+    completed: Boolean(item.completed),
+    checklistItemId: item.id,
+    cardId: item.cardId,
+    notes: item.description ?? item.metadata?.notes ?? null,
+  };
+}
+
+function buildContractAnalytics({ workspace, card, account, relatedOrders }) {
+  const renewalProbability = (() => {
+    if (card?.riskLevel === 'high') return 45;
+    if (card?.riskLevel === 'medium' || workspace?.riskLevel === 'medium') return 62;
+    return 78;
+  })();
+
+  const satisfaction = averageOrNull(
+    relatedOrders
+      .map((order) => order.scorecard?.overallScore)
+      .filter((value) => value != null)
+      .map((value) => (value <= 5 ? (value / 5) * 100 : value)),
+  );
+  const fallbackSatisfaction = normalizeNumber(workspace?.clientSatisfaction, null);
+  const compliance = normalizeNumber(workspace?.automationCoverage ?? workspace?.velocityScore, null);
+
+  return {
+    renewalProbability,
+    satisfaction: satisfaction != null ? Number(satisfaction.toFixed(1)) : fallbackSatisfaction ?? null,
+    compliance: compliance != null ? Math.round(Math.min(100, compliance)) : null,
+    tier: account?.tier ?? null,
+  };
+}
+
+function buildContractFinancials({ workspace, card, budgetLines }) {
+  const currency = card?.valueCurrency ?? workspace?.budget?.currency ?? 'USD';
+  const totalValue = normalizeNumber(card?.valueAmount ?? workspace?.budget?.allocated, null);
+  const paidToDate = normalizeNumber(workspace?.budget?.spent, null);
+  const upcoming = budgetLines
+    .filter((line) => line.status !== 'completed')
+    .reduce((sum, line) => sum + normalizeNumber(line.plannedAmount ?? line.actualAmount ?? line.planned_amount), 0);
+  const burnRate = workspace?.budget?.burnRatePercent ?? null;
+  return {
+    currency,
+    totalValue,
+    paidToDate,
+    upcoming,
+    burnRate: burnRate != null ? Number(burnRate.toFixed(1)) : null,
+  };
+}
+
+function buildContractDeliverables(project) {
+  const assets = Array.isArray(project.assets) ? project.assets : [];
+  return assets.slice(0, 6).map((asset) => ({
+    id: `asset-${asset.id}`,
+    label: asset.label,
+    type: asset.category ?? 'asset',
+    url: asset.storageUrl,
+  }));
+}
+
+function buildContractRisks(project) {
+  const tasks = Array.isArray(project.workspace?.tasks) ? project.workspace.tasks : [];
+  return tasks
+    .filter((task) => task.status === 'blocked')
+    .slice(0, 5)
+    .map((task) => ({
+      id: task.id,
+      label: task.title,
+      severity: task.priority === 'critical' ? 'high' : task.priority ?? 'medium',
+      owner: task.assigneeName ?? task.assigneeEmail ?? null,
+    }));
+}
+
+function buildContractTouchpoints(project) {
+  const meetings = Array.isArray(project.workspace?.meetings) ? project.workspace.meetings : [];
+  return meetings
+    .sort((a, b) => new Date(b.scheduledAt ?? 0).getTime() - new Date(a.scheduledAt ?? 0).getTime())
+    .slice(0, 6)
+    .map((meeting) => meeting.title ?? 'Workspace touchpoint');
+}
+
+function buildContractTracker(projects, orders, accounts, cards) {
+  if (!cards.length) {
+    return { contracts: [] };
+  }
+
+  const accountById = new Map(accounts.map((account) => [account.id, account]));
+  const projectByWorkspaceId = new Map(
+    projects
+      .filter((project) => project.workspace?.id)
+      .map((project) => [project.workspace.id, project]),
+  );
+
+  const ordersByWorkspace = orders.reduce((acc, order) => {
+    const workspaceId = order.metadata?.workspaceId;
+    if (!workspaceId) {
+      return acc;
+    }
+    if (!acc.has(workspaceId)) {
+      acc.set(workspaceId, []);
+    }
+    acc.get(workspaceId).push(order);
+    return acc;
+  }, new Map());
+
+  const contracts = cards.map((card) => {
+    const account = accountById.get(card.clientId ?? card.ownerId) ?? null;
+    const project = projectByWorkspaceId.get(card.workspaceId ?? account?.workspaceId ?? null) ?? null;
+    const workspace = project?.workspace ?? null;
+    const budgetLines = Array.isArray(workspace?.budgetLines) ? workspace.budgetLines : [];
+    const phases = Array.isArray(project?.milestones)
+      ? project.milestones.map((milestone) => mapMilestoneToPhase(milestone)).slice(0, 6)
+      : [];
+    const checklist = Array.isArray(card.checklist) ? card.checklist : [];
+    const obligations = checklist.map((item) => mapChecklistItemToObligation(item, workspace?.accountManagerName));
+    const deliverables = project ? buildContractDeliverables(project) : [];
+    const risks = project ? buildContractRisks(project) : [];
+    const touchpoints = project ? buildContractTouchpoints(project) : [];
+    const relatedOrders = ordersByWorkspace.get(card.workspaceId ?? null) ?? [];
+    const analytics = buildContractAnalytics({ workspace, card, account, relatedOrders });
+    const financials = buildContractFinancials({ workspace, card, budgetLines });
+
+    const statusKey = (() => {
+      if (card.archivedAt) return 'archived';
+      if (card.riskLevel === 'high') return 'blocked';
+      if (card.healthStatus === 'healthy') return 'onTrack';
+      return 'atRisk';
+    })();
+
+    const renewalDate = card.metadata?.renewalDate ?? card.renewalDate ?? account?.nextReviewAt ?? null;
+
+    return {
+      id: card.id,
+      title: card.title,
+      counterpart: account?.name ?? card.contactName ?? card.ownerName ?? 'Client partner',
+      statusKey,
+      statusLabel:
+        statusKey === 'onTrack'
+          ? 'On track'
+          : statusKey === 'blocked'
+          ? 'Escalated'
+          : statusKey === 'archived'
+          ? 'Archived'
+          : 'Monitoring',
+      startDate: card.startDate ?? project?.startDate ?? workspace?.createdAt ?? null,
+      endDate: card.dueDate ?? project?.dueDate ?? null,
+      financials,
+      phases,
+      obligations,
+      deliverables,
+      risks,
+      touchpoints,
+      analytics,
+      renewal: {
+        targetDate: renewalDate,
+        notes: card.notes ?? account?.notes ?? null,
+      },
+      metadata: {
+        workspaceId: card.workspaceId ?? null,
+        clientAccountId: card.clientId ?? null,
+        cardId: card.id,
+      },
+    };
+  });
+
+  return { contracts };
 }
 
 function buildVendorStats(orders) {
@@ -1592,11 +2039,21 @@ export async function getProjectGigManagementOverview(ownerId) {
     invitationRecords,
     matchRecords,
     reviewRecords,
+    clientAccountRecords,
+    clientKanbanCardRecords,
   ] = await Promise.all([
     Project.findAll({
       where: { ownerId },
       include: [
-        { model: ProjectWorkspace, as: 'workspace' },
+        {
+          model: ProjectWorkspace,
+          as: 'workspace',
+          include: [
+            { model: ProjectWorkspaceBudgetLine, as: 'budgetLines' },
+            { model: ProjectWorkspaceTask, as: 'tasks' },
+            { model: ProjectWorkspaceMeeting, as: 'meetings' },
+          ],
+        },
         { model: ProjectMilestone, as: 'milestones', separate: true, order: [['ordinal', 'ASC']] },
         { model: ProjectCollaborator, as: 'collaborators' },
         { model: ProjectIntegration, as: 'integrations' },
@@ -1679,6 +2136,12 @@ export async function getProjectGigManagementOverview(ownerId) {
     ProjectInvitation.findAll({ where: { ownerId }, order: [['inviteSentAt', 'DESC']] }),
     AutoMatchCandidate.findAll({ where: { ownerId }, order: [['matchedAt', 'DESC']] }),
     ProjectReview.findAll({ where: { ownerId }, order: [['submittedAt', 'DESC']] }),
+    ClientAccount.findAll({ where: { ownerId } }),
+    ClientKanbanCard.findAll({
+      where: { ownerId },
+      include: [{ model: ClientKanbanChecklistItem, as: 'checklist' }],
+      order: [['updatedAt', 'DESC']],
+    }),
   ]);
 
   const [autoMatchSettings] = await AutoMatchSetting.findOrCreate({
@@ -1702,6 +2165,8 @@ export async function getProjectGigManagementOverview(ownerId) {
   const sanitizedOrders = orderRecords.map((order) => sanitizeGigOrder(order));
   const storyBlocks = storyBlockRecords.map((block) => block.get({ plain: true }));
   const brandAssets = brandAssetRecords.map((asset) => asset.get({ plain: true }));
+  const clientAccounts = clientAccountRecords.map((account) => account.get({ plain: true }));
+  const clientCards = clientKanbanCardRecords.map((card) => card.get({ plain: true }));
 
   const assets = sanitizedProjects.flatMap((project) => project.assets ?? []);
   const assetSummary = summarizeAssets(assets);
@@ -1739,6 +2204,22 @@ export async function getProjectGigManagementOverview(ownerId) {
   const submissionSummary = buildSubmissionSummary(sanitizedOrders);
   const chatSummary = buildChatSummary(sanitizedOrders);
   const lifecycleSnapshot = buildProjectLifecycleSnapshot(sanitizedProjects);
+
+  const gigBoardOpportunities = buildGigBoardOpportunities(sanitizedProjects, sanitizedOrders);
+  const gigBoard = {
+    opportunities: gigBoardOpportunities,
+    metrics: {
+      ...buildBoardMetrics(sanitizedProjects),
+      ...buildGigBoardSummary(gigBoardOpportunities),
+    },
+  };
+
+  const contractOperations = buildContractTracker(
+    sanitizedProjects,
+    sanitizedOrders,
+    clientAccounts,
+    clientCards,
+  );
 
   const bidEntries = bidRecords.map((bid) => {
     const plain = bid.get({ plain: true });
@@ -1827,6 +2308,8 @@ export async function getProjectGigManagementOverview(ownerId) {
     assets: { items: assets, summary: assetSummary, brandAssets },
     board,
     managementBoard: board,
+    gigBoard,
+    contractOperations,
     purchasedGigs: {
       orders: sanitizedOrders,
       reminders,

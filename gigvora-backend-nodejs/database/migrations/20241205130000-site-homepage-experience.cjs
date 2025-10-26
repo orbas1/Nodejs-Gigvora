@@ -186,6 +186,276 @@ const DEFAULT_FRAGMENT = {
       createdAt: '2024-10-03T14:00:00.000Z',
     },
   ],
+  marketing: {
+    announcement: {
+      title: 'Launch orchestration update',
+      description: 'Automation blueprints, mentor analytics, and compliance vaults now ship across the Scale tier.',
+      cta: { label: 'Read the release notes', action: 'release_notes', href: '/trust-center' },
+    },
+    trustBadges: [
+      {
+        id: 'badge-soc2',
+        label: 'SOC 2 Type II',
+        description: 'Independent auditors verify Gigvora trust and compliance every quarter.',
+      },
+      {
+        id: 'badge-global-mentors',
+        label: 'Mentor guild',
+        description: '7,800+ vetted mentors spanning growth, product, and revenue disciplines.',
+      },
+      {
+        id: 'badge-sla',
+        label: 'Enterprise SLA',
+        description: '99.95% uptime with 24/7 launch response pods across three regions.',
+      },
+    ],
+    personas: [
+      {
+        id: 'founder',
+        label: 'Founder / Executive',
+        description: 'Track investor updates, customer pilots, and hiring rituals without losing momentum.',
+      },
+      {
+        id: 'operations',
+        label: 'Operations leader',
+        description: 'Automate reviews, compliance, and launch cadences while staying ahead of blockers.',
+      },
+      {
+        id: 'mentor',
+        label: 'Mentor & advisor',
+        description: 'Coach multiple cohorts with shared agendas, analytics, and follow-up workflows.',
+      },
+    ],
+    productTour: {
+      steps: [
+        {
+          id: 'command-centre',
+          label: 'Command',
+          title: 'Command centre keeps every initiative accountable',
+          summary:
+            'Live dashboards blend hiring, mentoring, and marketing rituals into one decision theatre so leaders focus on outcomes instead of alignment.',
+          personaHighlights: {
+            founder: [
+              'Executive-ready pulse combining pipeline, retention, and runway signals.',
+              'Boardroom export with narrative context assembled automatically.',
+              'Investor updates sync with the same truth operators use daily.',
+            ],
+            operations: [
+              'Program kanbans, OKRs, and risk logs refresh in real time.',
+              'Compliance watchlists trigger checklists and guardrail alerts.',
+              'Deep links into workstreams, retros, and playbooks without context switching.',
+            ],
+            mentor: [
+              'Mentor scorecards roll up wins, risks, and outstanding actions.',
+              'AI summaries capture cohort sentiment for quick triage.',
+              'Spotlight nominations surface top mentees for marketing and advocacy.',
+            ],
+          },
+          metrics: {
+            timeToValue: 'Under 8 minutes to configure',
+            automation: '82% of narrative updates auto-generated',
+            collaboration: 'Execs, ops leads, mentor guild',
+          },
+          media: {
+            type: 'video',
+            posterUrl: 'https://cdn.gigvora.com/marketing/product-tour/command-centre-poster.jpg',
+            sources: [{ src: 'https://cdn.gigvora.com/marketing/product-tour/command-centre.mp4', type: 'video/mp4' }],
+          },
+          cta: { label: 'Book a strategy review', action: 'book_strategy' },
+          secondaryCta: { label: 'Download executive brief', action: 'download_brief' },
+        },
+        {
+          id: 'launch-blueprints',
+          label: 'Launch',
+          title: 'Launch blueprints orchestrate go-to-market in hours',
+          summary:
+            'Drag-and-drop launch kits bundle marketing pages, ads, nurture flows, and success metrics so campaigns deploy on-brand every time.',
+          personaHighlights: {
+            founder: [
+              'Spin up campaign crews with vetted playbooks and ROI guardrails.',
+              'Real-time approvals keep legal, security, and finance in the same thread.',
+              'Launch retros feed data into investor updates automatically.',
+            ],
+            operations: [
+              'Automations assign intake forms, QA checklists, and distribution tasks.',
+              'Cross-team dependencies surface before blockers land in standups.',
+              'Scenario planner forecasts staffing and budget needs instantly.',
+            ],
+            mentor: [
+              'Cohort-ready templates share best practices with each mentee.',
+              'Mentors tag teachable moments and spin into micro-learnings.',
+              'Spotlight stories export straight to community marketing hubs.',
+            ],
+          },
+          metrics: {
+            timeToValue: 'Launch in 48 hours',
+            automation: '120+ workflow recipes',
+            collaboration: 'Marketing, sales, product squads',
+          },
+          media: {
+            type: 'image',
+            src: 'https://cdn.gigvora.com/marketing/product-tour/launch-blueprints.jpg',
+            alt: 'Launch blueprint builder showing tasks and automation timeline.',
+          },
+          cta: { label: 'Start a pilot launch', action: 'start_pilot' },
+        },
+        {
+          id: 'mentorship',
+          label: 'Mentorship',
+          title: 'Mentor workflows deliver measurable uplift',
+          summary:
+            'Mentor lounges combine agendas, recordings, feedback, and growth plans so talent keeps compounding gains while executives see ROI.',
+          personaHighlights: {
+            founder: [
+              'Invite mentors to mission-critical launches with context preloaded.',
+              'Track mentee outcomes alongside revenue, hiring, and retention goals.',
+            ],
+            operations: [
+              'Match mentors to mentees using live skills graph and availability.',
+              'Automated nudges keep sessions on schedule and logged for compliance.',
+            ],
+            mentor: [
+              'One-click recap pushes highlights to mentees and sponsors.',
+              'Resource library suggests next best actions per persona.',
+            ],
+          },
+          metrics: {
+            timeToValue: 'First mentorship cohort in 5 days',
+            automation: '65% of follow-ups auto-scheduled',
+            collaboration: 'Mentors, mentees, sponsors',
+          },
+          media: {
+            type: 'image',
+            src: 'https://cdn.gigvora.com/marketing/product-tour/mentorship-workflows.jpg',
+            alt: 'Mentor workspace with shared agendas and analytics.',
+          },
+          cta: { label: 'Meet the mentor guild', action: 'mentor_directory' },
+          secondaryCta: { label: 'View mentorship outcomes', action: 'view_outcomes' },
+        },
+        {
+          id: 'insights',
+          label: 'Insights',
+          title: 'Insights studio broadcasts wins across every channel',
+          summary:
+            'Automated storytelling packages, social tiles, and stakeholder recaps transform raw telemetry into moments that attract talent and revenue.',
+          personaHighlights: {
+            founder: ['Investor-ready highlights without writing a single deck.'],
+            operations: ['Insights auto-publish to marketing sites, CRM, and Slack hubs.'],
+            mentor: ['Celebrate mentee achievements with branded share kits.'],
+          },
+          metrics: {
+            timeToValue: '2 minutes to publish',
+            automation: '100% data-synchronised storytelling',
+            collaboration: 'Marketing, ops, community',
+          },
+          media: {
+            type: 'video',
+            posterUrl: 'https://cdn.gigvora.com/marketing/product-tour/insights-studio-poster.jpg',
+            sources: [{ src: 'https://cdn.gigvora.com/marketing/product-tour/insights-reel.mp4', type: 'video/mp4' }],
+          },
+          cta: { label: 'Explore storytelling studio', action: 'open_storytelling' },
+        },
+      ],
+    },
+    pricing: {
+      plans: [
+        {
+          id: 'launch',
+          name: 'Launch',
+          headline: 'Perfect for early teams activating community, marketing, and mentorship.',
+          pricing: { monthly: 129, annual: 119 },
+          savings: { annual: 'Save 15% with annual billing' },
+          features: [
+            'Up to 15 concurrent workstreams',
+            'Marketing landing page builder and analytics snapshots',
+            'Mentor marketplace access with curated intros',
+            'Slack and email orchestration with 20 playbooks',
+          ],
+          metrics: {
+            'Seats included': '25',
+            'Automation recipes': '40+',
+            Support: 'Guided onboarding & launch concierge',
+          },
+        },
+        {
+          id: 'scale',
+          name: 'Scale',
+          headline: 'Everything high-growth companies need to orchestrate global launches.',
+          pricing: { monthly: 349, annual: 319 },
+          savings: { annual: 'Save 20% · concierge data migration' },
+          features: [
+            'Unlimited projects with milestone governance',
+            'Advanced analytics studio & ROI forecasting',
+            'Integrated consent, security, and audit logging',
+            'Dedicated mentor guild with spotlight campaigns',
+          ],
+          recommended: true,
+          metrics: {
+            'Seats included': '75',
+            'Automation recipes': '120+',
+            Support: 'Dedicated success architect & quarterly roadmap reviews',
+          },
+        },
+        {
+          id: 'enterprise',
+          name: 'Enterprise',
+          headline: 'Tailored for global operators with deep compliance and data residency needs.',
+          pricing: { monthly: 'Custom', annual: 'Custom' },
+          cadenceLabel: 'Enterprise agreement',
+          savings: { annual: 'Volume pricing & white-glove launch' },
+          features: [
+            'Unlimited everything with premium SLAs',
+            'Private data lake exports & lakehouse connectors',
+            'Air-gapped mentor and contractor pools',
+            'Dedicated launch squad with 24/7 war room',
+          ],
+          metrics: {
+            'Seats included': 'Unlimited',
+            'Automation recipes': 'Custom',
+            Support: '24/7 global pod & executive briefings',
+          },
+          ctaLabel: 'Design your enterprise plan',
+        },
+      ],
+      featureMatrix: [
+        {
+          key: 'command-centre',
+          label: 'Command centre & analytics studio',
+          description: 'Live dashboards, goal tracking, and multi-org analytics.',
+          tiers: { launch: true, scale: true, enterprise: true },
+        },
+        {
+          key: 'mentorship',
+          label: 'Mentor guild & cohort rituals',
+          description: 'Curated mentors, agenda templates, and impact reporting.',
+          tiers: { launch: 'Curated pool', scale: 'Dedicated guild', enterprise: 'Private guild + NDA workflows' },
+        },
+        {
+          key: 'marketing-suite',
+          label: 'Marketing experience suite',
+          description: 'Landing pages, product tours, marketing automation, and asset CDN.',
+          tiers: { launch: true, scale: true, enterprise: 'White-label + custom CDN' },
+        },
+        {
+          key: 'security',
+          label: 'Security & compliance controls',
+          description: 'Role-based access, audit trails, data residency, and single sign-on.',
+          tiers: { launch: true, scale: true, enterprise: 'Advanced controls & private region' },
+        },
+        {
+          key: 'support',
+          label: 'Success pod & concierge services',
+          description: 'Onboarding, war rooms, and launch partners.',
+          tiers: { launch: 'Guided onboarding', scale: 'Success architect', enterprise: 'Dedicated pod 24/7' },
+        },
+      ],
+      metrics: [
+        { label: 'Customer acquisition lift', value: '38%', helper: 'Marketing funnel lift measured across 120-day pilots.' },
+        { label: 'Time-to-launch reduction', value: '2.3x faster', helper: 'Median improvement observed across scale customers.' },
+        { label: 'Mentor satisfaction', value: '96%', helper: 'Mentor guild NPS from the past four quarters.' },
+      ],
+    },
+  },
 };
 
 const safeString = (value, fallback = '') => {
@@ -440,6 +710,286 @@ const sanitizeRecentPosts = (posts) => {
   return cleaned.length ? cleaned : fallback;
 };
 
+const sanitizeCta = (cta, fallback = {}) => {
+  const base = fallback ?? {};
+  const label = safeString(cta?.label ?? cta?.title, base.label ?? '');
+  if (!label) {
+    return base.label ? { label: base.label, action: base.action, href: base.href, route: base.route } : null;
+  }
+  const payload = { label };
+  const action = safeString(cta?.action, base.action ?? '').trim();
+  if (action) {
+    payload.action = action;
+  }
+  const href = safeString(cta?.href ?? cta?.url, base.href ?? base.url ?? '').trim();
+  if (href) {
+    payload.href = href;
+  }
+  const route = !href ? safeString(cta?.route ?? cta?.path, base.route ?? '').trim() : '';
+  if (route) {
+    payload.route = route;
+  }
+  return payload;
+};
+
+const sanitizePersonaHighlightsList = (highlights, fallback = []) => {
+  const list = Array.isArray(highlights) ? highlights : fallback;
+  const cleaned = list
+    .map((item) => safeString(item))
+    .filter((item) => item.length > 0)
+    .slice(0, 6);
+  return cleaned.length ? cleaned : [...fallback];
+};
+
+const sanitizePersonaHighlightsMap = (highlights, fallback = {}) => {
+  const source = highlights && typeof highlights === 'object' ? highlights : {};
+  const result = {};
+  Object.entries(source).forEach(([key, value]) => {
+    const personaKey = normalizeKey(key, key);
+    if (!personaKey) {
+      return;
+    }
+    result[personaKey] = sanitizePersonaHighlightsList(value, fallback[personaKey] ?? []);
+  });
+  if (fallback.default && !result.default) {
+    result.default = sanitizePersonaHighlightsList(fallback.default, fallback.default);
+  }
+  return Object.keys(result).length ? result : { ...fallback };
+};
+
+const sanitizeTrustBadges = (badges, fallback = []) => {
+  const baseList = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_FRAGMENT.marketing.trustBadges;
+  const list = Array.isArray(badges) ? badges : [];
+  const cleaned = list
+    .map((badge, index) => {
+      const base = baseList[index] ?? baseList[0];
+      const label = safeString(badge?.label ?? badge?.name ?? badge?.title, base?.label ?? '');
+      if (!label) {
+        return null;
+      }
+      return {
+        id: safeString(badge?.id ?? badge?.key ?? badge?.slug, base?.id ?? normalizeKey(label, label) || `badge-${index + 1}`),
+        label,
+        description: safeString(badge?.description ?? badge?.copy, base?.description ?? ''),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 6);
+  return cleaned.length ? cleaned : baseList.map((item) => ({ ...item }));
+};
+
+const sanitizeTourMedia = (media, fallback = {}) => {
+  const source = media && typeof media === 'object' ? media : {};
+  const base = fallback ?? {};
+  const type = ['video', 'image'].includes(source.type) ? source.type : base.type ?? 'image';
+  const sanitized = { type };
+  if (type === 'video') {
+    const sources = Array.isArray(source.sources) ? source.sources : base.sources ?? [];
+    sanitized.sources = sources
+      .map((entry) => {
+        const src = safeString(entry?.src ?? entry?.url, '');
+        if (!src) {
+          return null;
+        }
+        return {
+          src,
+          type: safeString(entry?.type ?? base?.sources?.[0]?.type ?? 'video/mp4', 'video/mp4'),
+        };
+      })
+      .filter(Boolean)
+      .slice(0, 4);
+    if (!sanitized.sources.length && Array.isArray(base.sources)) {
+      sanitized.sources = base.sources.map((item) => ({ ...item }));
+    }
+    const poster = safeString(source.posterUrl ?? source.poster, base.posterUrl ?? base.poster ?? '');
+    if (poster) {
+      sanitized.posterUrl = poster;
+    }
+  } else {
+    sanitized.src = safeString(source.src ?? base.src ?? '', '');
+    const alt = safeString(source.alt ?? source.altText ?? base.alt ?? base.altText ?? '', '');
+    if (alt) {
+      sanitized.alt = alt;
+    }
+  }
+  return sanitized;
+};
+
+const sanitizeProductTourSteps = (steps, fallback = []) => {
+  const baseList = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_FRAGMENT.marketing.productTour.steps;
+  const list = Array.isArray(steps) ? steps : [];
+  const cleaned = list
+    .map((step, index) => {
+      const base = baseList[index] ?? baseList[0];
+      const title = safeString(step?.title ?? step?.headline, base?.title ?? '');
+      if (!title) {
+        return null;
+      }
+      const id = safeString(step?.id ?? step?.key ?? step?.slug, base?.id ?? normalizeKey(title, title) || `step-${index + 1}`);
+      const cta = sanitizeCta(step?.cta, base?.cta);
+      const secondaryCta = sanitizeCta(step?.secondaryCta, base?.secondaryCta);
+      return {
+        id,
+        label: safeString(step?.label ?? step?.shortTitle, base?.label ?? `Step ${index + 1}`),
+        title,
+        summary: safeString(step?.summary ?? step?.description, base?.summary ?? ''),
+        personaHighlights: sanitizePersonaHighlightsMap(step?.personaHighlights ?? step?.highlightsByPersona, base?.personaHighlights ?? {}),
+        highlights: sanitizePersonaHighlightsList(step?.highlights, base?.highlights ?? []),
+        metrics: step?.metrics && typeof step.metrics === 'object' ? { ...base?.metrics, ...step.metrics } : base?.metrics ?? {},
+        media: sanitizeTourMedia(step?.media, base?.media),
+        ...(cta ? { cta } : {}),
+        ...(secondaryCta ? { secondaryCta } : {}),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 6);
+  return cleaned.length ? cleaned : baseList.map((item) => ({ ...item }));
+};
+
+const sanitizeMarketingPersonas = (personas, fallback = []) => {
+  const baseList = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_FRAGMENT.marketing.personas;
+  const list = Array.isArray(personas) ? personas : [];
+  const cleaned = list
+    .map((persona, index) => {
+      const base = baseList[index] ?? baseList[0];
+      const label = safeString(persona?.label ?? persona?.name ?? persona?.title, base?.label ?? '');
+      if (!label) {
+        return null;
+      }
+      return {
+        id: safeString(persona?.id ?? persona?.key ?? persona?.slug, base?.id ?? normalizeKey(label, label) || `persona-${index + 1}`),
+        label,
+        description: safeString(persona?.description ?? persona?.summary ?? persona?.copy, base?.description ?? ''),
+        route: safeString(persona?.route ?? persona?.href ?? persona?.url ?? base?.route ?? '', ''),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 6);
+  return cleaned.length ? cleaned : baseList.map((item) => ({ ...item }));
+};
+
+const sanitizePricingPlans = (plans, fallback = []) => {
+  const baseList = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_FRAGMENT.marketing.pricing.plans;
+  const list = Array.isArray(plans) ? plans : [];
+  const cleaned = list
+    .map((plan, index) => {
+      const base = baseList[index] ?? baseList[0];
+      const name = safeString(plan?.name ?? plan?.title, base?.name ?? '');
+      if (!name) {
+        return null;
+      }
+      const features = Array.isArray(plan?.features)
+        ? plan.features.map((item) => safeString(item)).filter((item) => item.length > 0)
+        : Array.isArray(base?.features)
+        ? base.features
+        : [];
+      const metrics = Object.entries({ ...base?.metrics, ...(plan?.metrics ?? {}) }).reduce((acc, [label, value]) => {
+        const safeLabel = safeString(label, '');
+        const safeValue = safeString(value, base?.metrics?.[label] ?? '');
+        if (safeLabel && safeValue) {
+          acc[safeLabel] = safeValue;
+        }
+        return acc;
+      }, {});
+      return {
+        id: safeString(plan?.id ?? plan?.key ?? plan?.slug, base?.id ?? normalizeKey(name, name) || `plan-${index + 1}`),
+        name,
+        headline: safeString(plan?.headline ?? plan?.description, base?.headline ?? ''),
+        pricing: plan?.pricing && typeof plan.pricing === 'object' ? { ...base?.pricing, ...plan.pricing } : base?.pricing ?? {},
+        cadenceLabel: safeString(plan?.cadenceLabel, base?.cadenceLabel ?? ''),
+        savings: plan?.savings && typeof plan.savings === 'object' ? { ...base?.savings, ...plan.savings } : base?.savings ?? {},
+        features,
+        metrics,
+        recommended: plan?.recommended ?? base?.recommended ?? false,
+        ctaLabel: safeString(plan?.ctaLabel ?? plan?.ctaText, base?.ctaLabel ?? ''),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 6);
+  return cleaned.length ? cleaned : baseList.map((item) => ({ ...item }));
+};
+
+const sanitizePricingFeatureMatrix = (matrix, fallback = []) => {
+  const baseList = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_FRAGMENT.marketing.pricing.featureMatrix;
+  const list = Array.isArray(matrix) ? matrix : [];
+  const cleaned = list
+    .map((entry, index) => {
+      const base = baseList[index] ?? baseList[0];
+      const label = safeString(entry?.label ?? entry?.title, base?.label ?? '');
+      if (!label) {
+        return null;
+      }
+      const tiers = Object.entries({ ...base?.tiers, ...(entry?.tiers ?? {}) }).reduce((acc, [tierKey, tierValue]) => {
+        const key = normalizeKey(tierKey, tierKey);
+        if (!key) {
+          return acc;
+        }
+        if (typeof tierValue === 'boolean') {
+          acc[key] = tierValue;
+        } else {
+          const value = safeString(tierValue, base?.tiers?.[key] ?? '');
+          if (value) {
+            acc[key] = value;
+          }
+        }
+        return acc;
+      }, {});
+      return {
+        key: safeString(entry?.key ?? entry?.id ?? entry?.slug, base?.key ?? normalizeKey(label, label) || `feature-${index + 1}`),
+        label,
+        description: safeString(entry?.description ?? entry?.summary, base?.description ?? ''),
+        tiers,
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 10);
+  return cleaned.length ? cleaned : baseList.map((item) => ({ ...item }));
+};
+
+const sanitizePricingMetrics = (metrics, fallback = []) => {
+  const baseList = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_FRAGMENT.marketing.pricing.metrics;
+  const list = Array.isArray(metrics) ? metrics : [];
+  const cleaned = list
+    .map((entry, index) => {
+      const base = baseList[index] ?? baseList[0];
+      const label = safeString(entry?.label ?? entry?.title, base?.label ?? '');
+      const value = safeString(entry?.value ?? entry?.metric, base?.value ?? '');
+      if (!label || !value) {
+        return null;
+      }
+      return {
+        label,
+        value,
+        helper: safeString(entry?.helper ?? entry?.description ?? entry?.copy, base?.helper ?? ''),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 8);
+  return cleaned.length ? cleaned : baseList.map((item) => ({ ...item }));
+};
+
+const sanitizePricing = (pricing) => {
+  const fallback = DEFAULT_FRAGMENT.marketing.pricing;
+  const source = pricing && typeof pricing === 'object' ? pricing : {};
+  return {
+    plans: sanitizePricingPlans(source.plans, fallback.plans),
+    featureMatrix: sanitizePricingFeatureMatrix(source.featureMatrix, fallback.featureMatrix),
+    metrics: sanitizePricingMetrics(source.metrics, fallback.metrics),
+  };
+};
+
+const sanitizeMarketing = (marketing) => {
+  const fallback = DEFAULT_FRAGMENT.marketing;
+  const source = marketing && typeof marketing === 'object' ? marketing : {};
+  return {
+    announcement: sanitizeMarketingAnnouncement(source.announcement, fallback.announcement),
+    trustBadges: sanitizeTrustBadges(source.trustBadges, fallback.trustBadges),
+    personas: sanitizeMarketingPersonas(source.personas, fallback.personas),
+    productTour: { steps: sanitizeProductTourSteps(source?.productTour?.steps ?? source.productTourSteps, fallback.productTour.steps) },
+    pricing: sanitizePricing(source.pricing),
+  };
+};
+
 const mergeSettings = (current = {}) => {
   const merged = { ...current };
   merged.heroHeadline = safeString(current.heroHeadline, DEFAULT_FRAGMENT.heroHeadline);
@@ -451,6 +1001,7 @@ const mergeSettings = (current = {}) => {
   merged.personaMetrics = sanitizePersonaMetrics(current.personaMetrics, DEFAULT_FRAGMENT.personaMetrics);
   merged.operationsSummary = sanitizeOperationsSummary(current.operationsSummary);
   merged.recentPosts = sanitizeRecentPosts(current.recentPosts);
+  merged.marketing = sanitizeMarketing(current.marketing);
   return merged;
 };
 
@@ -465,6 +1016,7 @@ const stripFragment = (current = {}) => {
   delete clone.personaMetrics;
   delete clone.operationsSummary;
   delete clone.recentPosts;
+  delete clone.marketing;
   return clone;
 };
 

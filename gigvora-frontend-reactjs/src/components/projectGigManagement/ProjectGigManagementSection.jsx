@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import ProjectLifecyclePanel from './ProjectLifecyclePanel.jsx';
 import ProjectBidsPanel from './ProjectBidsPanel.jsx';
@@ -6,6 +6,10 @@ import ProjectInvitationsPanel from './ProjectInvitationsPanel.jsx';
 import AutoMatchPanel from './AutoMatchPanel.jsx';
 import ProjectReviewsPanel from './ProjectReviewsPanel.jsx';
 import EscrowManagementPanel from './EscrowManagementPanel.jsx';
+import GigBoard from './GigBoard.jsx';
+import ProposalBuilder from './ProposalBuilder.jsx';
+import ContractTracker from './ContractTracker.jsx';
+import { formatDateLabel } from '../../utils/date.js';
 
 const SECTION_TABS = [
   { id: 'projects', label: 'Projects' },
@@ -87,6 +91,176 @@ TemplateCard.propTypes = {
   template: PropTypes.object.isRequired,
 };
 
+function buildProposalStateFromOpportunity(opportunity) {
+  if (!opportunity) {
+    return null;
+  }
+
+  const persona = (opportunity.personaFit?.[0] ?? 'operations').toLowerCase();
+  const blockers = Array.isArray(opportunity.blockers) ? opportunity.blockers : [];
+  const activityLog = Array.isArray(opportunity.activityLog) ? opportunity.activityLog : [];
+  const deliverables = (blockers.length
+    ? blockers
+    : [
+        {
+          id: 'next-step',
+          label: opportunity.nextAction ?? 'Confirm scope and stakeholders',
+          owner: opportunity.owner ?? 'Project lead',
+          dueDate: opportunity.dueDate ?? null,
+        },
+      ]
+  ).map((item, index) => ({
+    id: `del-${item.id ?? index}`,
+    title: item.label ?? `Deliverable ${index + 1}`,
+    outcome:
+      item.owner && item.label
+        ? `${item.owner} leads ${item.label.toLowerCase()}.`
+        : `Resolve ${item.label ?? 'identified blocker'}.`,
+    measurement: item.dueDate ? `Complete by ${formatDateLabel(item.dueDate)}` : 'Tracked within GigBoard.',
+  }));
+
+  const milestones = [
+    {
+      id: 'milestone-response',
+      label: opportunity.nextAction ?? 'Initial response',
+      dueDate: opportunity.responseTimeHours
+        ? new Date(Date.now() + opportunity.responseTimeHours * 60 * 60 * 1000)
+        : opportunity.dueDate ?? null,
+      owner: opportunity.owner ?? 'Workspace team',
+      dependencies: blockers.map((blocker) => blocker.label).filter(Boolean).slice(0, 3),
+    },
+  ];
+
+  const touchpoints = activityLog.slice(0, 3).map((entry) => `${entry.label} · ${formatDateLabel(entry.at, { includeTime: true })}`);
+  const goals = [
+    `Win ${opportunity.title}`,
+    blockers[0]?.label ? `Clear blocker: ${blockers[0].label}` : null,
+    opportunity.nextAction ? `Next action: ${opportunity.nextAction}` : null,
+  ]
+    .filter(Boolean)
+    .slice(0, 3);
+
+  const successMetrics = [
+    opportunity.fillRate ? `Reach ${Math.round(opportunity.fillRate)}% fill rate` : null,
+    'Stakeholder satisfaction above 4.5/5',
+    'Launch within agreed timeline',
+  ].filter(Boolean);
+
+  const riskRegister = blockers.map((blocker, index) => ({
+    id: `risk-${blocker.id ?? index}`,
+    label: blocker.label ?? `Risk ${index + 1}`,
+    mitigation: blocker.owner ? `Partner with ${blocker.owner} to remove blocker.` : 'Track via GigBoard coaching.',
+  }));
+
+  const schedule = [
+    {
+      id: 'pay-1',
+      label: 'Kickoff',
+      percentage: 40,
+      dueOn: 'Contract signature',
+    },
+    {
+      id: 'pay-2',
+      label: 'Midpoint review',
+      percentage: 35,
+      dueOn: milestones[0]?.label ?? 'Milestone approval',
+    },
+    {
+      id: 'pay-3',
+      label: 'Final delivery',
+      percentage: 25,
+      dueOn: 'Project acceptance',
+    },
+  ];
+
+  const confidence = Math.max(45, Math.min(95, Math.round(opportunity.healthScore ?? 72)));
+
+  return {
+    __sourceOpportunityId: opportunity.id,
+    overview: {
+      title: opportunity.title ?? '',
+      client: opportunity.client ?? '',
+      persona,
+      summary: opportunity.summary ?? '',
+      goals,
+      successMetrics: successMetrics.length ? successMetrics : ['Reduce cycle time', 'Elevate satisfaction', 'Protect margin'],
+    },
+    scope: {
+      deliverables,
+      milestones,
+      touchpoints: touchpoints.length ? touchpoints : ['Weekly status sync', 'Executive monthly report'],
+    },
+    investment: {
+      billingModel: opportunity.stage === 'awarded' ? 'retainer' : 'fixed',
+      currency: opportunity.currency ?? 'USD',
+      amount: Number.isFinite(opportunity.value) ? Number(opportunity.value) : 0,
+      paymentSchedule: schedule,
+      confidence,
+      commercialNotes: opportunity.nextAction ?? 'Align approvals with legal and finance before award.',
+      approvals: { legal: false, compliance: false, finance: false },
+      riskRegister,
+    },
+    history: activityLog.map((entry) => ({
+      timestamp: entry.at,
+      label: entry.label,
+      meta: entry.actor,
+    })),
+  };
+}
+
+function serialiseProposalDraft(draft) {
+  if (!draft) {
+    return {};
+  }
+
+  const { __sourceOpportunityId: _omit, ...rest } = draft;
+
+  const normalizeDate = (value) => {
+    if (!value) {
+      return null;
+    }
+    if (value instanceof Date) {
+      const iso = value.toISOString();
+      return Number.isNaN(Date.parse(iso)) ? null : iso;
+    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? value : parsed.toISOString();
+  };
+
+  const normalizeMilestones = Array.isArray(rest.scope?.milestones)
+    ? rest.scope.milestones.map((milestone) => ({
+        ...milestone,
+        dueDate: normalizeDate(milestone.dueDate),
+      }))
+    : [];
+
+  const normalizeSchedule = Array.isArray(rest.investment?.paymentSchedule)
+    ? rest.investment.paymentSchedule.map((entry) => ({
+        ...entry,
+        dueOn: normalizeDate(entry.dueOn),
+      }))
+    : [];
+
+  const normalizeHistory = Array.isArray(rest.history)
+    ? rest.history.map((entry) => ({
+        ...entry,
+        timestamp: normalizeDate(entry.timestamp) ?? new Date().toISOString(),
+      }))
+    : [];
+
+  return {
+    ...rest,
+    scope: {
+      ...rest.scope,
+      milestones: normalizeMilestones,
+    },
+    investment: {
+      ...rest.investment,
+      paymentSchedule: normalizeSchedule,
+    },
+    history: normalizeHistory,
+  };
+}
 function BoardSnapshot({ board }) {
   const lanes = Array.isArray(board?.lanes) ? board.lanes : [];
   const metrics = board?.metrics ?? {};
@@ -161,6 +335,8 @@ export default function ProjectGigManagementSection({
   onProjectPreview,
   activeTab,
   onTabChange,
+  onToggleContractObligation,
+  defaultVendorName,
 }) {
   const summary = data?.summary ?? {};
   const templates = useMemo(
@@ -199,6 +375,68 @@ export default function ProjectGigManagementSection({
   const reviewSummary = reviews.summary ?? {};
   const escrowAccount = escrow.account ?? null;
   const escrowTransactions = Array.isArray(escrow.transactions) ? escrow.transactions : [];
+  const gigBoardData = data?.gigBoard ?? {};
+  const opportunities = Array.isArray(gigBoardData.opportunities) ? gigBoardData.opportunities : [];
+  const contracts = Array.isArray(data?.contractOperations?.contracts)
+    ? data.contractOperations.contracts
+    : [];
+
+  const [selectedOpportunityId, setSelectedOpportunityId] = useState(opportunities[0]?.id ?? null);
+  const [activeContractId, setActiveContractId] = useState(contracts[0]?.id ?? null);
+  const [proposalDraft, setProposalDraft] = useState(null);
+  const [proposalSaving, setProposalSaving] = useState(false);
+  const [proposalFeedback, setProposalFeedback] = useState(null);
+  const [contractFeedback, setContractFeedback] = useState(null);
+  const [contractUpdating, setContractUpdating] = useState(false);
+
+  useEffect(() => {
+    if (!opportunities.length) {
+      setSelectedOpportunityId(null);
+      return;
+    }
+    setSelectedOpportunityId((current) => {
+      if (current && opportunities.some((opportunity) => opportunity.id === current)) {
+        return current;
+      }
+      return opportunities[0]?.id ?? null;
+    });
+  }, [opportunities]);
+
+  useEffect(() => {
+    if (!contracts.length) {
+      setActiveContractId(null);
+      return;
+    }
+    setActiveContractId((current) => {
+      if (current && contracts.some((contract) => contract.id === current)) {
+        return current;
+      }
+      return contracts[0]?.id ?? null;
+    });
+  }, [contracts]);
+
+  const selectedOpportunity = useMemo(
+    () => opportunities.find((opportunity) => opportunity.id === selectedOpportunityId) ?? null,
+    [opportunities, selectedOpportunityId],
+  );
+
+  const activeContract = useMemo(
+    () => contracts.find((contract) => contract.id === activeContractId) ?? null,
+    [contracts, activeContractId],
+  );
+
+  useEffect(() => {
+    if (!selectedOpportunity) {
+      setProposalDraft(null);
+      return;
+    }
+    setProposalDraft((current) => {
+      if (!current || current.__sourceOpportunityId !== selectedOpportunity.id) {
+        return buildProposalStateFromOpportunity(selectedOpportunity);
+      }
+      return current;
+    });
+  }, [selectedOpportunity]);
 
   const summaryCards = [
     {
@@ -211,12 +449,132 @@ export default function ProjectGigManagementSection({
     { label: 'Templates', value: formatNumber(summary.templatesAvailable ?? templates.length) },
   ];
 
+  const selectedProjectForProposal = useMemo(
+    () => projectsForMatch.find((project) => project.id === selectedOpportunityId) ?? null,
+    [projectsForMatch, selectedOpportunityId],
+  );
+
+  const handleOpportunitySelect = useCallback((opportunity) => {
+    setSelectedOpportunityId(opportunity?.id ?? null);
+  }, []);
+
+  const handleContractObligationToggle = useCallback(
+    async (obligation, completed) => {
+      if (!activeContract) {
+        return;
+      }
+      if (!onToggleContractObligation) {
+        return;
+      }
+
+      setContractUpdating(true);
+      setContractFeedback(null);
+      try {
+        await onToggleContractObligation(activeContract, obligation, completed);
+        setContractFeedback({
+          tone: 'success',
+          message: completed
+            ? 'Obligation marked as complete. Contract insights refreshed.'
+            : 'Obligation reopened for follow-up.',
+        });
+      } catch (error) {
+        setContractFeedback({ tone: 'error', message: error?.message ?? 'Unable to update obligation.' });
+      } finally {
+        setContractUpdating(false);
+      }
+    },
+    [activeContract, onToggleContractObligation],
+  );
+
+  useEffect(() => {
+    setProposalFeedback(null);
+  }, [selectedOpportunityId]);
+
+  useEffect(() => {
+    setContractFeedback(null);
+    setContractUpdating(false);
+  }, [activeContractId]);
+
+  const handleProposalDraftChange = useCallback(
+    (nextState) => {
+      if (!nextState) {
+        setProposalDraft(null);
+        return;
+      }
+      setProposalDraft((current) => ({
+        ...nextState,
+        __sourceOpportunityId: selectedOpportunity?.id ?? current?.__sourceOpportunityId ?? null,
+      }));
+    },
+    [selectedOpportunity?.id],
+  );
+
+  const handleProposalSubmit = useCallback(async () => {
+    if (!proposalDraft || !actions?.createProjectBid) {
+      return;
+    }
+    if (!selectedOpportunity) {
+      setProposalFeedback({ tone: 'error', message: 'Select an opportunity to generate a proposal.' });
+      return;
+    }
+    if (!selectedProjectForProposal) {
+      setProposalFeedback({ tone: 'error', message: 'No linked project found for this opportunity.' });
+      return;
+    }
+
+    const primaryCollaborator = selectedProjectForProposal.collaborators?.find((collaborator) => collaborator.status === 'active');
+    const vendorName = primaryCollaborator?.fullName ?? defaultVendorName ?? selectedProjectForProposal.title ?? 'Project workspace';
+    const vendorEmail = primaryCollaborator?.email ?? undefined;
+
+    const { __sourceOpportunityId: _omit, ...restDraft } = proposalDraft;
+    const payload = {
+      projectId: selectedProjectForProposal.id,
+      title: proposalDraft.overview.title || selectedOpportunity.title || 'Proposal',
+      vendorName,
+      vendorEmail,
+      amount: Number.isFinite(Number(proposalDraft.investment.amount))
+        ? Number(proposalDraft.investment.amount)
+        : undefined,
+      currency: proposalDraft.investment.currency,
+      status: 'submitted',
+      notes: proposalDraft.investment.commercialNotes,
+      metadata: { proposalBuilder: serialiseProposalDraft({ ...restDraft }) },
+    };
+
+    setProposalSaving(true);
+    setProposalFeedback(null);
+    try {
+      await actions.createProjectBid(payload);
+      setProposalFeedback({ tone: 'success', message: 'Proposal captured and saved to bids.' });
+    } catch (error) {
+      setProposalFeedback({ tone: 'error', message: error?.message ?? 'Unable to save proposal.' });
+    } finally {
+      setProposalSaving(false);
+    }
+  }, [actions, defaultVendorName, proposalDraft, selectedOpportunity, selectedProjectForProposal]);
+
+  const opportunityOptions = useMemo(
+    () =>
+      opportunities.map((opportunity) => ({
+        value: opportunity.id,
+        label: `${opportunity.title ?? 'Opportunity'} · ${opportunity.client ?? 'Client'}`,
+      })),
+    [opportunities],
+  );
+
+  const builderPersona = selectedOpportunity?.personaFit?.[0] ?? data?.access?.primaryPersona ?? 'operations';
+
   const renderTab = () => {
     switch (activeTab) {
       case 'projects':
       default:
         return (
           <div className="space-y-6">
+            <GigBoard
+              opportunities={opportunities}
+              persona={data?.access?.primaryPersona ?? 'operations'}
+              onOpportunitySelect={handleOpportunitySelect}
+            />
             <ProjectLifecyclePanel
               lifecycle={lifecycle}
               onUpdateWorkspace={actions.updateWorkspace}
@@ -224,18 +582,177 @@ export default function ProjectGigManagementSection({
               onPreviewProject={onProjectPreview}
             />
             <BoardSnapshot board={board} />
+            {contracts.length ? (
+              <section className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900">Contract operations</h3>
+                    <p className="text-sm text-slate-500">
+                      Monitor delivery health, obligations, and renewal signals across live engagements.
+                    </p>
+                  </div>
+                  {contracts.length > 1 ? (
+                    <label className="flex flex-col gap-1 text-xs text-slate-500">
+                      Active contract
+                      <select
+                        value={activeContractId ?? ''}
+                        onChange={(event) => {
+                          const raw = event.target.value;
+                          const parsed = Number(raw);
+                          setActiveContractId(Number.isNaN(parsed) ? raw : parsed);
+                        }}
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                      >
+                        {contracts.map((contract) => (
+                          <option key={contract.id} value={contract.id}>
+                            {contract.title}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
+                </div>
+                {contractFeedback ? (
+                  <div
+                    className={`rounded-2xl px-4 py-3 text-sm font-semibold ${
+                      contractFeedback.tone === 'success'
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : 'bg-rose-50 text-rose-700'
+                    }`}
+                  >
+                    {contractFeedback.message}
+                  </div>
+                ) : null}
+                {activeContract ? (
+                  <ContractTracker
+                    contract={activeContract}
+                    persona={data?.access?.primaryPersona ?? 'operations'}
+                    onObligationToggle={handleContractObligationToggle}
+                    updating={contractUpdating}
+                  />
+                ) : (
+                  <p className="text-sm text-slate-500">No contract data is available yet.</p>
+                )}
+              </section>
+            ) : null}
           </div>
         );
       case 'bids':
         return (
-          <ProjectBidsPanel
-            bids={bids.bids ?? []}
-            stats={bids.stats ?? {}}
-            projects={Array.isArray(data?.projectLifecycle?.open) ? data.projectLifecycle.open : []}
-            onCreateBid={actions.createProjectBid}
-            onUpdateBid={actions.updateProjectBid}
-            canManage={canManage}
-          />
+          <div className="grid gap-6 xl:grid-cols-[1.25fr,1fr]">
+            <section className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-accent">Proposal runway</p>
+                  <h3 className="text-2xl font-semibold text-slate-900">Compose proposal</h3>
+                  <p className="text-sm text-slate-600">
+                    Sync narrative, scope, and commercials directly from shortlisted opportunities.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2 text-xs text-slate-500">
+                  <label className="font-semibold">Opportunity</label>
+                  <select
+                    value={selectedOpportunityId ?? ''}
+                    onChange={(event) => {
+                      const raw = event.target.value;
+                      setSelectedOpportunityId(raw ? Number(raw) || raw : null);
+                    }}
+                    className="w-64 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  >
+                    {opportunityOptions.length ? (
+                      opportunityOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="" disabled>
+                        No active opportunities
+                      </option>
+                    )}
+                  </select>
+                </div>
+              </div>
+
+              {selectedOpportunity ? (
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  <SummaryCard label="Stage" value={selectedOpportunity.stage ?? 'qualify'} />
+                  <SummaryCard
+                    label="Value"
+                    value={formatCurrency(selectedOpportunity.value ?? 0, selectedOpportunity.currency ?? 'USD')}
+                  />
+                  <SummaryCard
+                    label="Response time"
+                    value={
+                      selectedOpportunity.responseTimeHours != null
+                        ? `${selectedOpportunity.responseTimeHours} hrs`
+                        : 'Pending'
+                    }
+                  />
+                  <SummaryCard
+                    label="Health"
+                    value={`${Math.round(selectedOpportunity.healthScore ?? 0)} / 100`}
+                    accent={Boolean(selectedOpportunity.healthScore && selectedOpportunity.healthScore >= 70)}
+                  />
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
+                  Select an opportunity to tailor your proposal.
+                </div>
+              )}
+
+              {selectedOpportunity ? (
+                <ProposalBuilder
+                  key={selectedOpportunity.id}
+                  initialState={proposalDraft ?? undefined}
+                  onChange={handleProposalDraftChange}
+                  persona={builderPersona}
+                />
+              ) : null}
+
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                {proposalFeedback ? (
+                  <div
+                    className={`rounded-2xl px-4 py-3 text-sm font-semibold ${
+                      proposalFeedback.tone === 'success'
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : 'bg-rose-50 text-rose-700'
+                    }`}
+                  >
+                    {proposalFeedback.message}
+                  </div>
+                ) : (
+                  <div className="text-sm text-slate-500">
+                    Proposals save directly to bids with history and readiness scoring.
+                  </div>
+                )}
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleProposalSubmit}
+                    disabled={proposalSaving || !canManage || !selectedOpportunity}
+                    className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white transition hover:bg-accentDark disabled:cursor-not-allowed disabled:bg-accent/40"
+                  >
+                    {proposalSaving ? (
+                      <span className="inline-flex h-4 w-4 animate-spin rounded-full border-2 border-white/50 border-t-transparent" />
+                    ) : null}
+                    Save proposal to bids
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <div className="space-y-6">
+              <ProjectBidsPanel
+                bids={bids.bids ?? []}
+                stats={bids.stats ?? {}}
+                projects={Array.isArray(data?.projectLifecycle?.open) ? data.projectLifecycle.open : []}
+                onCreateBid={actions.createProjectBid}
+                onUpdateBid={actions.updateProjectBid}
+                canManage={canManage}
+              />
+            </div>
+          </div>
         );
       case 'invites':
         return (
@@ -397,6 +914,8 @@ ProjectGigManagementSection.propTypes = {
   onProjectPreview: PropTypes.func,
   activeTab: PropTypes.string.isRequired,
   onTabChange: PropTypes.func.isRequired,
+  onToggleContractObligation: PropTypes.func,
+  defaultVendorName: PropTypes.string,
 };
 
 ProjectGigManagementSection.defaultProps = {
@@ -407,4 +926,6 @@ ProjectGigManagementSection.defaultProps = {
   viewOnlyNote: null,
   allowedRoles: [],
   onProjectPreview: undefined,
+  onToggleContractObligation: undefined,
+  defaultVendorName: undefined,
 };

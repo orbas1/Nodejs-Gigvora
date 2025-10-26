@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useSession from '../hooks/useSession.js';
 import useHomeExperience from '../hooks/useHomeExperience.js';
 import analytics from '../services/analytics.js';
+import MarketingLayout from '../components/marketing/MarketingLayout.jsx';
+import ProductTour from '../components/marketing/ProductTour.jsx';
+import PricingTable from '../components/marketing/PricingTable.jsx';
 
 import {
   HomeHeroSection,
@@ -27,11 +30,185 @@ export const DEFAULT_COMMUNITY_STATS = [
   { label: 'Completion rate', value: '97%' },
 ];
 
+function resolveMarketingContent(homeData) {
+  const marketingSource = homeData?.marketing && typeof homeData.marketing === 'object' ? homeData.marketing : {};
+  const marketingBaseline =
+    homeData?.settings?.marketing && typeof homeData.settings.marketing === 'object'
+      ? homeData.settings.marketing
+      : {};
+  const pageContent = homeData?.pageContent && typeof homeData.pageContent === 'object' ? homeData.pageContent : {};
+  const pageMarketing = pageContent?.marketing && typeof pageContent.marketing === 'object' ? pageContent.marketing : {};
+
+  const pickList = (primary, secondary, fallback) => {
+    if (Array.isArray(primary) && primary.length) {
+      return primary;
+    }
+    if (Array.isArray(secondary) && secondary.length) {
+      return secondary;
+    }
+    if (Array.isArray(fallback) && fallback.length) {
+      return fallback;
+    }
+    return [];
+  };
+
+  const pickObject = (primary, secondary, fallback) => {
+    if (primary && typeof primary === 'object') {
+      return primary;
+    }
+    if (secondary && typeof secondary === 'object') {
+      return secondary;
+    }
+    if (fallback && typeof fallback === 'object') {
+      return fallback;
+    }
+    return {};
+  };
+
+  const pricingSource = marketingSource.pricing ?? {};
+  const pricingSecondary = pageMarketing.pricing ?? {};
+  const pricingBaseline = marketingBaseline.pricing ?? {};
+
+  return {
+    announcement: pickObject(
+      marketingSource.announcement,
+      pageContent.marketingAnnouncement ?? pageMarketing.announcement,
+      marketingBaseline.announcement ?? null,
+    ),
+    trustBadges: pickList(
+      marketingSource.trustBadges,
+      pageMarketing.trustBadges ?? pageContent.trustBadges,
+      marketingBaseline.trustBadges ?? [],
+    ),
+    personas: pickList(
+      marketingSource.personas,
+      pageMarketing.personas ?? pageContent.marketingPersonas,
+      marketingBaseline.personas ?? [],
+    ),
+    productTour: {
+      steps: pickList(
+        marketingSource?.productTour?.steps ?? marketingSource.productTourSteps,
+        pageMarketing?.productTour?.steps ?? pageContent.productTourSteps,
+        marketingBaseline?.productTour?.steps ?? [],
+      ),
+    },
+    pricing: {
+      plans: pickList(pricingSource.plans, pricingSecondary.plans ?? pageContent.pricingPlans, pricingBaseline.plans ?? []),
+      featureMatrix: pickList(
+        pricingSource.featureMatrix,
+        pricingSecondary.featureMatrix ?? pageContent.pricingFeatureMatrix,
+        pricingBaseline.featureMatrix ?? [],
+      ),
+      metrics: pickList(
+        pricingSource.metrics,
+        pricingSecondary.metrics ?? pageContent.pricingMetrics,
+        pricingBaseline.metrics ?? [],
+      ),
+    },
+  };
+}
+
+function normaliseTourMedia(media = {}) {
+  if (!media || typeof media !== 'object') {
+    return undefined;
+  }
+
+  if (media.type === 'video') {
+    const sources = Array.isArray(media.sources) ? media.sources : media.src ? [{ src: media.src }] : [];
+    return {
+      type: 'video',
+      sources: sources
+        .map((item) =>
+          item?.src
+            ? {
+                src: item.src,
+                type: item.type ?? 'video/mp4',
+              }
+            : null,
+        )
+        .filter(Boolean),
+      poster: media.poster ?? media.posterUrl ?? undefined,
+      autoPlay: media.autoPlay ?? true,
+      muted: media.muted ?? true,
+      loop: media.loop ?? true,
+      controls: media.controls ?? false,
+    };
+  }
+
+  if (media.type === 'image' || media.src) {
+    return {
+      type: 'image',
+      src: media.src,
+      alt: media.alt ?? media.altText ?? 'Product tour preview',
+    };
+  }
+
+  return undefined;
+}
+
+function ensureArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function buildCta(cta, navigate) {
+  if (!cta || typeof cta !== 'object') {
+    return null;
+  }
+
+  const label = cta.label ?? cta.title;
+  if (!label) {
+    return null;
+  }
+
+  const action = cta.action ?? cta.event;
+  const href = cta.href ?? cta.url ?? null;
+  const route = !href ? cta.route ?? cta.path ?? null : null;
+
+  const payload = {
+    ...cta,
+    label,
+    ...(action ? { action } : {}),
+    ...(href ? { href } : {}),
+    ...(route ? { route } : {}),
+  };
+
+  if (typeof cta.onClick === 'function') {
+    payload.onClick = (context = {}) => cta.onClick({ ...context, navigate });
+    return payload;
+  }
+
+  payload.onClick = () => {
+    if (href) {
+      if (/^https?:/i.test(href)) {
+        if (typeof window !== 'undefined' && typeof window.open === 'function') {
+          window.open(href, '_blank', 'noopener,noreferrer');
+          return;
+        }
+      }
+      if (navigate) {
+        navigate(href);
+      }
+      return;
+    }
+
+    if (route && navigate) {
+      navigate(route);
+    }
+  };
+
+  return payload;
+}
+
 export default function HomePage() {
   const { isAuthenticated } = useSession();
   const navigate = useNavigate();
   const { data: homeData, loading: homeLoading, error: homeError, refresh, fromCache, lastUpdated } =
     useHomeExperience({ enabled: !isAuthenticated });
+
+  const marketingContent = useMemo(
+    () => resolveMarketingContent(homeData),
+    [homeData?.marketing, homeData?.settings?.marketing, homeData?.pageContent],
+  );
 
   const heroHeadline = homeData?.settings?.heroHeadline?.trim() ? homeData.settings.heroHeadline : undefined;
   const heroSubheading = homeData?.settings?.heroSubheading?.trim()
@@ -109,6 +286,92 @@ export default function HomePage() {
     [homeData?.creations],
   );
 
+  const marketingAnnouncement = useMemo(() => {
+    const announcement = marketingContent.announcement ?? {};
+    const cta = buildCta(announcement.cta, navigate);
+    return {
+      title: announcement.title ?? 'Latest release',
+      description: announcement.description ?? announcement.copy ?? '',
+      ...(cta ? { cta } : {}),
+    };
+  }, [marketingContent.announcement, navigate]);
+
+  const marketingTrustBadges = useMemo(() => {
+    const badges = ensureArray(marketingContent.trustBadges);
+    return badges.length ? badges : undefined;
+  }, [marketingContent.trustBadges]);
+
+  const marketingPersonas = useMemo(() => {
+    const personas = ensureArray(marketingContent.personas);
+    return personas.map((persona, index) => {
+      const id = persona.id ?? persona.key ?? persona.slug ?? `persona-${index}`;
+      return {
+        id,
+        key: persona.key ?? persona.id ?? persona.slug ?? id,
+        label: persona.label ?? persona.name ?? persona.title ?? 'Persona',
+        description: persona.description ?? persona.summary ?? persona.copy ?? '',
+        route: persona.route ?? persona.href ?? null,
+      };
+    });
+  }, [marketingContent.personas]);
+
+  const [selectedPersonaId, setSelectedPersonaId] = useState(() => marketingPersonas[0]?.id ?? 'founder');
+
+  useEffect(() => {
+    if (!marketingPersonas.length) {
+      setSelectedPersonaId('founder');
+      return;
+    }
+
+    if (!marketingPersonas.some((persona) => persona.id === selectedPersonaId)) {
+      setSelectedPersonaId(marketingPersonas[0].id);
+    }
+  }, [marketingPersonas, selectedPersonaId]);
+
+  const marketingTourSteps = useMemo(() => {
+    const steps = ensureArray(marketingContent.productTour?.steps);
+    return steps.map((step, index) => {
+      const id = step.id ?? step.key ?? step.slug ?? `tour-${index}`;
+      return {
+        id,
+        label: step.label ?? step.shortTitle ?? `Step ${index + 1}`,
+        title: step.title ?? step.headline ?? 'Experience Gigvora in motion',
+        summary: step.summary ?? step.description ?? '',
+        personaHighlights: step.personaHighlights ?? step.highlightsByPersona ?? {},
+        highlights: ensureArray(step.highlights),
+        metrics: step.metrics && typeof step.metrics === 'object' ? step.metrics : {},
+        media: normaliseTourMedia(step.media),
+        cta: buildCta(step.cta, navigate) ?? undefined,
+        secondaryCta: buildCta(step.secondaryCta, navigate) ?? undefined,
+      };
+    });
+  }, [marketingContent.productTour?.steps, navigate]);
+
+  const marketingPricingPlans = useMemo(() => {
+    return ensureArray(marketingContent.pricing?.plans).map((plan, index) => ({
+      id: plan.id ?? plan.key ?? plan.slug ?? `plan-${index}`,
+      name: plan.name ?? plan.title ?? 'Plan',
+      headline: plan.headline ?? plan.description ?? '',
+      pricing: plan.pricing ?? {},
+      cadenceLabel: plan.cadenceLabel ?? undefined,
+      savings: plan.savings ?? {},
+      features: ensureArray(plan.features),
+      metrics: plan.metrics && typeof plan.metrics === 'object' ? plan.metrics : {},
+      recommended: Boolean(plan.recommended),
+      ctaLabel: plan.ctaLabel ?? undefined,
+    }));
+  }, [marketingContent.pricing?.plans]);
+
+  const marketingPricingFeatureMatrix = useMemo(() => {
+    const matrix = ensureArray(marketingContent.pricing?.featureMatrix);
+    return matrix.length ? matrix : undefined;
+  }, [marketingContent.pricing?.featureMatrix]);
+
+  const marketingPricingMetrics = useMemo(() => {
+    const metrics = ensureArray(marketingContent.pricing?.metrics);
+    return metrics.length ? metrics : undefined;
+  }, [marketingContent.pricing?.metrics]);
+
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/feed', { replace: true });
@@ -131,33 +394,96 @@ export default function HomePage() {
     navigate('/community-guidelines');
   }, [navigate]);
 
-  const handlePersonaSelect = useCallback((persona) => {
-    if (!persona?.key) {
+  const handlePersonaSelect = useCallback(
+    (persona) => {
+      if (!persona) {
+        return;
+      }
+
+      const personaKey = persona.key ?? persona.id ?? persona.slug ?? null;
+      if (personaKey) {
+        analytics.track(
+          'web_home_persona_card_clicked',
+          {
+            persona: personaKey,
+            route: persona.route,
+          },
+          { source: 'web_marketing_site' },
+        );
+        setSelectedPersonaId(personaKey);
+      }
+    },
+    [],
+  );
+
+  const handleMarketingPersonaSwitch = useCallback((persona) => {
+    const personaKey = persona?.id ?? persona?.key ?? persona;
+    if (!personaKey) {
       return;
     }
+
+    setSelectedPersonaId(personaKey);
     analytics.track(
-      'web_home_persona_card_clicked',
+      'web_home_marketing_persona_switched',
       {
-        persona: persona.key,
-        route: persona.route,
+        persona: personaKey,
       },
       { source: 'web_marketing_site' },
     );
   }, []);
 
-  return (
-    <main className="relative isolate bg-slate-950 text-white">
-      <HomeHeroSection
-        headline={heroHeadline}
-        subheading={heroSubheading}
-        keywords={heroKeywords}
-        loading={homeLoading}
-        error={homeError}
-        onClaimWorkspace={() => navigate('/register')}
-        onBrowseOpportunities={() => navigate('/gigs')}
-        productMedia={heroMedia}
-      />
+  const handlePricingPlanSelected = useCallback(
+    ({ plan, action }) => {
+      if (action === 'primary') {
+        if (plan.id === 'enterprise') {
+          navigate('/contact?topic=enterprise');
+        } else {
+          navigate('/register?intent=company');
+        }
+      } else {
+        navigate('/contact?topic=pricing');
+      }
+    },
+    [navigate],
+  );
 
+  return (
+    <MarketingLayout
+      hero={{
+        id: 'marketing-home',
+        node: (
+          <HomeHeroSection
+            headline={heroHeadline}
+            subheading={heroSubheading}
+            keywords={heroKeywords}
+            loading={homeLoading}
+            error={homeError}
+            onClaimWorkspace={() => navigate('/register')}
+            onBrowseOpportunities={() => navigate('/gigs')}
+            productMedia={heroMedia}
+          />
+        ),
+      }}
+      announcement={marketingAnnouncement}
+      metrics={communityStats}
+      trustBadges={marketingTrustBadges}
+      personaSwitcher=
+        marketingPersonas.length
+          ? {
+              personas: marketingPersonas,
+              selectedId: selectedPersonaId,
+              onSelect: handleMarketingPersonaSwitch,
+            }
+          : null
+      insight="Switch personas to tailor recommended modules, metrics, and case studies across the funnel."
+      analyticsMetadata={{ source: 'web_marketing_site' }}
+    >
+      <ProductTour
+        steps={marketingTourSteps}
+        personas={marketingPersonas}
+        initialPersonaId={selectedPersonaId}
+        analyticsMetadata={{ source: 'web_marketing_site' }}
+      />
       <div className="flex flex-col">
         <CommunityPulseSection
           loading={homeLoading}
@@ -188,6 +514,13 @@ export default function HomePage() {
         <CollaborationToolkitSection />
         <CreationStudioWorkflowSection />
         <CreationStudioSection loading={homeLoading} error={homeError} />
+        <PricingTable
+          plans={marketingPricingPlans}
+          featureMatrix={marketingPricingFeatureMatrix}
+          metrics={marketingPricingMetrics}
+          analyticsMetadata={{ source: 'web_marketing_site' }}
+          onPlanSelected={handlePricingPlanSelected}
+        />
         <FeesShowcaseSection />
         <ClosingConversionSection
           onJoinAsTalentClick={handleJoinAsTalent}
@@ -197,6 +530,6 @@ export default function HomePage() {
         />
         <JoinCommunitySection />
       </div>
-    </main>
+    </MarketingLayout>
   );
 }

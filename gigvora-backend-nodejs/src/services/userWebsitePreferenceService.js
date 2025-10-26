@@ -7,6 +7,188 @@ const BACKGROUND_STYLES = ['light', 'dark', 'gradient'];
 const BUTTON_SHAPES = ['rounded', 'pill', 'square'];
 const MEDIA_TYPES = ['image', 'video', 'none'];
 
+const PERSONALIZATION_THEME_PRESETS = ['aurora', 'obsidian', 'daybreak', 'focus'];
+const PERSONALIZATION_THEME_MODES = ['system', 'light', 'dark', 'high-contrast'];
+const PERSONALIZATION_THEME_ACCENTS = ['azure', 'violet', 'emerald', 'amber', 'rose', 'custom'];
+const PERSONALIZATION_THEME_DENSITIES = ['spacious', 'comfortable', 'cozy', 'compact'];
+
+const DEFAULT_LAYOUT_MODULES = [
+  {
+    id: 'hero',
+    label: 'Hero spotlight',
+    description: 'Immersive hero with headline, CTA, and background media.',
+    enabled: true,
+    pinned: true,
+    span: 'full',
+  },
+  {
+    id: 'about',
+    label: 'Story block',
+    description: 'Founder story, mission, and differentiators.',
+    enabled: true,
+    pinned: false,
+    span: 'full',
+  },
+  {
+    id: 'services',
+    label: 'Services grid',
+    description: 'Showcase your flagship offers with pricing and CTA.',
+    enabled: true,
+    pinned: false,
+    span: 'half',
+  },
+  {
+    id: 'testimonials',
+    label: 'Social proof',
+    description: 'Testimonials, logos, and case-study highlights.',
+    enabled: true,
+    pinned: false,
+    span: 'half',
+  },
+  {
+    id: 'gallery',
+    label: 'Gallery spotlight',
+    description: 'Curated visuals, reels, or press imagery.',
+    enabled: false,
+    pinned: false,
+    span: 'third',
+  },
+  {
+    id: 'blog',
+    label: 'Content hub',
+    description: 'Latest posts, interviews, and resources.',
+    enabled: false,
+    pinned: false,
+    span: 'half',
+  },
+  {
+    id: 'contact',
+    label: 'Contact & booking',
+    description: 'Direct contact, booking calendar, or office hours.',
+    enabled: true,
+    pinned: false,
+    span: 'half',
+  },
+  {
+    id: 'newsletter',
+    label: 'Newsletter capture',
+    description: 'Collect subscribers for updates and announcements.',
+    enabled: false,
+    pinned: false,
+    span: 'half',
+  },
+];
+
+const LAYOUT_MODULE_REGISTRY = new Map(DEFAULT_LAYOUT_MODULES.map((module) => [module.id, module]));
+const LAYOUT_SPAN_OPTIONS = ['full', 'half', 'third'];
+
+const LAYOUT_TEMPLATE_CONFIG = {
+  spotlight: {
+    heroStyle: 'immersive',
+    order: ['hero', 'services', 'testimonials', 'about', 'contact', 'gallery', 'blog', 'newsletter'],
+  },
+  publisher: {
+    heroStyle: 'editorial',
+    order: ['hero', 'about', 'blog', 'services', 'testimonials', 'gallery', 'newsletter', 'contact'],
+  },
+  commerce: {
+    heroStyle: 'conversion',
+    order: ['hero', 'services', 'contact', 'testimonials', 'about', 'gallery', 'newsletter', 'blog'],
+  },
+};
+
+const DEFAULT_SUBSCRIPTION_CATEGORIES = [
+  {
+    id: 'dealflow',
+    label: 'Deal flow insights',
+    description: 'Curated opportunities, leads, and partner spotlights.',
+    enabled: true,
+    frequency: 'daily',
+    channel: 'email',
+  },
+  {
+    id: 'mentorship',
+    label: 'Mentorship spotlights',
+    description: 'New mentor matches, success stories, and coaching prompts.',
+    enabled: true,
+    frequency: 'weekly',
+    channel: 'inApp',
+  },
+  {
+    id: 'events',
+    label: 'Events & experiences',
+    description: 'Workshops, AMAs, and community meetups tailored to you.',
+    enabled: true,
+    frequency: 'weekly',
+    channel: 'email',
+  },
+  {
+    id: 'talent',
+    label: 'Talent recommendations',
+    description: 'Rising talent, shortlists, and introductions worth exploring.',
+    enabled: false,
+    frequency: 'weekly',
+    channel: 'push',
+  },
+  {
+    id: 'learning',
+    label: 'Learning library updates',
+    description: 'Fresh playbooks, templates, and on-demand courses.',
+    enabled: false,
+    frequency: 'monthly',
+    channel: 'email',
+  },
+];
+
+const SUBSCRIPTION_DIGEST_OPTIONS = ['daily', 'weekly', 'monthly'];
+const SUBSCRIPTION_CHANNEL_KEYS = ['email', 'push', 'inApp', 'sms'];
+const SUBSCRIPTION_CATEGORY_FREQUENCIES = ['real-time', 'daily', 'weekly', 'monthly'];
+const SUBSCRIPTION_CATEGORY_REGISTRY = new Map(
+  DEFAULT_SUBSCRIPTION_CATEGORIES.map((category) => [category.id, category]),
+);
+
+const normalizeChannelValue = (value) => {
+  if (typeof value !== 'string') {
+    return value;
+  }
+  const trimmed = value.trim();
+  if (trimmed.toLowerCase() === 'in-app') {
+    return 'inApp';
+  }
+  return trimmed;
+};
+
+const DEFAULT_PERSONALIZATION = {
+  theme: {
+    preset: 'aurora',
+    mode: 'system',
+    accent: 'azure',
+    density: 'comfortable',
+    customAccent: '#2563EB',
+    customNeutral: '#0F172A',
+    livePreview: true,
+    analyticsOptIn: true,
+    updatedAt: null,
+  },
+  layout: {
+    template: 'spotlight',
+    heroStyle: 'immersive',
+    modules: DEFAULT_LAYOUT_MODULES,
+    featuredCallout: 'Show visitors the value in under 30 seconds.',
+    analyticsEnabled: true,
+    updatedAt: null,
+  },
+  subscriptions: {
+    digestFrequency: 'weekly',
+    timezone: 'UTC',
+    channels: { email: true, push: false, inApp: true, sms: false },
+    aiSummaries: true,
+    previewEnabled: false,
+    categories: DEFAULT_SUBSCRIPTION_CATEGORIES,
+    updatedAt: null,
+  },
+};
+
 const DEFAULT_PREFERENCES = {
   settings: {
     siteTitle: 'My site',
@@ -72,6 +254,7 @@ const DEFAULT_PREFERENCES = {
   social: {
     links: [],
   },
+  personalization: DEFAULT_PERSONALIZATION,
 };
 
 function normalizeUserId(value) {
@@ -156,6 +339,17 @@ function sanitizeBoolean(value) {
     }
   }
   return Boolean(value);
+}
+
+function sanitizeTimestamp(value, { allowNull = false } = {}) {
+  if (!value) {
+    return allowNull ? null : new Date().toISOString();
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return allowNull ? null : new Date().toISOString();
+  }
+  return date.toISOString();
 }
 
 function sanitizeColor(value, field) {
@@ -414,6 +608,212 @@ function sanitizeHero(hero) {
   };
 }
 
+function sanitizePersonalizationTheme(theme) {
+  const preset = PERSONALIZATION_THEME_PRESETS.includes(theme?.preset)
+    ? theme.preset
+    : DEFAULT_PERSONALIZATION.theme.preset;
+  const mode = PERSONALIZATION_THEME_MODES.includes(theme?.mode)
+    ? theme.mode
+    : DEFAULT_PERSONALIZATION.theme.mode;
+  const accent = PERSONALIZATION_THEME_ACCENTS.includes(theme?.accent)
+    ? theme.accent
+    : DEFAULT_PERSONALIZATION.theme.accent;
+  const density = PERSONALIZATION_THEME_DENSITIES.includes(theme?.density)
+    ? theme.density
+    : DEFAULT_PERSONALIZATION.theme.density;
+
+  const customAccentValue = theme?.customAccent ?? DEFAULT_PERSONALIZATION.theme.customAccent;
+  const customNeutralValue = theme?.customNeutral ?? DEFAULT_PERSONALIZATION.theme.customNeutral;
+
+  return {
+    preset,
+    mode,
+    accent,
+    density,
+    customAccent: sanitizeColor(customAccentValue, 'personalization.theme.customAccent'),
+    customNeutral: sanitizeColor(customNeutralValue, 'personalization.theme.customNeutral'),
+    livePreview: sanitizeBoolean(theme?.livePreview ?? DEFAULT_PERSONALIZATION.theme.livePreview),
+    analyticsOptIn: sanitizeBoolean(
+      theme?.analyticsOptIn ?? DEFAULT_PERSONALIZATION.theme.analyticsOptIn,
+    ),
+    updatedAt: sanitizeTimestamp(theme?.updatedAt, { allowNull: true }),
+  };
+}
+
+function sanitizeLayoutModules(modules) {
+  const result = [];
+  const seen = new Set();
+  const appendModule = (moduleId, overrides = {}) => {
+    if (!moduleId || seen.has(moduleId)) {
+      return;
+    }
+    const base = LAYOUT_MODULE_REGISTRY.get(moduleId);
+    if (!base) {
+      return;
+    }
+    const requestedEnabled = overrides.enabled ?? base.enabled ?? false;
+    const requestedSpan = overrides.span ?? base.span ?? 'full';
+
+    result.push({
+      id: base.id,
+      label: base.label,
+      description: base.description,
+      pinned: Boolean(base.pinned),
+      enabled: base.pinned ? true : sanitizeBoolean(requestedEnabled),
+      span: LAYOUT_SPAN_OPTIONS.includes(requestedSpan) ? requestedSpan : base.span ?? 'full',
+    });
+    seen.add(moduleId);
+  };
+
+  const provided = Array.isArray(modules) ? modules : [];
+  provided.forEach((module) => {
+    if (!module || typeof module !== 'object') {
+      return;
+    }
+    appendModule(module.id, module);
+  });
+
+  DEFAULT_LAYOUT_MODULES.forEach((module) => {
+    appendModule(module.id, module);
+  });
+
+  return result;
+}
+
+function sanitizePersonalizationLayout(layout) {
+  const templateId = Object.prototype.hasOwnProperty.call(LAYOUT_TEMPLATE_CONFIG, layout?.template)
+    ? layout.template
+    : DEFAULT_PERSONALIZATION.layout.template;
+  const templateConfig = LAYOUT_TEMPLATE_CONFIG[templateId];
+
+  const modules = sanitizeLayoutModules(layout?.modules);
+  const moduleMap = new Map(modules.map((module) => [module.id, module]));
+  const ordered = [];
+  templateConfig.order.forEach((moduleId) => {
+    if (moduleMap.has(moduleId)) {
+      ordered.push(moduleMap.get(moduleId));
+      moduleMap.delete(moduleId);
+    }
+  });
+  moduleMap.forEach((module) => {
+    ordered.push(module);
+  });
+
+  const heroStyle =
+    sanitizeOptionalString(layout?.heroStyle ?? templateConfig.heroStyle, {
+      field: 'personalization.layout.heroStyle',
+      maxLength: 40,
+    }) || templateConfig.heroStyle;
+
+  return {
+    template: templateId,
+    heroStyle,
+    modules: ordered,
+    featuredCallout:
+      sanitizeOptionalString(layout?.featuredCallout ?? DEFAULT_PERSONALIZATION.layout.featuredCallout, {
+        field: 'personalization.layout.featuredCallout',
+        maxLength: 160,
+      }) || DEFAULT_PERSONALIZATION.layout.featuredCallout,
+    analyticsEnabled: sanitizeBoolean(
+      layout?.analyticsEnabled ?? DEFAULT_PERSONALIZATION.layout.analyticsEnabled,
+    ),
+    updatedAt: sanitizeTimestamp(layout?.updatedAt, { allowNull: true }),
+  };
+}
+
+function sanitizeSubscriptionCategories(categories) {
+  const sanitized = [];
+  const seen = new Set();
+
+  const appendCategory = (category) => {
+    if (!category || typeof category !== 'object') {
+      return;
+    }
+    const identifier = sanitizeString(String(category.id ?? ''), {
+      field: 'personalization.subscriptions.categories.id',
+      required: true,
+      maxLength: 60,
+    });
+    if (seen.has(identifier)) {
+      return;
+    }
+    const base = SUBSCRIPTION_CATEGORY_REGISTRY.get(identifier);
+    const label =
+      sanitizeOptionalString(category.label ?? base?.label ?? '', {
+        field: 'personalization.subscriptions.categories.label',
+        maxLength: 80,
+      }) || base?.label || 'Collection';
+    const description = sanitizeOptionalString(category.description ?? base?.description ?? '', {
+      field: 'personalization.subscriptions.categories.description',
+      maxLength: 240,
+    });
+    const frequencyCandidate = category.frequency ?? base?.frequency ?? 'weekly';
+    const frequency = SUBSCRIPTION_CATEGORY_FREQUENCIES.includes(frequencyCandidate)
+      ? frequencyCandidate
+      : 'weekly';
+    const channelCandidate = normalizeChannelValue(category.channel ?? base?.channel ?? 'email');
+    const channel = SUBSCRIPTION_CHANNEL_KEYS.includes(channelCandidate)
+      ? channelCandidate
+      : 'email';
+
+    sanitized.push({
+      id: identifier,
+      label,
+      description,
+      enabled: sanitizeBoolean(category.enabled ?? base?.enabled ?? false),
+      frequency,
+      channel,
+    });
+    seen.add(identifier);
+  };
+
+  const provided = Array.isArray(categories) ? categories : [];
+  provided.forEach(appendCategory);
+
+  DEFAULT_SUBSCRIPTION_CATEGORIES.forEach((category) => {
+    if (!seen.has(category.id)) {
+      appendCategory(category);
+    }
+  });
+
+  return sanitized;
+}
+
+function sanitizePersonalizationSubscriptions(subscriptions) {
+  const digestCandidate = subscriptions?.digestFrequency ?? DEFAULT_PERSONALIZATION.subscriptions.digestFrequency;
+  const digestFrequency = SUBSCRIPTION_DIGEST_OPTIONS.includes(digestCandidate)
+    ? digestCandidate
+    : DEFAULT_PERSONALIZATION.subscriptions.digestFrequency;
+
+  const timezone =
+    sanitizeOptionalString(subscriptions?.timezone ?? DEFAULT_PERSONALIZATION.subscriptions.timezone, {
+      field: 'personalization.subscriptions.timezone',
+      maxLength: 64,
+    }) || DEFAULT_PERSONALIZATION.subscriptions.timezone;
+
+  const channels = {};
+  SUBSCRIPTION_CHANNEL_KEYS.forEach((key) => {
+    const source = subscriptions?.channels && Object.prototype.hasOwnProperty.call(subscriptions.channels, key)
+      ? subscriptions.channels[key]
+      : DEFAULT_PERSONALIZATION.subscriptions.channels[key];
+    channels[key] = sanitizeBoolean(source);
+  });
+
+  return {
+    digestFrequency,
+    timezone,
+    channels,
+    aiSummaries: sanitizeBoolean(
+      subscriptions?.aiSummaries ?? DEFAULT_PERSONALIZATION.subscriptions.aiSummaries,
+    ),
+    previewEnabled: sanitizeBoolean(
+      subscriptions?.previewEnabled ?? DEFAULT_PERSONALIZATION.subscriptions.previewEnabled,
+    ),
+    categories: sanitizeSubscriptionCategories(subscriptions?.categories),
+    updatedAt: sanitizeTimestamp(subscriptions?.updatedAt, { allowNull: true }),
+  };
+}
+
 function sanitizeAbout(about) {
   return {
     title: sanitizeOptionalString(about.title ?? '', { field: 'about.title', maxLength: 60 }),
@@ -468,6 +868,11 @@ function buildPayload(payload) {
     maxLength: 5,
   });
   const normalizedLanguage = SUPPORTED_LANGUAGES.includes(language) ? language : 'en';
+  const personalizationTheme = sanitizePersonalizationTheme(merged.personalization?.theme ?? {});
+  const personalizationLayout = sanitizePersonalizationLayout(merged.personalization?.layout ?? {});
+  const personalizationSubscriptions = sanitizePersonalizationSubscriptions(
+    merged.personalization?.subscriptions ?? {},
+  );
   return {
     settings: {
       siteTitle: sanitizeString(merged.settings.siteTitle ?? DEFAULT_PREFERENCES.settings.siteTitle, {
@@ -494,6 +899,9 @@ function buildPayload(payload) {
     contact: sanitizeContact(merged.contact ?? {}),
     seo: sanitizeSeo(merged.seo ?? {}),
     social: { links: sanitizeSocialLinks(merged.social?.links) },
+    personalizationTheme,
+    personalizationLayout,
+    personalizationSubscriptions,
   };
 }
 

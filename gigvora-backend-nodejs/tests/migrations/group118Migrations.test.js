@@ -254,6 +254,9 @@ describe('20241205130000-site-homepage-experience.cjs', () => {
     expect(parsed.personaJourneys).toHaveLength(6);
     expect(parsed.operationsSummary.escrowHealth.value).toBeDefined();
     expect(parsed.recentPosts).toHaveLength(3);
+    expect(parsed.marketing.personas).toHaveLength(3);
+    expect(parsed.marketing.productTour.steps).toHaveLength(4);
+    expect(parsed.marketing.pricing.plans).toHaveLength(3);
   });
 
   it('sanitizes existing homepage settings and keeps safe overrides', async () => {
@@ -315,6 +318,9 @@ describe('20241205130000-site-homepage-experience.cjs', () => {
     expect(freelancer.metrics.some((metric) => metric.label.includes('Conversion'))).toBe(true);
     expect(parsed.operationsSummary.escrowHealth.trend.every((value) => typeof value === 'number')).toBe(true);
     expect(parsed.recentPosts[0].title).toBe('Title');
+    expect(parsed.marketing.trustBadges[0].label).toBe('SOC 2 Type II');
+    expect(parsed.marketing.productTour.steps[0].title).toContain('Command centre');
+    expect(parsed.marketing.pricing.plans.find((plan) => plan.id === 'launch').metrics['Seats included']).toBe('25');
   });
 
   it('removes marketing fragment on down migration', async () => {
@@ -336,6 +342,7 @@ describe('20241205130000-site-homepage-experience.cjs', () => {
     const parsed = parseValue(row.value);
     expect(parsed.heroHeadline).toBeUndefined();
     expect(parsed.heroMedia).toBeUndefined();
+    expect(parsed.marketing).toBeUndefined();
   });
 });
 

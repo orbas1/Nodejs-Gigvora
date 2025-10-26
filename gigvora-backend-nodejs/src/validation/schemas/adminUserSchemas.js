@@ -9,7 +9,7 @@ import {
   requiredEmail,
   requiredTrimmedString,
 } from '../primitives.js';
-import { USER_STATUSES } from '../../models/index.js';
+import { USER_STATUSES, USER_RISK_LEVELS } from '../../models/index.js';
 
 const FALLBACK_STATUSES = ['invited', 'active', 'suspended', 'archived'];
 export const ADMIN_USER_STATUSES = Array.from(new Set([...(USER_STATUSES ?? []), ...FALLBACK_STATUSES]))
@@ -91,6 +91,44 @@ const membershipSchema = optionalTrimmedString({ max: 60 }).transform((value) =>
   return normalised || undefined;
 });
 
+const optionalRiskSchema = optionalTrimmedString({ max: 12 }).transform((value, ctx) => {
+  if (value == null) {
+    return undefined;
+  }
+  const normalised = `${value}`.trim().toLowerCase();
+  if (!normalised) {
+    return undefined;
+  }
+  if (!USER_RISK_LEVELS.includes(normalised)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Unsupported risk level.' });
+    return z.NEVER;
+  }
+  return normalised;
+});
+
+const optionalTwoFactorSchema = z
+  .union([z.boolean(), optionalTrimmedString({ max: 16 })])
+  .transform((value, ctx) => {
+    if (value == null) {
+      return undefined;
+    }
+    if (typeof value === 'boolean') {
+      return value ? 'enabled' : 'disabled';
+    }
+    const normalised = `${value}`.trim().toLowerCase();
+    if (!normalised) {
+      return undefined;
+    }
+    if (['enabled', 'true', '1', 'yes', 'on'].includes(normalised)) {
+      return 'enabled';
+    }
+    if (['disabled', 'false', '0', 'no', 'off'].includes(normalised)) {
+      return 'disabled';
+    }
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Unsupported two-factor filter.' });
+    return z.NEVER;
+  });
+
 const sortSchema = optionalTrimmedString({ max: 40 }).transform((value) => {
   if (!value) {
     return undefined;
@@ -108,6 +146,8 @@ export const adminUserListQuerySchema = z
     status: optionalStatusSchema,
     membership: membershipSchema,
     role: optionalRoleSchema,
+    risk: optionalRiskSchema,
+    twoFactor: optionalTwoFactorSchema,
     limit: optionalNumber({ min: 1, max: 100, integer: true }).transform((value) => value ?? 20),
     offset: optionalNumber({ min: 0, integer: true }).transform((value) => value ?? 0),
     fresh: optionalBoolean(),

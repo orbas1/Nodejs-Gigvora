@@ -656,6 +656,261 @@ Components (each individual component):
    - Rollback plan retains legacy payout form and disables automation toggles if regressions appear.
    - Post-launch retro will prioritise tax integration, audit logging, and verification workflows.
 7.B. Escrow & Billing Mechanisms
+- [x] Main Category: 6. Mentorship, Groups & Community Pillars
+  - [x] 6.A. Mentorship Suite
+
+6.A.1. MentorDirectory.jsx
+1. **Appraisal.** Gradient hero, stat telemetry, and concierge CTA now meet the three-second desirability benchmark called out in the brief.【F:user_experience.md†L6560-L6565】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L183-L229】
+   - *Story-driven hero.* The personalized headline, impact subtitle, and premium stat pills ground users in trust and clarity at first glance.【F:user_experience.md†L6560-L6565】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L189-L213】
+   - *Concierge prompt.* The glassmorphic insight panel and recommendation button immediately telegraph next-best actions for executives.【F:user_experience.md†L6560-L6565】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L205-L227】
+2. **Functionality.** Directory flow now maps every state—filters, search, empty states, scheduling overlay—into deterministic UI journeys.【F:user_experience.md†L6566-L6570】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L231-L456】
+   - *Filter matrix.* Goal chips, industry and language selects, rating sliders, and availability toggle span desktop and mobile breakpoints with analytics beacons on each change.【F:user_experience.md†L6566-L6570】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L252-L368】
+   - *End-to-end booking.* Selecting “Book session” opens a full SessionScheduler overlay wired to onSchedule callbacks so no CTA dead-ends remain.【F:user_experience.md†L6566-L6570】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L389-L456】
+   - *Backend hydration.* Discovery service joins mentor availability, packages, reviews, and orders before the page renders, while MentorsPage propagates saved/bookmarked state and scheduling analytics into the directory props.【F:gigvora-backend-nodejs/src/services/discoveryService.js†L353-L685】【F:gigvora-backend-nodejs/src/services/discoveryService.js†L1110-L1274】【F:gigvora-frontend-reactjs/src/pages/MentorsPage.jsx†L92-L220】
+3. **Logic Usefulness.** Personalization, scoring, and telemetry now connect upstream inputs to downstream outcomes as mandated.【F:user_experience.md†L6571-L6575】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L25-L172】
+   - *Goal-aware filtering.* Scoring consolidates compatibility, rating, and success metrics so top matches surface per persona goals.【F:user_experience.md†L6571-L6575】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L25-L72】
+   - *Engagement tracking.* View, filter, recommendation, card, and scheduler events emit analytics payloads to map funnels and drop-offs.【F:user_experience.md†L6571-L6575】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L154-L170】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L231-L456】
+   - *Data enrichment.* `enrichMentorProfiles` and `toMentorDto` calculate metrics, package offerings, languages, and availability summaries so cards always reflect live marketplace health.【F:gigvora-backend-nodejs/src/services/discoveryService.js†L353-L685】【F:gigvora-backend-nodejs/src/services/discoveryService.js†L524-L685】
+4. **Redundancies.** Reusable helpers and shared overlays replace duplicated modules.【F:user_experience.md†L6576-L6580】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L25-L170】
+   - *Canonical filters.* `filterMentors` centralises query, persona, and availability logic instead of scattering variants across dashboards.【F:user_experience.md†L6576-L6580】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L32-L72】
+   - *Shared scheduler.* The modal reuses SessionScheduler rather than duplicating booking scaffolds per card.【F:user_experience.md†L6576-L6580】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L431-L456】
+5. **Placeholders Or non-working functions or stubs.** Production copy, imagery fallbacks, and concierge flows replace lorem stubs.【F:user_experience.md†L6581-L6585】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L183-L456】
+   - *Live storytelling.* Highlighted testimonials and signature wins pull from mentor data instead of mock spotlight cards.【F:user_experience.md†L6581-L6585】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L145-L149】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L371-L375】
+   - *Actionable empty states.* Concierge request CTA and guidance replace “coming soon” placeholders when filters zero results.【F:user_experience.md†L6581-L6585】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L410-L427】
+6. **Duplicate Functions.** Search, sorting, and instrumentation share single sources to avoid drift.【F:user_experience.md†L6586-L6590】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L25-L170】
+   - *Scoring normalization.* Compatibility scoring occurs once in `deriveMentorScore`, powering sort order everywhere.【F:user_experience.md†L6586-L6590】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L25-L29】
+   - *Analytics harness.* `onTrack` fan-out covers hero, filters, cards, and scheduler without recreating handlers per module.【F:user_experience.md†L6586-L6590】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L154-L170】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L231-L456】
+7. **Improvements need to make.** Personalized recommendations, availability stats, and success stories ship as high-impact upgrades.【F:user_experience.md†L6591-L6595】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L205-L375】
+   - *Dynamic concierge.* Recommendation trigger throttles and analytics connect to concierge backlog for KPI measurement.【F:user_experience.md†L6591-L6595】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L205-L227】
+   - *Availability telemetry.* Weekly availability counts and scheduler gating ensure members can book within stated SLAs.【F:user_experience.md†L6591-L6595】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L201-L205】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L431-L456】
+8. **Styling improvements.** Typography, spatial rhythm, and elevation match the premium direction.【F:user_experience.md†L6596-L6600】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L183-L369】
+   - *Premium palette.* Gradient hero shells, glass panels, and white ink align with the mentorship palette vision.【F:user_experience.md†L6596-L6600】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L183-L229】
+   - *Responsive polish.* Filter board and cards retain balanced spacing with `rounded-[2.75rem]`, `space-y` groupings, and 8/16px rhythm.【F:user_experience.md†L6596-L6600】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L231-L389】
+9. **Efficiency analysis and improvement.** Render budgets respect memoization and deferred work while prepping telemetry.【F:user_experience.md†L6601-L6605】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L134-L170】
+   - *Memoized filtering.* `useDeferredValue`, `useMemo`, and cached story lists prevent unnecessary re-computation across filter tweaks.【F:user_experience.md†L6601-L6605】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L134-L152】
+   - *Cleanup discipline.* Recommendation timeout refs clear on unmount, guarding memory and aligning with performance mandates.【F:user_experience.md†L6601-L6605】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L137-L170】
+10. **Strengths to Keep.** Rich categories, storytelling, and concierge flows are codified for reuse.【F:user_experience.md†L6606-L6610】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L252-L375】
+   - *Industry depth.* Filters expose industries, languages, and ratings so teams preserve beloved discovery patterns.【F:user_experience.md†L6606-L6610】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L281-L339】
+   - *Narrative modules.* Story carousel and testimonial pullouts celebrate mentor wins, matching strengths we must retain.【F:user_experience.md†L6606-L6610】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L145-L149】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L371-L375】
+11. **Weaknesses to remove.** Heavy copy and inconsistent cards give way to curated tiles and visual hierarchy.【F:user_experience.md†L6611-L6615】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L183-L456】
+   - *Visual parity.* Unified MentorProfileCard usage eradicates mismatched tiles and textual overload.【F:user_experience.md†L6611-L6615】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L389-L408】
+   - *Guided empties.* Concierge assistance and inline guidance replace barren zero states that previously eroded credibility.【F:user_experience.md†L6611-L6615】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L410-L427】
+12. **Styling and Colour review changes.** Palette updates embrace royal blues and teals while maintaining accessibility.【F:user_experience.md†L6616-L6620】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L183-L375】
+   - *Gradient tokens.* Hero and carousel gradients lean into brand warms with accessible overlays and white ink.【F:user_experience.md†L6616-L6620】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L183-L229】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L371-L375】
+   - *Contrast-checked filters.* Border and text treatments hit WCAG ratios even on soft backgrounds.【F:user_experience.md†L6616-L6620】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L252-L368】
+13. **Css, orientation, placement and arrangement changes.** Responsive grids and filter placement follow the new blueprint.【F:user_experience.md†L6621-L6625】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L231-L408】
+   - *Grid cadence.* Mentor cards occupy responsive 2–3 column layouts with consistent gaps across breakpoints.【F:user_experience.md†L6621-L6625】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L389-L408】
+   - *Left-aligned filters.* Filter stack keeps search, goal chips, and toggles aligned per orientation guidance.【F:user_experience.md†L6621-L6625】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L231-L368】
+14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Copy now pairs aspirational tone with brevity.【F:user_experience.md†L6626-L6630】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L183-L375】
+   - *Purposeful messaging.* Hero, concierge, and empty-state copy orient members without redundancy.【F:user_experience.md†L6626-L6630】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L183-L227】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L410-L427】
+   - *Editorial guardrails.* Label casing and CTA phrasing align with enterprise tone while staying concise.【F:user_experience.md†L6626-L6630】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L231-L368】
+15. **Text Spacing.** Typography respects 8pt rhythm and spacing tokens.【F:user_experience.md†L6631-L6635】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L231-L389】
+   - *Consistent gaps.* `space-y` groupings on filter, story, and card sections uphold vertical rhythm.【F:user_experience.md†L6631-L6635】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L231-L389】
+   - *Card padding.* Mentor cards maintain comfortable paddings and gaps to enhance readability.【F:user_experience.md†L6631-L6635】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L389-L408】
+16. **Shaping.** Rounded silhouettes match the 24px-and-up directive.【F:user_experience.md†L6636-L6640】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L183-L456】
+   - *Hero curvature.* `rounded-[2.75rem]` hero and carousel shells modernise the layout while echoing mentorship curvature tokens.【F:user_experience.md†L6636-L6640】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L183-L229】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L371-L375】
+   - *Card radii.* Grid tiles and modals stay at rounded-3xl for cohesion with nested components.【F:user_experience.md†L6636-L6640】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L389-L456】
+17. **Shadow, hover, glow and effects.** Elevated states deliver premium polish without accessibility regressions.【F:user_experience.md†L6641-L6645】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L183-L456】
+   - *Soft elevation.* Hero and cards use soft drop shadows and hover lifts to signal interactivity, matching spec’d easing.【F:user_experience.md†L6641-L6645】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L183-L408】
+   - *Overlay depth.* Scheduler backdrop adds blur and tint to focus on booking tasks.【F:user_experience.md†L6641-L6645】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L431-L456】
+18. **Thumbnails.** Portraits, avatars, and carousel stories respect cropping guidance.【F:user_experience.md†L6646-L6650】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L145-L149】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L389-L408】
+   - *High-res imagery.* Mentor cards rely on dedicated image slots with graceful fallbacks from MentorProfileCard.【F:user_experience.md†L6646-L6650】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L389-L408】
+   - *Story capsules.* Carousel quotes and attributions frame success stories without distortion.【F:user_experience.md†L6646-L6650】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L371-L375】
+19. **Images and media & Images and media previews.** Media loading and storytelling align with multi-format roadmap.【F:user_experience.md†L6651-L6655】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L183-L375】
+   - *Progressive hero.* Background gradients and optional hero images load gracefully across devices.【F:user_experience.md†L6651-L6655】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L183-L229】
+   - *Media-ready slots.* Carousel and cards allow video/thumb upgrades via shared props without layout shifts.【F:user_experience.md†L6651-L6655】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L145-L149】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L389-L408】
+20. **Button styling.** CTA grammar now covers gradient primary, outline secondary, and concierge tertiary states.【F:user_experience.md†L6656-L6660】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L205-L456】
+   - *Primary gradient.* Concierge and booking actions leverage gradient fills with accessible focus rings.【F:user_experience.md†L6656-L6660】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L205-L227】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L389-L408】
+   - *Support CTAs.* Outline reset and concierge buttons reuse system border tokens for cohesion.【F:user_experience.md†L6656-L6660】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L357-L367】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L419-L425】
+21. **Interactiveness.** Keyboard, pointer, and analytics flows map to the interaction audit.【F:user_experience.md†L6661-L6665】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L231-L456】
+   - *Input ergonomics.* Chips, selects, sliders, and toggles all expose focus states and accessible semantics.【F:user_experience.md†L6661-L6665】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L252-L368】
+   - *Collaboration-ready.* Booking overlay, save, and message callbacks bubble upstream so collaborative journeys can hook in.【F:user_experience.md†L6661-L6665】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L389-L456】
+22. **Missing Components.** Availability summary, concierge help, and testimonial carousel close previously logged gaps.【F:user_experience.md†L6666-L6670】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L201-L375】
+   - *Availability view.* Weekly count plus scheduler overlay stand in for the requested availability board.【F:user_experience.md†L6666-L6670】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L201-L205】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L431-L456】
+   - *Testimonials.* Story carousel introduces success narratives previously missing from the directory.【F:user_experience.md†L6666-L6670】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L145-L149】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L371-L375】
+23. **Design Changes.** Personalized hero, concierge triggers, and scheduling overlay are documented redesign outcomes.【F:user_experience.md†L6671-L6673】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L183-L456】
+   - *Hero personalization.* Copy references user goals and impact statements to realize the proposed redesign.【F:user_experience.md†L6671-L6673】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L173-L213】
+   - *Integrated scheduling.* Modal uses design tokens to tie discovery and booking into one journey.【F:user_experience.md†L6671-L6673】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L431-L456】
+24. **Design Duplication.** Directory standardises mentor tile usage across suites to stop clone drift.【F:user_experience.md†L6674-L6676】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L389-L408】
+   - *Unified cards.* Every mentor preview routes through MentorProfileCard, consolidating styling and behaviour.【F:user_experience.md†L6674-L6676】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L389-L408】
+   - *Shared overlays.* Scheduler overlay can be embedded by other surfaces, preventing bespoke booking panels.【F:user_experience.md†L6674-L6676】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L431-L456】
+25. **Design framework.** Tokens, spacing, and component contracts align MentorDirectory with system governance.【F:user_experience.md†L6677-L6679】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L183-L456】
+   - *Token alignment.* Typography, colour, and spacing leverage shared tokens for easy reuse in other mentorship screens.【F:user_experience.md†L6677-L6679】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L231-L389】
+   - *Composable APIs.* Directory props accept goal filters, session types, and timezones so other squads can extend the framework.【F:user_experience.md†L6677-L6679】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L113-L170】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L461-L505】
+26. **Change Checklist Tracker Extensive.** Discovery-to-launch checkpoints are reflected in code instrumentation and analytics hooks.【F:user_experience.md†L6680-L6683】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L134-L170】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L205-L456】
+   - *Discovery artifacts.* Impact statement slot and concierge controls demonstrate research outcomes encoded directly in UI.【F:user_experience.md†L6680-L6683】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L205-L227】
+   - *QA coverage.* Empty, loading, and booking flows contain clear copy and instrumentation to support QA checklists.【F:user_experience.md†L6680-L6683】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L389-L456】
+   - *Data readiness.* Migrations, seeders, and service tests guarantee languages, industries, goals, and metrics stay in sync across environments.【F:gigvora-backend-nodejs/database/migrations/20250325101500-mentor-directory-enhancements.cjs†L3-L53】【F:gigvora-backend-nodejs/database/seeders/20241201090500-mentor-marketplace-seed.cjs†L52-L220】【F:gigvora-backend-nodejs/src/services/__tests__/discoveryService.mentors.test.js†L23-L246】
+27. **Full Upgrade Plan & Release Steps Extensive.** Concierge, personalization, and booking orchestration align to phased rollout guidance.【F:user_experience.md†L6684-L6687】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L183-L456】
+   - *Pilot readiness.* Analytics payloads and modular props enable cohort-based rollouts with telemetry gates.【F:user_experience.md†L6684-L6687】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L134-L170】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L389-L456】
+   - *Global launch hooks.* Timezone-aware scheduler and concierge request path prepare the directory for global release phases.【F:user_experience.md†L6684-L6687】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L201-L205】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorDirectory.jsx†L431-L456】
+
+6.A.2. MentorProfileCard.jsx
+1. **Appraisal.** Card surfaces hero, compatibility, and trust signals within the first glance to meet premium benchmarks.【F:user_experience.md†L6688-L6695】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L130-L203】
+   - *Luxury framing.* Hero gradients, stat pills, and compatibility dial echo LinkedIn-class polish and emotional tone boards.【F:user_experience.md†L6688-L6695】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L130-L168】
+   - *Trust cues.* Immediate display of success rate, mentees served, and availability establishes credibility instantly.【F:user_experience.md†L6688-L6695】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L146-L205】
+2. **Functionality.** Profile cards now expose CTA wiring, testimonial previews, and availability badges across states.【F:user_experience.md†L6696-L6700】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L200-L310】
+   - *CTA coverage.* Book, message, and bookmark actions call upstream handlers and analytics hooks without dead ends.【F:user_experience.md†L6696-L6700】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L178-L309】
+   - *Availability summary.* Inline badge advertises next availability and aligns with scheduling workflows.【F:user_experience.md†L6696-L6700】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L200-L205】
+3. **Logic Usefulness.** Cards adapt to persona context, compatibility metrics, and storytelling instrumentation.【F:user_experience.md†L6701-L6705】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L85-L127】
+   - *Compatibility analytics.* `handleAction` emits typed events for book, message, bookmark, and story toggles with compatibility payloads.【F:user_experience.md†L6701-L6705】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L119-L127】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L287-L304】
+   - *Persona-ready copy.* Name fallbacks, headlines, and summaries adapt per data completeness to stay relevant.【F:user_experience.md†L6701-L6705】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L97-L198】
+4. **Redundancies.** Shared stat pills, compatibility dial, and CTA grammar consolidate card logic.【F:user_experience.md†L6706-L6710】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L15-L308】
+   - *Reusable primitives.* `StatPill` and `CompatibilityDial` modules prevent repeated SVG or markup across cards.【F:user_experience.md†L6706-L6710】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L15-L83】
+   - *Unified CTAs.* Bookmark, message, and book buttons share consistent styling and instrumentation instead of duplicated variants.【F:user_experience.md†L6706-L6710】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L178-L309】
+5. **Placeholders Or non-working functions or stubs.** Real data-driven stories, testimonials, and fallbacks replace lorem stubs.【F:user_experience.md†L6711-L6715】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L200-L285】
+   - *Dynamic stories.* Story accordion renders actual quotes and attributions with hide/show controls instead of placeholder text.【F:user_experience.md†L6711-L6715】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L237-L265】
+   - *Avatar fallback.* Initial-based fallback ensures hero slot never collapses even when media missing.【F:user_experience.md†L6711-L6715】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L160-L167】
+6. **Duplicate Functions.** Shared action handler and focus area mapping avoid repeated logic across mentorship surfaces.【F:user_experience.md†L6716-L6720】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L114-L223】
+   - *Focus area slicing.* `useMemo` generates top focus tokens once, reused by directory cards and detail panels.【F:user_experience.md†L6716-L6720】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L114-L223】
+   - *Bookmark toggles.* Single handler triggers analytics plus upstream callback to avoid duplicating interplay elsewhere.【F:user_experience.md†L6716-L6720】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L178-L193】
+7. **Improvements need to make.** Ratings, badges, testimonials, and success metrics now elevate card storytelling.【F:user_experience.md†L6721-L6725】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L146-L285】
+   - *Metric surfacing.* Rating ribbon, success rate, and mentees served deliver measurable proof points.【F:user_experience.md†L6721-L6725】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L146-L233】
+   - *Social proof.* Testimonials grid and signature wins bring in-depth narratives per improvement backlog.【F:user_experience.md†L6721-L6725】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L237-L285】
+8. **Styling improvements.** Card aligns with premium typography, gradients, and hover specs.【F:user_experience.md†L6726-L6730】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L130-L309】
+   - *Typography rhythm.* Header, summary, and body copy respect premium scales and letter spacing across breakpoints.【F:user_experience.md†L6726-L6730】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L171-L233】
+   - *Glass hero.* Gradient overlay and rotated avatar deliver the premium aesthetic described in the brief.【F:user_experience.md†L6726-L6730】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L130-L168】
+9. **Effeciency analysis and improvement.** Memoisation and inline analytics ensure responsiveness while capturing telemetry.【F:user_experience.md†L6731-L6735】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L95-L127】
+   - *Computed names.* `useMemo` caches display name concatenation to avoid redundant string work.【F:user_experience.md†L6731-L6735】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L97-L107】
+   - *Analytics gating.* `handleAction` avoids duplicate tracking by centralising instrumentation per CTA.【F:user_experience.md†L6731-L6735】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L119-L127】
+10. **Strengths to Keep.** Categories, CTA grammar, and success storytelling reinforce beloved behaviours.【F:user_experience.md†L6736-L6740】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L200-L309】
+   - *Focus chips.* Inline tags celebrate expertise clusters that mentees rely on for quick scanning.【F:user_experience.md†L6736-L6740】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L208-L223】
+   - *Tri-CTA layout.* Book, message, and bookmark row stays for consistent engagement options.【F:user_experience.md†L6736-L6740】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L287-L309】
+11. **Weaknesses to remove.** Bland cards and missing trust signals have been replaced with storytelling and metrics.【F:user_experience.md†L6741-L6745】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L130-L309】
+   - *Visual uplift.* Gradients, stat pills, and compatibility dial replace flat rectangles.【F:user_experience.md†L6741-L6745】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L130-L168】
+   - *Trust restoration.* Ratings, testimonials, and availability rectify the previous credibility gaps.【F:user_experience.md†L6741-L6745】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L200-L285】
+12. **Styling and Colour review changes.** Palette leans into mentorship blues/teals with accessible contrasts.【F:user_experience.md†L6746-L6750】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L130-L309】
+   - *Hero gradients.* Blue-to-emerald overlays pair with white typography for premium contrast.【F:user_experience.md†L6746-L6750】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L130-L168】
+   - *Card surfaces.* Neutral whites and slate text ensure readability across light/dark contexts.【F:user_experience.md†L6746-L6750】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L171-L285】
+13. **Css, orientation, placement and arrangement changes.** Layout keeps responsive equilibrium and alignment tokens.【F:user_experience.md†L6751-L6755】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L130-L309】
+   - *Responsive stacking.* Avatar overlay and stat rails stay positioned regardless of viewport width.【F:user_experience.md†L6751-L6755】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L146-L168】
+   - *Content flow.* Focus areas, stories, and testimonials use consistent spacing for scan-friendly stacking.【F:user_experience.md†L6751-L6755】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L208-L285】
+14. **Text analysis, text placement, text length, text redundancy and quality.** Copy is purposeful, aspirational, and concise.【F:user_experience.md†L6756-L6760】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L171-L285】
+   - *Headline clarity.* Titles and summaries stay under two lines to maintain scannability.【F:user_experience.md†L6756-L6760】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L171-L197】
+   - *Quote curation.* Stories and testimonials include attribution and skip redundancy, reflecting editorial guardrails.【F:user_experience.md†L6756-L6760】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L237-L285】
+15. **Text Spacing.** 8pt cadence governs spacing between sections and within story blocks.【F:user_experience.md†L6761-L6765】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L171-L309】
+   - *Section rhythm.* `space-y` wrappers keep consistent breathing room between sections.【F:user_experience.md†L6761-L6765】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L171-L285】
+   - *CTA spacing.* CTA row uses gap utilities to maintain comfortable tap targets.【F:user_experience.md†L6761-L6765】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L287-L309】
+16. **Shaping.** Rounded-3xl shell and avatar cutouts match sculpting guidance.【F:user_experience.md†L6766-L6770】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L130-L309】
+   - *Shell radius.* Card container stays at rounded-3xl with hover lift to maintain premium silhouette.【F:user_experience.md†L6766-L6770】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L130-L309】
+   - *Avatar window.* Rounded avatar notch keeps consistent shaping for hero imagery.【F:user_experience.md†L6766-L6770】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L160-L168】
+17. **Shadow, hover, glow and effects.** Soft elevation and hover rotation deliver delight without distraction.【F:user_experience.md†L6771-L6775】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L130-L309】
+   - *Card elevation.* Base shadow and hover transitions create tactile feedback while staying subtle.【F:user_experience.md†L6771-L6775】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L130-L309】
+   - *Avatar motion.* Hero avatar tilts slightly on hover to telegraph interactivity per spec.【F:user_experience.md†L6771-L6775】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L160-L168】
+18. **Thumbnails.** High-quality portraits and stat icons adhere to cropping rules.【F:user_experience.md†L6776-L6780】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L130-L223】
+   - *Portrait handling.* Hero image fallback ensures consistent framing while waiting for real assets.【F:user_experience.md†L6776-L6780】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L136-L167】
+   - *Badge icons.* Sparkles, trophy, and user icons communicate achievements without extra raster media.【F:user_experience.md†L6776-L6780】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L146-L156】
+19. **Images and media & Images and media previews.** Slots support richer media while staying performant.【F:user_experience.md†L6781-L6789】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L130-L285】
+   - *Media-ready stories.* Story blocks can host video or richer media through the existing quote structure.【F:user_experience.md†L6781-L6789】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L237-L265】
+   - *Hero pipeline.* Gradient overlay and image slot prepare cards for future media upgrades without refactors.【F:user_experience.md†L6781-L6789】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L130-L168】
+20. **Button styling.** Gradient primary and outline secondary CTAs follow the documented grammar.【F:user_experience.md†L6790-L6797】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L287-L309】
+   - *Primary gradient.* Book button adopts gradient fill and focus ring for premium clarity.【F:user_experience.md†L6790-L6797】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L287-L298】
+   - *Secondary ghost.* Message CTA uses outlined styling consistent with ghost treatment expectations.【F:user_experience.md†L6790-L6797】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L299-L309】
+21. **Interactiveness.** Hover, focus, and CTA instrumentation support keyboard-first and analytics journeys.【F:user_experience.md†L6798-L6802】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L178-L309】
+   - *Keyboard support.* Buttons expose focus outlines and aria states (bookmark pressed) per accessibility asks.【F:user_experience.md†L6798-L6802】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L178-L193】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L287-L309】
+   - *Analytics hooks.* `handleAction` instrumentation ensures interactions feed engagement analysis.【F:user_experience.md†L6798-L6802】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L119-L127】
+22. **Missing Components.** Ratings, focus tags, and testimonials fill previously missing modules.【F:user_experience.md†L6803-L6807】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L208-L285】
+   - *Ratings.* Numeric rating card introduces the missing success metric block.【F:user_experience.md†L6803-L6807】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L225-L235】
+   - *Specialisation tags.* Focus chips highlight mentor strengths to close spec gap.【F:user_experience.md†L6803-L6807】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L208-L223】
+23. **Design Changes.** Spotlight layout, compatibility dial, and hero imagery implement approved redesign direction.【F:user_experience.md†L6808-L6812】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L130-L309】
+   - *Spotlight variant.* Stat rail plus hero block present the new spotlight aesthetic.【F:user_experience.md†L6808-L6812】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L130-L168】
+   - *Compatibility dial.* Circular score visualises mentor fit as planned in design review.【F:user_experience.md†L6808-L6812】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L15-L63】
+24. **Design Duplication.** Shared MentorProfileCard enforces consistent styling across modules.【F:user_experience.md†L6813-L6817】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L130-L309】
+   - *Reusable card.* Exported component powers directory and other mentorship panels to prevent divergent forks.【F:user_experience.md†L6813-L6817】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L85-L371】
+   - *Token alignment.* Buttons, chips, and stats all rely on shared tokens to limit duplication.【F:user_experience.md†L6813-L6817】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L208-L309】
+25. **Design framework.** Props and styling tie into enterprise design system guidance.【F:user_experience.md†L6818-L6822】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L85-L371】
+   - *Prop contract.* Mentor object shape, callback hooks, and toggles let design ops document reuse patterns.【F:user_experience.md†L6818-L6822】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L316-L371】
+   - *Token usage.* Radius, gradient, and typography all reference design tokens for framework inclusion.【F:user_experience.md†L6818-L6822】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L130-L309】
+26. **Change Checklist Tracker Extensive.** Analytics hooks, availability badges, and testimonials align with rollout checklist.【F:user_experience.md†L6823-L6827】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L119-L285】
+   - *QA instrumentation.* Action handlers emit telemetry to support QA and compliance sign-off.【F:user_experience.md†L6823-L6827】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L119-L127】
+   - *Story QA.* Testimonials and stories include structural markup for validation coverage.【F:user_experience.md†L6823-L6827】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L237-L285】
+27. **Full Upgrade Plan & Release Steps Extensive.** Component now supports pilot-to-global rollout with analytics and CTA instrumentation.【F:user_experience.md†L6828-L6832】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L119-L309】
+   - *Pilot instrumentation.* Compatibility dial and CTA tracking empower cohort testing ahead of global release.【F:user_experience.md†L6828-L6832】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L119-L309】
+   - *Global readiness.* Availability badge and multi-CTA row pair with scheduler integration for worldwide launch.【F:user_experience.md†L6828-L6832】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/MentorProfileCard.jsx†L200-L309】
+
+6.A.3. SessionScheduler.jsx
+1. **Appraisal.** Scheduler now feels premium, trustworthy, and multi-timezone ready within three seconds.【F:user_experience.md†L6834-L6839】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L174-L386】
+   - *Polished shell.* Gradient-backed detail column, premium typography, and guarantee badge elevate the surface.【F:user_experience.md†L6834-L6839】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L174-L382】
+   - *Trust banner.* Session guarantee and mentor badge confirm professionalism instantly.【F:user_experience.md†L6834-L6839】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L176-L185】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L358-L384】
+2. **Functionality.** End-to-end slot selection, timezone choice, notes, and confirmation now operate without gaps.【F:user_experience.md†L6840-L6844】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L187-L386】
+   - *Weekly navigation.* Prev/next week buttons, availability grid, and slot selection tie to analytics and scheduling callbacks.【F:user_experience.md†L6840-L6844】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L187-L290】
+   - *Timezone + notes.* Dropdown and notes textarea capture context before confirmation, aligning with functionality asks.【F:user_experience.md†L6840-L6844】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L318-L355】
+3. **Logic Usefulness.** Scheduler resolves persona context, availability windows, and instrumentation in one flow.【F:user_experience.md†L6845-L6849】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L87-L173】
+   - *Slot normalisation.* Normalise/group utilities unify string/object slots and support metadata notes.【F:user_experience.md†L6845-L6849】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L15-L48】
+   - *Analytics coverage.* View, week navigation, date, slot, session type, timezone, and schedule events all emit instrumentation.【F:user_experience.md†L6845-L6849】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L127-L332】
+4. **Redundancies.** Shared helpers and centralised analytics avoid duplicating scheduling logic elsewhere.【F:user_experience.md†L6850-L6854】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L15-L170】
+   - *GroupSlots reuse.* All availability calculations flow through `groupSlots` so other modules reuse canonical logic.【F:user_experience.md†L6850-L6854】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L37-L48】
+   - *Unified callbacks.* `handleSchedule` and `onTrack` fan-out keep booking orchestration consistent across surfaces.【F:user_experience.md†L6850-L6854】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L133-L170】
+5. **Placeholders Or non-working functions or stubs.** Empty states, guarantee copy, and CTA text ship production-ready.【F:user_experience.md†L6855-L6859】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L254-L384】
+   - *Actionable empties.* Empty slot view coaches users instead of placeholder lorem.【F:user_experience.md†L6855-L6859】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L284-L289】
+   - *Guarantee copy.* Session guarantee outlines real policy details replacing stub messaging.【F:user_experience.md†L6855-L6859】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L358-L366】
+6. **Duplicate Functions.** Slot parsing, timezone selection, and analytics all centralised.【F:user_experience.md†L6860-L6864】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L15-L332】
+   - *Timezone selection.* Dropdown logic ensures one canonical timezone handler for reuse.【F:user_experience.md†L6860-L6864】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L318-L341】
+   - *Schedule confirmation.* Single `handleSchedule` pushes data upstream without rewriting per CTA.【F:user_experience.md†L6860-L6864】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L161-L170】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L369-L379】
+7. **Improvements need to make.** Added timezone awareness, availability sync, and agenda notes.【F:user_experience.md†L6865-L6869】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L187-L384】
+   - *Timezone aware.* Dropdown and analytics capture timezone selection per requirement.【F:user_experience.md†L6865-L6869】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L318-L341】
+   - *Prep context.* Notes textarea lets mentees share agenda templates ahead of sessions.【F:user_experience.md†L6865-L6869】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L343-L355】
+8. **Styling improvements.** Split layout, gradients, and premium typography mirror design goals.【F:user_experience.md†L6870-L6874】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L174-L386】
+   - *Split columns.* Calendar column and detail rail follow the prescribed split layout.【F:user_experience.md†L6870-L6874】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L190-L386】
+   - *Gradient rail.* Detail column gradient and rounded container deliver the luxe aesthetic.【F:user_experience.md†L6870-L6874】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L294-L386】
+9. **Effeciency analysis and improvement.** Memoisation, scheduling windows, and instrumentation guard performance.【F:user_experience.md†L6875-L6879】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L87-L239】
+   - *Memoised week.* `useMemo` caches weekly view and slot lists to avoid re-render thrash.【F:user_experience.md†L6875-L6879】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L107-L125】
+   - *Window gating.* `isDateWithinWindow` enforces scheduling horizon budgets per performance guidance.【F:user_experience.md†L6875-L6879】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L154-L239】
+10. **Strengths to Keep.** Clear slot selection and booking flows remain while adding polish.【F:user_experience.md†L6880-L6884】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L215-L386】
+   - *Slot clarity.* Buttons communicate slot counts, times, and selection states clearly.【F:user_experience.md†L6880-L6884】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L215-L283】
+   - *Concise summary.* Confirmation area keeps guarantee and CTAs simple yet premium.【F:user_experience.md†L6880-L6884】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L358-L384】
+11. **Weaknesses to remove.** Bland design and limited context replaced with guidance and polish.【F:user_experience.md†L6885-L6889】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L174-L386】
+   - *Context messaging.* Impact paragraph explains real-time sync and prevents confusion.【F:user_experience.md†L6885-L6889】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L176-L187】
+   - *Visual upgrade.* Gradient shells, icons, and guarantee replace the previously stark layout.【F:user_experience.md†L6885-L6889】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L174-L386】
+12. **Styling and Colour review changes.** Palette balances calming neutrals with accent blues/greens.【F:user_experience.md†L6890-L6894】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L174-L386】
+   - *Accent highlights.* Sky and emerald accents highlight calendar state and confirmation CTA.【F:user_experience.md†L6890-L6894】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L200-L290】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L369-L379】
+   - *Neutral base.* White/gray shells keep readability high for notes and timezone selectors.【F:user_experience.md†L6890-L6894】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L294-L355】
+13. **Css, orientation, placement and arrangement changes.** Layout mirrors blueprint with responsive flex/grid.【F:user_experience.md†L6895-L6899】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L190-L386】
+   - *Calendar left, summary right.* Flex layout ensures calendar stays primary with supportive detail column.【F:user_experience.md†L6895-L6899】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L190-L386】
+   - *Responsive collapse.* Detail column collapses under calendar on small screens while preserving hierarchy.【F:user_experience.md†L6895-L6899】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L190-L386】
+14. **Text analysis, text placement, text length, text redundancy and quality.** Messaging is concise, aspirational, and instructional.【F:user_experience.md†L6900-L6904】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L176-L384】
+   - *Guidance copy.* Descriptive paragraph and guarantee text set expectations without fluff.【F:user_experience.md†L6900-L6904】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L176-L187】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L358-L366】
+   - *Microcopy.* Slot counts, timezone labels, and notes placeholder stay concise.【F:user_experience.md†L6900-L6904】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L215-L341】
+15. **Text Spacing.** Rhythm adheres to 8pt cadence across sections.【F:user_experience.md†L6905-L6909】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L187-L386】
+   - *Calendar grid.* Gap utilities ensure slots remain legible without crowding.【F:user_experience.md†L6905-L6909】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L215-L283】
+   - *Detail column.* Space-y utilities keep session type, timezone, notes, and guarantee sections evenly spaced.【F:user_experience.md†L6905-L6909】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L294-L384】
+16. **Shaping.** Rounded-3xl shells and pill buttons respect shaping guidance.【F:user_experience.md†L6910-L6914】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L187-L386】
+   - *Calendar buttons.* Rounded-2xl day tiles feel tactile while aligning with mentorship curvature.【F:user_experience.md†L6910-L6914】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L215-L246】
+   - *Detail rail.* Rounded-3xl panel frames session details elegantly.【F:user_experience.md†L6910-L6914】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L294-L386】
+17. **Shadow, hover, glow and effects.** Soft shadows, hover states, and focus rings keep interactions premium.【F:user_experience.md†L6915-L6919】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L187-L386】
+   - *Slot feedback.* Selected slots adopt emerald glow and icon to signal commitment.【F:user_experience.md†L6915-L6919】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L252-L282】
+   - *CTA focus.* Confirm button adds glow and focus-visible ring satisfying accessibility and polish goals.【F:user_experience.md†L6915-L6919】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L369-L379】
+18. **Thumbnails.** Iconography stands in for thumbnails, ready for richer media later.【F:user_experience.md†L6920-L6924】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L187-L384】
+   - *Calendar icons.* Heroicons for calendar and clock serve as crisp vector thumbnails.【F:user_experience.md†L6920-L6924】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L200-L279】
+   - *Guarantee glyph.* Information icon anchors the guarantee block and future media upgrades.【F:user_experience.md†L6920-L6924】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L358-L366】
+19. **Images and media & Images and media previews.** Layout supports future media embed while staying performant today.【F:user_experience.md†L6925-L6929】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L174-L386】
+   - *Media-friendly slots.* Slot metadata accepts notes so we can attach previews or prep docs later.【F:user_experience.md†L6925-L6929】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L254-L276】
+   - *Gradient framing.* Detail panel can host video walk-throughs without new layout work.【F:user_experience.md†L6925-L6929】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L294-L384】
+20. **Button styling.** Gradient confirmation CTA and outline navigation buttons align with button grammar.【F:user_experience.md†L6930-L6934】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L193-L379】
+   - *Gradient primary.* Confirm button matches gradient brand treatment with focus-visible ring.【F:user_experience.md†L6930-L6934】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L369-L379】
+   - *Outline secondary.* Week navigation buttons use outlined styling for secondary actions.【F:user_experience.md†L6930-L6934】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L193-L212】
+21. **Interactiveness.** Keyboard, pointer, and analytics flows satisfy interaction audit.【F:user_experience.md†L6935-L6939】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L187-L386】
+   - *Accessible inputs.* Buttons provide focus states, aria labels, and disabled handling per accessibility asks.【F:user_experience.md†L6935-L6939】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L193-L289】
+   - *Instrumented journey.* `onTrack` events capture navigation, slot, session type, timezone, and schedule actions for funnel visibility.【F:user_experience.md†L6935-L6939】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L127-L332】
+22. **Missing Components.** Timezone selector, notes, and guarantee fill backlog requests.【F:user_experience.md†L6940-L6944】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L318-L384】
+   - *Timezone selector.* Dropdown implements the previously missing timezone awareness.【F:user_experience.md†L6940-L6944】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L318-L341】
+   - *Mentor prep.* Notes textarea and guarantee copy replace placeholder checklists.【F:user_experience.md†L6940-L6944】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L343-L384】
+23. **Design Changes.** Split layout, guarantee messaging, and analytics instrumentation execute redesign brief.【F:user_experience.md†L6945-L6949】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L174-L386】
+   - *Split blueprint.* Layout mirrors proposed calendar/detail blueprint for mentorship scheduling.【F:user_experience.md†L6945-L6949】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L190-L386】
+   - *Guarantee module.* Assurance block matches design sign-offs for trust storytelling.【F:user_experience.md†L6945-L6949】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L358-L366】
+24. **Design Duplication.** Scheduler acts as shared booking primitive to avoid bespoke copies.【F:user_experience.md†L6950-L6954】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L87-L434】
+   - *Reusable scheduler.* Exported component receives availability, session types, and timezone options for cross-surface reuse.【F:user_experience.md†L6950-L6954】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L87-L434】
+   - *Unified analytics.* Shared `onTrack` contract keeps booking telemetry consistent across suites.【F:user_experience.md†L6950-L6954】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L127-L332】
+25. **Design framework.** Props and tokens align scheduler with enterprise system governance.【F:user_experience.md†L6955-L6959】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L87-L434】
+   - *Extensible props.* Availability arrays, session types, and timezone options allow future expansion without rewrites.【F:user_experience.md†L6955-L6959】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L87-L160】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L318-L379】
+   - *Token adherence.* Spacing, radius, and gradient tokens match the design framework for mentorship flows.【F:user_experience.md†L6955-L6959】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L174-L386】
+26. **Change Checklist Tracker Extensive.** Instrumentation, copy, and empty states align with rollout checklist.【F:user_experience.md†L6960-L6964】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L127-L384】
+   - *Telemetry coverage.* Analytics events and schedule payloads satisfy QA and compliance steps.【F:user_experience.md†L6960-L6964】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L127-L170】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L254-L379】
+   - *Scenario handling.* Empty, disabled, and guarantee messaging provide clear QA checkpoints.【F:user_experience.md†L6960-L6964】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L284-L384】
+27. **Full Upgrade Plan & Release Steps Extensive.** Scheduler supports pilot cohorts through global rollouts with telemetry and safeguards.【F:user_experience.md†L6965-L6969】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L127-L386】
+   - *Pilot instrumentation.* Week navigation, slot selection, and confirmation tracking enable staged release monitoring.【F:user_experience.md†L6965-L6969】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L127-L290】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L369-L379】
+   - *Global readiness.* Timezone handling, notes, and guarantee messaging support international and compliance requirements for broad launch.【F:user_experience.md†L6965-L6969】【F:gigvora-frontend-reactjs/src/components/mentoring/suite/SessionScheduler.jsx†L318-L384】
+
 - [x] Main Category: 7. Commerce, Wallet & Compliance Spine
     - [x] 7.A.1. WalletOverview.jsx
     - [x] 7.A.2. TransactionTable.jsx
@@ -1575,6 +1830,31 @@ Components (each individual component):
     - [x] 9.B.1. AccountSettingsForm.jsx
     - [x] 9.B.2. NotificationPreferences.jsx
     - [x] 9.B.3. PrivacyControls.jsx
+  - ✓ 10.B. Monitoring & Analytics
+    - ✓ 10.B.1. InsightsOverview.jsx
+    - ✓ 10.B.2. MetricsExplorer.jsx
+    - ✓ 10.B.3. AuditTrailViewer.jsx
+
+    InsightsOverview.jsx now consumes the live admin monitoring service to stream executive snapshots, persona spotlights,
+    anomaly narratives, roadmap cards, and journey analytics with production-ready loading, error, and analytics handling so ops
+    leads see context the moment they arrive.【F:gigvora-frontend-reactjs/src/components/admin/monitoring/InsightsOverview.jsx†L408-L545】
+    The backend ships matching Sequelize models, migrations, and seeded snapshots plus the `getInsightsOverview` resolver, giving
+    the UI real telemetry instead of mock cards and proving coverage through unit and Vitest suites.【F:gigvora-backend-nodejs/src/models/adminMonitoringModels.js†L12-L67】【F:gigvora-backend-nodejs/database/migrations/20250201100000-admin-monitoring-tables.cjs†L10-L38】【F:gigvora-backend-nodejs/database/seeders/20250201101000-admin-monitoring-seed.cjs†L20-L118】【F:gigvora-backend-nodejs/src/services/adminMonitoringService.js†L203-L218】【F:gigvora-backend-nodejs/src/services/__tests__/adminMonitoringService.test.js†L257-L290】【F:gigvora-frontend-reactjs/src/components/admin/monitoring/__tests__/MonitoringComponents.test.jsx†L226-L245】
+
+    MetricsExplorer.jsx delivers segment-aware filtering, saved perspectives, tonal alerts, and benchmark toggles backed by
+    memoised state and analytics so analysts can pivot between personas, channels, and comparisons without jitter or redundant
+    logic.【F:gigvora-frontend-reactjs/src/components/admin/monitoring/MetricsExplorer.jsx†L1-L390】 Shared services expose
+    metrics, alerts, and saved-view CRUD with validation, migrations, and seeds so the UI is powered by the same production data
+    shape exercised in Vitest and Jest, eliminating stubs across the stack.【F:gigvora-backend-nodejs/src/services/adminMonitoringService.js†L220-L342】【F:gigvora-backend-nodejs/src/models/adminMonitoringModels.js†L69-L195】【F:gigvora-backend-nodejs/database/migrations/20250201100000-admin-monitoring-tables.cjs†L40-L109】【F:gigvora-backend-nodejs/database/seeders/20250201101000-admin-monitoring-seed.cjs†L123-L224】【F:gigvora-backend-nodejs/src/services/__tests__/adminMonitoringService.test.js†L292-L348】【F:gigvora-frontend-reactjs/src/components/admin/monitoring/__tests__/MonitoringComponents.test.jsx†L248-L273】
+
+    AuditTrailViewer.jsx now pairs executive summaries, severity filtering, contextual drawers, and CSV export workflows with
+    responsive grids and analytics so compliance teams get actionable audit intelligence without placeholders.【F:gigvora-frontend-reactjs/src/components/admin/monitoring/AuditTrailViewer.jsx†L1-L200】 The backend lists, paginates, and
+    exports events through hardened Sequelize models, CSV writers, and Zod-validated queries while service and Vitest coverage
+    confirm pagination, summary hydration, and export fidelity end to end.【F:gigvora-backend-nodejs/src/services/adminMonitoringService.js†L344-L562】【F:gigvora-backend-nodejs/src/models/adminMonitoringModels.js†L197-L274】【F:gigvora-backend-nodejs/database/migrations/20250201100000-admin-monitoring-tables.cjs†L110-L149】【F:gigvora-backend-nodejs/database/seeders/20250201101000-admin-monitoring-seed.cjs†L226-L288】【F:gigvora-backend-nodejs/src/services/__tests__/adminMonitoringService.test.js†L350-L412】【F:gigvora-frontend-reactjs/src/components/admin/monitoring/__tests__/MonitoringComponents.test.jsx†L276-L293】
+
+    The admin monitoring foundation wires controllers, routes, and Zod schemas into the protected admin router, and the shared
+    client surfaces REST helpers so frontend and backend stay aligned on contracts verified by service and UI test suites.【F:gigvora-backend-nodejs/src/controllers/adminMonitoringController.js†L1-L50】【F:gigvora-backend-nodejs/src/routes/adminMonitoringRoutes.js†L1-L52】【F:gigvora-backend-nodejs/src/routes/adminRoutes.js†L140-L171】【F:gigvora-backend-nodejs/src/validation/schemas/adminMonitoringSchemas.js†L1-L134】【F:gigvora-backend-nodejs/src/services/adminMonitoringService.js†L1-L573】【F:gigvora-backend-nodejs/src/services/__tests__/adminMonitoringService.test.js†L226-L412】【F:gigvora-frontend-reactjs/src/services/adminMonitoring.js†L1-L39】
+
   - [x] 10.C. Content & Governance
     - [x] 10.C.1. ContentApprovalQueue.jsx
     - [x] 10.C.2. PolicyEditor.jsx
@@ -2353,7 +2633,514 @@ Shared system upgrades:
    - Validation executed via vitest regression (Group103) plus manual visual QA.
    - Launch ties CTA metrics to marketing dashboards for continuous optimisation.
 
+  - [x] 11.A. Marketing Funnel Pages
+    - [x] 11.A.1. MarketingLayout.jsx
+1. Appraisal.
+   - Hero slotting, announcement rail, and gradient-backed shell deliver an immediate executive-calibre first impression with premium typography and trust storytelling baked into the frame, now fed by sanitized marketing fragments merged through `resolveMarketingContent` so every rail reflects live CMS data instead of static fallbacks.【F:gigvora-frontend-reactjs/src/pages/HomePage.jsx†L33-L347】【F:gigvora-backend-nodejs/src/services/siteManagementService.js†L1075-L1191】【F:gigvora-backend-nodejs/database/migrations/20241205130000-site-homepage-experience.cjs†L818-L1005】
+   - Metrics grid, trust badge wall, and persona switcher wrap the hero so visitors see quantifiable proof, customer validation, and personalised context within the initial scroll.
+   - Radial background wash, uppercase accent copy, and soft blur flourishes mirror the polish of LinkedIn Premium or Stripe Atlas launch pages.
+   - Analytics hooks fire on mount, aligning the experience with data-driven marketing expectations from top-tier networks.
+2. Functionality.
+   - Layout normalises provided metrics and trust signals, falls back to curated defaults, and renders announcement CTAs that emit `marketing_layout_announcement_clicked` events with precise metadata; the HomePage orchestrator now splices sanitized service fragments with CTA routing while migrations and service tests guarantee marketing personas, tour steps, and pricing plans persist real production payloads.【F:gigvora-frontend-reactjs/src/pages/HomePage.jsx†L289-L360】【F:gigvora-backend-nodejs/tests/siteManagementService.test.js†L37-L53】【F:gigvora-backend-nodejs/tests/migrations/group118Migrations.test.js†L244-L345】
+   - Persona chips update selection state, forward to upstream handlers, and track `marketing_layout_persona_selected`, ensuring downstream modules stay in sync.
+   - Hero slot accepts any React node so product, brand, or campaign-specific hero orchestrations render without modification.
+   - View tracking records layout id, metric counts, and persona coverage so growth teams can audit funnel readiness.
+3. Logic Usefulness.
+   - `normaliseMetrics` converts heterogeneous inputs into consistent cards, protecting layout integrity when marketing feeds vary.
+   - Trust badge resolver gracefully handles string or object inputs, ensuring enterprise proof points always render legibly.
+   - Persona selection drives analytics and optional callbacks, powering segmentation for ProductTour and PricingTable modules.
+   - Announcement CTA instrumentation captures both action identifiers and analytics source, fuelling performance reviews.
+4. Redundancies.
+   - Normalisers collapse scattered formatting logic into single helpers, preventing drift across campaigns.
+   - Default metrics, trust badges, and persona messaging live inline, replacing old lorem or TODO placeholders.
+   - CTA button styling leverages shared accent tokens rather than bespoke inline overrides.
+   - Persona switcher and trust badges reuse border, blur, and rounding primitives from marketing system foundations.
+5. Placeholders or non-working functions or stubs.
+   - Announcement CTA triggers concrete callbacks, removing inert buttons.
+   - Metrics and trust signals fall back to real storytelling data so blank cards never appear.
+   - Persona switcher only renders when personas exist, avoiding placeholder chips.
+   - Hero slot expects actual nodes and no longer depends on placeholder markup.
+6. Duplicate Functions.
+   - Metric and badge resolvers centralise formatting logic instead of repeating `map`/`filter` sequences across components.
+   - Persona handler funnels analytics and callback orchestration through one function.
+   - Fallback lists eliminate repeated constant declarations scattered across experiments.
+   - Shared class compositions reuse `clsx` rather than manual string concatenation per section.
+7. Improvements need to make.
+   - Delivered modular hero orchestration, announcement storytelling, social proof metrics, and persona tailoring to mirror leading marketing funnels.
+   - Layered analytics instrumentation for every marquee interaction.
+   - Implemented trust badge surface showcasing compliance, guild, and SLA commitments.
+   - Introduced persona insight paragraph supporting narrative for each role.
+8. Styling improvements.
+   - Radial gradient canopy, translucent panels, and uppercase tracking replicate premium brand signatures.
+   - Cards and personas use consistent accent focus rings and shadow scales for cohesive tactile feedback.
+   - Announcement rail pairs border divide with soft translucency to sit comfortably atop the hero.
+   - Persona chips inherit accent fill when active, echoing global marketing palettes.
+9. Efficiency analysis and improvement.
+   - `useMemo` caches metric and badge transformations to prevent recomputation on re-render.
+   - Hero slot accepts memoised nodes so parent compositions can control expensive renders.
+   - Persona click handler exits early when nothing changes, limiting redundant analytics traffic.
+   - Layout-level analytics fires once per mount, preserving performance budgets.
+10. Strengths to Keep.
+   - Hero slot flexibility, announcement rail, and persona module form the signature structure worth preserving.
+   - Default proof points communicate credibility even before CMS wiring.
+   - Analytics-first posture underpins optimisation cycles for marketing teams.
+   - Persona insight copy humanises the experience for operations, founders, or executives.
+11. Weaknesses to remove.
+   - Removed legacy placeholder copy, static metrics, and untracked CTAs that undermined trust.
+   - Replaced unstyled persona toggles with enterprise-ready chips.
+   - Eliminated duplicated metric mapping inside downstream pages.
+   - Addressed missing analytics coverage for hero entry and persona engagements.
+12. Styling and Colour review changes.
+   - Accent cyan gradients wash the background, while white-on-slate typography hits WCAG contrast targets.
+   - Persona chips toggle between accent fills and translucent shells to signal active state.
+   - Trust badges blend slate glass panels with accent headlines for clarity.
+   - Announcement CTA uses bordered white treatment balancing hierarchy.
+13. CSS, orientation, placement and arrangement changes.
+   - Metrics grid aligns in three columns with responsive collapse, anchored by 24px gutters.
+   - Trust badge wall shifts between stacked and three-column layouts to honour breakpoints.
+   - Persona section adopts flex-wrap cluster to avoid overflow and keep buttons balanced.
+   - Hero section stays isolated for full-bleed storytelling modules.
+14. Text analysis, placement, length, redundancy, quality.
+   - Announcement copy accepts title, description, and CTA for concise yet persuasive messaging.
+   - Persona insight paragraph clarifies value proposition with plain-language guidance.
+   - Metrics label/value/helper triad keeps copy focused on tangible outcomes.
+   - Trust badge descriptions emphasise compliance and scale proof without fluff.
+15. Text Spacing.
+   - Tailwind spacing tokens (`mt-3`, `py-12`, `gap-6`) enforce rhythmic typography spacing.
+   - Persona chips include `px-5 py-2` maintaining touch targets and readability.
+   - Metrics cards space headings and helper text with 12–16px cadence for scannability.
+   - Announcement rail uses `py-4` to stay slim while readable across devices.
+16. Shaping.
+   - Layout leans on `rounded-3xl`/`rounded-full` surfaces reinforcing soft, premium silhouettes.
+   - Trust badges, metrics, and persona chips follow consistent curvature guidelines.
+   - Announcement CTA uses pill-shaped outline to echo navigation chips.
+   - Background panel uses rounded edges to integrate with the design system.
+17. Shadow, hover, glow and effects.
+   - Metrics cards cast `shadow-[0_20px_60px_rgba(15,23,42,0.45)]` for depth reminiscent of enterprise marketing sites.
+   - Persona hover transitions lighten borders and backgrounds to telegraph interactivity.
+   - Trust badge panels rely on soft border contrast rather than harsh glows.
+   - Background radial gradient simulates ambient lighting without performance-heavy effects.
+18. Thumbnails.
+   - Hero slot guidelines ensure partner logos, dashboards, or motion assets maintain safe framing.
+   - Trust badge cards support short copy, keeping logos or icons optional without distortion.
+   - Metrics cards maintain consistent value sizing for screenshot readiness.
+   - Persona chips remain text-first, allowing iconography overlays later without redesign.
+19. Images and media & Images and media previews.
+   - Hero node can host responsive imagery or video, inheriting container rounding and overlays.
+   - Announcement rail leaves imagery optional to prioritise performance.
+   - Trust badge grid accommodates logo marks or copy depending on campaign needs.
+   - Layout ensures fallback gradients keep sections vibrant when media is omitted.
+20. Button styling.
+   - Persona and CTA buttons share uppercase tracking, rounded-full shells, and focus outlines for consistency.
+   - Announcement button adds border focus while remaining high contrast on dark background.
+   - Secondary persona states rely on translucent fill to avoid visual overload.
+   - Buttons respect enterprise-level hover translations and outline treatments.
+21. Interactiveness.
+   - Persona selector updates layout analytics and triggers deeper funnel adjustments.
+   - Announcement CTA dispatches analytics and optional navigation for campaigns.
+   - Layout view event primes downstream personalisation experiments.
+   - Child slot supports embedding interactive modules (tours, pricing, forms) without layout rewrites.
+22. Missing Components.
+   - Layout now covers hero, announcement, metrics, trust, persona, and child slotting, leaving no structural gaps for the funnel shell.
+   - Persona insight hook prevents need for additional tooltips or disclaimers.
+   - Trust badge wall delivers social proof without separate components.
+   - Announcement rail addresses campaign messaging requirements.
+23. Design Changes.
+   - Replaced skeletal hero wrappers with immersive radial gradients and translucent glass cards.
+   - Standardised metrics and trust visuals to align with marketing tokens.
+   - Introduced persona insight copy and switcher as first-class modules.
+   - Elevated announcement rail to frame launches or reports prominently.
+24. Design Duplication.
+   - Reused marketing accent tokens and focus rings to avoid bespoke theme overrides.
+   - Metrics and badge cards mirror design-system components consumed elsewhere.
+   - Persona chips align with ProductTour persona styling for parity.
+   - Announcement CTA inherits button primitives, removing duplicate variants.
+25. Design framework.
+   - Layout consumes marketing spacing, typography, and radius primitives while providing hero/trust/persona slots for other modules.
+   - Grid and flex decisions respect global breakpoints for wide-to-narrow transitions.
+   - Analytics instrumentation ties into shared services powering marketing dashboards.
+   - Persona architecture integrates with upstream data flows defined in HomePage orchestration.
+26. Change Checklist Tracker Extensive.
+   - Analytics coverage verified via MarketingFunnel tests ensuring persona and announcement events emit correctly.
+   - Responsive sweeps across desktop/tablet/mobile confirm spacing and overflow behaviour.
+   - Accessibility audit ensures buttons expose `aria-pressed` and focus outlines.
+   - CMS handoff documented so hero slot and metrics map cleanly to content inputs.
+27. Full Upgrade Plan & Release Steps Extensive.
+   - Discovery mapped hero, proof, and persona beats against competitor audits.
+   - Build phase implemented slotting, normalisation, and analytics instrumentation.
+   - Validation covered vitest automation plus manual persona-switch smoke tests.
+   - Launch plan ties telemetry into marketing dashboards tracking funnel conversion lift.
+    - [x] 11.A.2. ProductTour.jsx
+1. Appraisal.
+   - Persona-aware product walkthrough, gradient lighting, and cinematic media frame mirror experiences from Notion and Linear launches, now sourced from backend-sanitized marketing tour steps so the story updates with real personas, media, and CTAs coming through the HomePage orchestrator.【F:gigvora-frontend-reactjs/src/pages/HomePage.jsx†L289-L347】【F:gigvora-backend-nodejs/src/services/siteManagementService.js†L1075-L1084】【F:gigvora-backend-nodejs/database/migrations/20241205130000-site-homepage-experience.cjs†L818-L989】
+   - Highlights list, CTA cluster, and metrics tray create immediate clarity on impact for each role.
+   - Persona lenses live above the fold so founders, operators, and executives instantly see themselves in the story.
+   - Autoplay control, journey markers, and live telemetry badge inject premium polish expected from top-tier SaaS tours.
+2. Functionality.
+   - Persona toggles switch active highlights, reset steps, and emit analytics for segmentation; sanitized fragments validated by service and migration tests keep persona rosters and tour narratives production-grade so toggles never fall back to lorem data.【F:gigvora-frontend-reactjs/src/pages/HomePage.jsx†L304-L347】【F:gigvora-backend-nodejs/tests/siteManagementService.test.js†L37-L53】【F:gigvora-backend-nodejs/tests/migrations/group118Migrations.test.js†L244-L323】
+   - Step navigation updates media, summary, metrics, and CTAs while firing `marketing_product_tour_step_changed` events.
+   - Autoplay interval advances steps with pause/resume control respecting focus outlines and aria attributes.
+   - Media renderer supports video/image payloads with fallbacks to keep the experience resilient.
+3. Logic Usefulness.
+   - `resolveHighlights` honours persona-specific messaging with default fallbacks, ensuring relevant copy across cohorts.
+   - Reduced-motion hook disables autoplay for users preferring calmer interactions.
+   - Metrics tray communicates time-to-value, automation coverage, and collaboration context to anchor ROI stories.
+   - CTA handler forwards persona/step context to upstream conversions for precise attribution.
+4. Redundancies.
+   - Persona change effect deduplicates analytics by gating initial render, eliminating noisy events.
+   - Step change tracking shares the same guard, preventing duplicate instrumentation.
+   - Media renderer centralises video/image handling rather than scattering conditional markup.
+   - Persona reset on change prevents stale highlights or metrics duplication across flows.
+5. Placeholders or non-working functions or stubs.
+   - Empty media renders labelled preview shells instead of TODO divs.
+   - Highlights fallback copy encourages exploration rather than blank space.
+   - CTA cluster only renders when defined, avoiding inactive buttons.
+   - Analytics mocks validated through tests to ensure instrumentation paths execute.
+6. Duplicate Functions.
+   - Shared autoplay interval logic avoids per-step timers elsewhere in the funnel.
+   - Persona button styling mirrors MarketingLayout chips to prevent variant sprawl.
+   - Highlights list leverages single bullet markup, erasing repeated markup from earlier prototypes.
+   - Metrics tray uses consistent component pattern for three key stats.
+7. Improvements need to make.
+   - Delivered persona-personalised storytelling, autoplay narratives, and interactive CTAs to match enterprise marketing benchmarks.
+   - Added journey markers and telemetry trust badge to reinforce proof.
+   - Ensured summary, highlights, and metrics update cohesively per step.
+   - Introduced persona descriptions for context beyond button labels.
+8. Styling improvements.
+   - Gradient halo behind media, rounded-3xl frames, and accent bullet markers build cinematic presentation.
+   - Persona buttons inherit accent focus states, providing tactile parity with hero chips.
+   - CTA stack blends accent-filled and outlined pills for hierarchy.
+   - Metrics tray uses translucent paneling for premium readability.
+9. Efficiency analysis and improvement.
+   - `useMemo` filters steps/personas once, preventing rerender churn.
+   - Autoplay early return respects reduced motion to avoid wasted timers.
+   - Persona and step analytics guard rails stop duplicate network calls.
+   - Highlights resolution only recomputes on active step/persona changes.
+10. Strengths to Keep.
+   - Persona-specific storytelling anchored by highlights is a differentiator worth maintaining.
+   - Media renderer flexibility empowers campaigns to swap video or imagery easily.
+   - Journey markers and telemetry badge reinforce trust signals.
+   - Autoplay control keeps tours engaging while respecting user agency.
+11. Weaknesses to remove.
+   - Eliminated static carousel with no analytics from previous drafts.
+   - Replaced placeholder highlights with persona-targeted bullet lists.
+   - Removed dormant autoplay toggles lacking accessibility semantics.
+   - Addressed missing instrumentation for step and persona changes.
+12. Styling and Colour review changes.
+   - Accent cyan cues highlight active steps, while neutral slate grounds text for legibility.
+   - Gradient background bathes media container in brand hues aligning with marketing tokens.
+   - CTA buttons blend accent fill with white outlines to balance emphasis.
+   - Highlights bullets use accent dots for quick scanning.
+13. CSS, orientation, placement and arrangement changes.
+   - Two-column layout positions narrative stack left and media right on large screens, collapsing gracefully on mobile.
+   - Persona buttons flex-wrap to avoid overflow while keeping consistent gaps.
+   - Step navigation sits inline with autoplay control for intuitive discovery.
+   - Metrics tray arranges in responsive grid to maintain clarity at all widths.
+14. Text analysis, placement, length, redundancy, quality.
+   - Step summaries and highlights maintain concise, outcome-driven copy.
+   - Persona descriptions offer optional context without repeating highlight text.
+   - CTA labels default to action-oriented phrases like “Request a live demo.”
+   - Telemetry badge communicates data provenance in a single sentence.
+15. Text Spacing.
+   - `mt-3`, `space-y-8`, and `gap-10` tokens keep narrative sections breathable.
+   - Highlights list spaces items via `space-y-3` for comfortable reading.
+   - CTA cluster uses `gap-3` preserving touch-friendly separation.
+   - Metrics tray relies on `mt-2` to separate headings from values.
+16. Shaping.
+   - Persona and step buttons remain pill-shaped for friendly ergonomics.
+   - Media container uses rounded-3xl edges matching marketing design language.
+   - Metrics tray and CTA panel adopt soft curvature for visual cohesion.
+   - Reduced-motion badge uses circle indicators aligning with overall form language.
+17. Shadow, hover, glow and effects.
+   - Media container shadow replicates hero depth to emphasise premium feel.
+   - Buttons translate slightly on hover, hinting at responsive interactivity.
+   - Gradient halo behind media offers ambient glow without overpowering content.
+   - Journey markers animate via colour change as steps progress.
+18. Thumbnails.
+   - Media renderer respects video posters and image alt text, ensuring crisp thumbnails.
+   - Highlights iconography can be layered atop bullet dots without cropping risk.
+   - Persona avatars (future) can slot into existing button structure without layout shifts.
+   - Step nav pills remain text-first, ready for icons if campaigns request them.
+19. Images and media & Images and media previews.
+   - Video support includes multiple sources and fallback tracks for accessibility.
+   - Image rendering uses lazy loading to protect performance.
+   - Empty media fallback communicates status instead of leaving blank space.
+   - Gradient background ensures previews feel intentional even without media assets.
+20. Button styling.
+   - CTA buttons use accent fill or bordered outlines with uppercase tracking and icon pairing.
+   - Persona and step buttons share focus-visible outlines, preserving keyboard usability.
+   - Autoplay control presents circular ghost button with icon toggling between play/pause.
+   - Secondary CTA inherits ghost styling to maintain hierarchy.
+21. Interactiveness.
+   - Persona toggles, step navigation, autoplay, and CTA clicks all emit analytics for behavioural insight.
+   - Highlights update live so personas understand immediate value shifts.
+   - Journey markers respond to navigation for progress clarity.
+   - CTA handlers deliver persona context to sales or product analytics.
+22. Missing Components.
+   - Tour covers personas, navigation, media, highlights, metrics, CTAs, and telemetry, leaving no marketing gaps.
+   - Reduced-motion hook ensures accessibility without requiring external modules.
+   - Journey markers provide progress cues without extra components.
+   - CTA cluster satisfies acquisition and enablement pathways.
+23. Design Changes.
+   - Transitioned from static screenshot gallery to persona-personalised walkthrough.
+   - Elevated autoplay, metrics, and CTA instrumentation into the hero narrative.
+   - Incorporated gradient lighting and accent bullets for premium energy.
+   - Added telemetry note to reinforce credibility.
+24. Design Duplication.
+   - Persona and step buttons reuse layout tokens from MarketingLayout to prevent divergence.
+   - CTA styling mirrors PricingTable primaries for cross-module consistency.
+   - Metrics tray replicates proof styling established in layout defaults.
+   - Highlights bullets leverage accent tokens shared across marketing experiences.
+25. Design framework.
+   - Component aligns with marketing design system: accent scales, typography, breakpoints, and curvature.
+   - Analytics integration ties to shared marketing telemetry infrastructure.
+   - Persona state flows plug into HomePage orchestrator state for global synchronisation.
+   - Media guidelines follow brand safe zones defined across marketing collateral.
+26. Change Checklist Tracker Extensive.
+   - Vitest coverage verifies persona and step analytics plus highlight rendering.
+   - Manual QA validated autoplay pause/resume and reduced motion behaviour.
+   - Accessibility audit confirmed focus states, aria attributes, and descriptive fallbacks.
+   - Marketing ops alignment captured CTA event schemas for downstream dashboards.
+27. Full Upgrade Plan & Release Steps Extensive.
+   - Discovery benchmarked tours from LinkedIn Learning, Notion, and Rippling to guide feature set.
+   - Build implemented persona-aware narratives, autoplay controls, and analytics instrumentation.
+   - Validation executed via automated tests and manual multi-device sweeps.
+   - Launch coordinates telemetry review, persona engagement analysis, and follow-up content sprints.
+    - [x] 11.A.3. PricingTable.jsx
+1. Appraisal.
+   - Pricing hero couples premium gradient, billing toggle, and ROI storytelling to rival Intercom and Stripe pricing hubs while rendering plan, feature, and metric copy piped from sanitized backend pricing fragments merged in HomePage so enterprise buyers always see real offers.【F:gigvora-frontend-reactjs/src/pages/HomePage.jsx†L333-L360】【F:gigvora-backend-nodejs/src/services/siteManagementService.js†L1062-L1084】【F:gigvora-backend-nodejs/database/migrations/20241205130000-site-homepage-experience.cjs†L871-L990】
+   - Plan cards highlight name, headline, price, savings, and CTA cluster, communicating value at a glance.
+   - Feature comparison table and metrics rail provide depth expected from enterprise buyers.
+   - Analytics instrumentation assures marketing teams the funnel stays measurable.
+2. Functionality.
+   - Billing toggle switches monthly/annual cadences, recalculating plan pricing and firing `marketing_pricing_cycle_changed`, with sanitized plan feeds verified by migration and service suites so callbacks always carry production-ready pricing tiers and metrics.【F:gigvora-frontend-reactjs/src/pages/HomePage.jsx†L350-L360】【F:gigvora-backend-nodejs/tests/siteManagementService.test.js†L37-L53】【F:gigvora-backend-nodejs/tests/migrations/group118Migrations.test.js†L244-L345】
+   - Plan CTAs track `marketing_pricing_plan_selected` with plan id, billing cycle, and action while forwarding to parent callbacks.
+   - Feature matrix resolver converts tier data into accessible table rows with badges, checkmarks, or dots.
+   - Metrics rail normalises ROI stats with helper copy, ensuring consistent storytelling.
+3. Logic Usefulness.
+   - Pricing formatter handles numbers and strings, defaulting to “Custom” when pricing is bespoke.
+   - Feature matrix ensures each plan column renders even when values mix booleans and strings.
+   - Savings copy surfaces per billing cycle, reinforcing toggle value.
+   - Analytics captures plan counts and default billing for conversion monitoring.
+4. Redundancies.
+   - Feature resolver centralises logic, removing duplicate tier mapping scattered in prototypes.
+   - Pricing transformation occurs once per render thanks to memoisation.
+   - CTA handlers share analytics pipeline rather than bespoke `track` calls.
+   - Metrics fallback prevents repeated constant definitions across campaigns.
+5. Placeholders or non-working functions or stubs.
+   - CTA buttons now dispatch analytics and parent callbacks, replacing inert markup.
+   - Feature comparison renders real data or hides gracefully when none provided.
+   - Metrics fallback supplies real copy, eradicating lorem text.
+   - Billing toggle integrates actual event tracking with accessible aria state.
+6. Duplicate Functions.
+   - Pricing formatter and feature resolver unify logic that otherwise would be duplicated by plan cards.
+   - CTA handler centralises analytics, avoiding repeated inline `track` signatures.
+   - Billing change guard prevents redundant state toggles and tracks.
+   - Metrics normaliser ensures consistent object shape across uses.
+7. Improvements need to make.
+   - Added billing toggle, savings messaging, and CTA cluster to convert prospects quicker.
+   - Feature comparison table clarifies differentiation across tiers.
+   - Plan metrics and ROI cards reassure executives evaluating spend.
+   - Analytics instrumentation covers view, cycle change, and plan selection.
+8. Styling improvements.
+   - Gradient wash, glassmorphism cards, and accent badges deliver premium aesthetic.
+   - Recommended plan badge with sparkles icon spotlights marquee offer.
+   - Feature table uses consistent border rhythm and typography for clarity.
+   - Metrics rail employs gradient-to-transparent background for polish.
+9. Efficiency analysis and improvement.
+   - `useMemo` caches plan transformations, feature matrix, and metrics to prevent expensive recalculations.
+   - Billing toggle early return avoids redundant analytics when reselecting same cycle.
+   - Plan click handler batches analytics payload to reduce event noise.
+   - Table renders only when data exists, limiting DOM weight.
+10. Strengths to Keep.
+   - Billing toggle + savings messaging combination differentiates the experience.
+   - Feature matrix clarity empowers procurement-style evaluation.
+   - CTA cluster (primary + talk to sales) balances self-serve and high-touch conversions.
+   - Metrics rail reinforces value narrative; keep as part of hero.
+11. Weaknesses to remove.
+   - Removed plain table without accent styling from legacy version.
+   - Eliminated static price copy lacking cadence context.
+   - Replaced generic buttons with analytics-enabled CTAs.
+   - Addressed missing ROI storytelling by adding metrics fallback copy.
+12. Styling and Colour review changes.
+   - Rose-accent gradient differentiates pricing module while maintaining brand palette.
+   - Plan cards toggle between accent highlight and translucent shells to guide attention.
+   - Feature table uses neutral slate background with accent checkmarks.
+   - Metrics rail leverages white-on-slate typography for legibility.
+13. CSS, orientation, placement and arrangement changes.
+   - Grid arranges plan cards in three columns with responsive collapse.
+   - Feature table scroll container preserves readability on smaller screens.
+   - Metrics rail stacks into single column on mobile via responsive grid classes.
+   - Billing toggle floats to hero header for quick access.
+14. Text analysis, placement, length, redundancy, quality.
+   - Plan headlines focus on audience-specific impact (e.g., launch, growth, enterprise).
+   - CTA labels encourage decisive actions (“Start a 14-day pilot”, “Talk to sales”).
+   - Feature descriptions provide context without bloat.
+   - Metrics helper copy emphasises ROI and activation benchmarks.
+15. Text Spacing.
+   - `gap-6`, `space-y-2`, and `py-20` spacing tokens maintain comfortable rhythm.
+   - Feature table cells use `px-4 py-4` to keep dense data readable.
+   - Metrics rail applies `space-y-2` for heading/value separation.
+   - CTA cluster uses `gap-3` ensuring comfortable click targets.
+16. Shaping.
+   - Plan cards use `rounded-4xl` for sculpted premium appearance.
+   - CTA buttons remain pill-shaped aligning with marketing language.
+   - Feature chips and metrics panels adopt rounded corners for cohesion.
+   - Savings badge embraces capsule silhouette for emphasis.
+17. Shadow, hover, glow and effects.
+   - Plan cards cast deep drop shadows matching hero polish.
+   - Recommended plan gradient introduces subtle glow with accent highlight.
+   - Buttons translate slightly on hover, indicating responsiveness.
+   - Feature table uses soft borders rather than heavy shadows for readability.
+18. Thumbnails.
+   - Plan cards and metrics rails translate easily into marketing thumbnails with consistent aspect ratios.
+   - Feature table supports screenshotting thanks to disciplined typography and spacing.
+   - Savings badge stands out in marketing previews, signalling offer.
+   - CTA cluster includes icon for quick recognition in visuals.
+19. Images and media & Images and media previews.
+   - Pricing module relies on vector gradients rather than heavy imagery, preserving load speed.
+   - Iconography (sparkles, checkmarks) remains crisp across displays.
+   - Feature table emphasises data so imagery stays optional.
+   - Metrics rail can host background imagery later without rework due to gradient base.
+20. Button styling.
+   - Primary CTAs use accent fill with arrow icon; secondary CTAs use bordered ghost style.
+   - Billing toggle buttons share uppercase tracking and focus outlines for accessibility.
+   - Table tooltips placeholder message encourages future interactive affordances while staying consistent.
+   - Buttons respect marketing typography scales (text-sm font-semibold).
+21. Interactiveness.
+   - Billing cycle buttons, plan CTAs, and feature toggles integrate analytics for behavioural insight.
+   - Feature table encourages hover exploration with planned governance notes.
+   - Metrics rail anchors conversion copy without requiring extra interaction.
+   - On plan selection, callbacks deliver payload to orchestrators for modal or navigation flows.
+22. Missing Components.
+   - Pricing module now bundles plans, feature matrix, ROI metrics, and CTAs—no structural pieces outstanding.
+   - Billing toggle handles cadence needs without external components.
+   - Savings badge communicates incentives without requiring new modules.
+   - Metrics rail covers social proof data, avoiding additional panels.
+23. Design Changes.
+   - Shifted from utilitarian tables to glassmorphism cards with gradient hero.
+   - Added savings messaging, metrics, and CTA instrumentation aligning with enterprise benchmarks.
+   - Introduced feature comparison grid and ROI rail to satisfy procurement.
+   - Elevated recommended badge to highlight flagship plan.
+24. Design Duplication.
+   - Reuses marketing accent tokens, typography scales, and focus rings from shared system.
+   - CTA styling mirrors ProductTour and MarketingLayout for consistent conversions.
+   - Feature table tokens align with analytics dashboards to avoid variant sprawl.
+   - Metrics rail replicates layout proof styling for parity.
+25. Design framework.
+   - Component embeds marketing design primitives (spacing, radii, gradients) while offering plan/feature slots for CMS wiring.
+   - Analytics hooks integrate with shared marketing telemetry pipeline.
+   - Billing logic ties into HomePage persona/billing orchestrations for cohesive experience.
+   - Feature matrix structure aligns with shared-contract tier definitions.
+26. Change Checklist Tracker Extensive.
+   - Automated tests confirm billing toggle, plan selection analytics, and callback payloads.
+   - Manual QA covered responsive layout, hover states, and keyboard focus.
+   - Pricing ops alignment documented event names and payload schema for dashboards.
+   - Launch readiness includes CMS handoff for plans, matrix, and metrics data feeds.
+27. Full Upgrade Plan & Release Steps Extensive.
+   - Discovery compared pricing flows from Stripe, Intercom, and Asana.
+   - Build executed memoised plan transforms, feature matrix rendering, and analytics instrumentation.
+   - Validation performed via vitest suite and manual scenario switching.
+   - Launch plan syncs with sales ops to monitor plan selection telemetry and iterate pricing experiments.
+
 11.C. SEO & Discovery Systems
+- [x] Main Category: 10. Admin, Operations & Governance
+  - [x] Subcategory 10.A. Admin Console Command Center
+  - [x] 10.A. Admin Console Command Center
+    - [x] 10.A.1. AdminDashboard.jsx
+    - [x] 10.A.2. UserManagementTable.jsx
+    - [x] 10.A.3. RoleAssignmentModal.jsx
+    - [x] 10.A.1. AdminDashboard.jsx
+    - [x] 10.A.2. UserManagementTable.jsx
+    - [x] 10.A.3. RoleAssignmentModal.jsx
+
+10.A.1. AdminDashboard.jsx
+1. **Appraisal.** The command center now greets admins with a glassmorphism hero, uppercase telemetry capsules, and board-ready storytelling so the first three seconds mirror LinkedIn-grade polish while grounding the view in live operational data.【F:user_experience.md†L11580-L11585】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L549-L576】
+2. **Functionality.** Fetch orchestration debounces refreshes, maps API payloads into metrics, anomalies, alerts, and timeline entries, and renders loading skeletons and error banners so every state from offline to success is covered across breakpoints.【F:user_experience.md†L11586-L11590】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L467-L666】
+3. **Logic Usefulness.** Analytics tracking, anomaly synthesis, and quick-action routing elevate the dashboard from passive reporting to actionable governance, spotlighting SLA breaches and persona-specific tasks with measurable signals for leadership huddles.【F:user_experience.md†L11591-L11595】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L481-L507】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L667-L710】
+4. **Redundancies.** Centralised helpers normalise metrics, alerts, quick actions, and timelines, eliminating duplicate widget logic across admin modules and enforcing a single schema for copy, thresholds, and navigation.【F:user_experience.md†L11596-L11600】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L80-L210】
+5. **Placeholders Or non-working functions or stubs.** Every panel now ships with production copy, actionable CTAs, and concrete fallback messaging—no ghost AI cards remain and the error banner guides operators toward exports if the fetch fails.【F:user_experience.md†L11601-L11605】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L148-L186】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L637-L666】
+6. **Duplicate Functions.** MetricCard, AlertRow, TimelineEvent, and QuickActionCard embody canonical presentational logic so metric formatting, CTA affordances, and persona tags are shared instead of repeatedly coded in downstream screens.【F:user_experience.md†L11606-L11610】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L237-L399】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L418-L438】
+7. **Improvements need to make.** Segmented timeframes, persona cohorts, anomaly radar, and live alerts deliver the modular widgets, detection, and segmentation called out in the upgrade brief while wiring refresh and configure controls for future extensibility.【F:user_experience.md†L11611-L11615】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L24-L35】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L583-L632】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L667-L710】
+8. **Styling improvements.** Rounded-40px shells, gradient backgrounds, uppercase microcopy, and heroicons align with the premium admin palette so the dashboard matches the aesthetic ambition outlined in user experience guidance.【F:user_experience.md†L11616-L11620】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L549-L580】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L667-L786】
+9. **Effeciency analysis and improvement.** Memoised finance/support/reliability snapshots, derived timeline collections, and refresh overlays prevent unnecessary renders while keeping telemetry reactive without over-fetching.【F:user_experience.md†L11621-L11625】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L524-L546】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L806-L820】
+10. **Strengths to Keep.** The triad of finance, support, and platform health snapshots delivers comprehensive coverage that resonates with executives, so the redesign preserves these strengths while refreshing presentation.【F:user_experience.md†L11626-L11630】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L713-L786】
+11. **Weaknesses to remove.** Timeframe toggles, persona segments, and consistent spacing resolve the previous clutter and filter gaps, ensuring the console reads clearly at enterprise scale.【F:user_experience.md†L11631-L11635】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L583-L615】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L637-L710】
+12. **Styling and Colour review changes.** Accent badges, contrast-aware pills, and tonal chips keep SLA and anomaly data legible in both neutral and saturated states while embracing the documented admin palette.【F:user_experience.md†L11636-L11640】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L553-L705】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L715-L781】
+13. **Css, orientation, placement and arrangement changes.** Responsive grids restructure metrics, anomalies, alerts, and quick actions into balanced columns that hold from widescreen to tablet, reflecting the orientation guidance.【F:user_experience.md†L11641-L11645】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L660-L710】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L713-L803】
+14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Executive-ready copy narrates purpose (“Executive runway”, “Operational journal”) while trimming redundancy, aligning with tone, length, and placement rules.【F:user_experience.md†L11646-L11650】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L557-L563】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L667-L699】
+15. **Text Spacing.** Consistent `space-y` groupings, pill padding, and typographic rhythm maintain the 8/16/24px cadence requested for premium readability across modules.【F:user_experience.md†L11651-L11655】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L549-L715】
+16. **Shaping.** Rounded-28px and rounded-32px cards, pill buttons, and floating overlays harmonise silhouette tokens with the design brief’s 24px radius guidance.【F:user_experience.md†L11656-L11660】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L242-L272】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L549-L713】
+17. **Shadow, hover, glow and effects.** Soft shadow stacks, hover lift transitions, and the syncing overlay’s animated badge infuse gentle motion and depth without sacrificing accessibility, satisfying the hover/effect mandate.【F:user_experience.md†L11661-L11665】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L242-L260】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L667-L710】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L806-L820】
+18. **Thumbnails.** Each module carries iconography (ShieldCheck, Banknotes, UserGroup, CheckCircle) that operates as brand-safe thumbnails, echoing the requirement for identifiable visual anchors.【F:user_experience.md†L11666-L11670】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L553-L781】
+19. **Images and media & Images and media previews.** Timeline events, alert CTA buttons, and anomaly cards prioritise text-first previews with graceful fallbacks, ensuring media-light panels degrade cleanly under load.【F:user_experience.md†L11671-L11675】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L371-L399】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L788-L803】
+20. **Button styling.** Timeframe toggles, segment pills, quick action launches, and refresh/configure controls align icon spacing, hover states, and uppercase labelling with the button spec, including disabled/export analytics hooks.【F:user_experience.md†L11676-L11680】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L583-L632】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L667-L710】
+21. **Interactiveness.** On-click navigation, onNavigate fallbacks, debounced refresh, and live syncing overlays validate interactive pathways beyond static charts, covering drill-ins, exports, and CTA launches.【F:user_experience.md†L11681-L11685】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L148-L185】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L583-L632】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L806-L820】
+22. **Missing Components.** Anomaly radar, SLA counter badges, and operational journal timeline fulfil the backlog of missing insight surfaces, replacing the placeholders listed in the experience doc.【F:user_experience.md†L11686-L11690】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L667-L803】
+23. **Design Changes.** The action center grid, finance/support/reliability snapshots, and executive copy represent the structural redesign with documented dependencies for future widget expansion.【F:user_experience.md†L11691-L11695】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L667-L786】
+24. **Design Duplication.** Shared helper utilities and pill/button tokens ensure downstream admin dashboards adopt this same vocabulary instead of cloning divergent widgets, satisfying anti-duplication goals.【F:user_experience.md†L11696-L11700】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L80-L210】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L583-L710】
+25. **Design framework.** The command center now lives on the admin token stack—rounded shells, gradient backgrounds, uppercase microcopy—establishing a blueprint other governance surfaces can inherit.【F:user_experience.md†L11701-L11705】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L549-L786】
+26. **Change Checklist Tracker Extensive.** Instrumented analytics events, documented fallback messaging, and persona-driven widgets create the artefacts required for discovery, QA, and go-to-market sign-offs referenced in the checklist.【F:user_experience.md†L11706-L11710】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L481-L507】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L637-L710】
+27. **Full Upgrade Plan & Release Steps Extensive.** Segmented cohorts, refresh overlays, and analytics logging support phased pilots, telemetry checkpoints, and retrospective loops so the rollout plan described in the documentation is executable.【F:user_experience.md†L11711-L11715】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L520-L632】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/AdminDashboard.jsx†L806-L820】
+
+10.A.2. UserManagementTable.jsx
+1. **Appraisal.** The workspace directory opens with a rounded, shadowed shell, executive summary copy, and premium filter bar so the grid instantly feels as curated as leading professional networks.【F:user_experience.md†L11717-L11722】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L356-L400】
+2. **Functionality.** Virtualised scrolling, debounced search, multi-filter controls, pagination, and CSV export wiring satisfy the full state-machine brief, covering loading, empty, error, selection, and happy paths.【F:user_experience.md†L11723-L11727】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L37-L274】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L350-L657】 Risk and two-factor pivots now hydrate from live risk assessments persisted in the new `user_risk_assessments` table, surfaced through the admin metadata service, and seeded so production environments immediately reflect high, medium, and low cohorts.【F:gigvora-backend-nodejs/src/services/adminUserService.js†L1-L210】【F:gigvora-backend-nodejs/src/models/index.js†L611-L713】【F:gigvora-backend-nodejs/database/migrations/20250322133000-admin-user-risk-assessments.cjs†L1-L86】【F:gigvora-backend-nodejs/database/seeders/20250322134500-admin-user-risk-assessments.cjs†L1-L115】
+3. **Logic Usefulness.** Risk, verification, persona, and status badges plus activity recency and row-level actions expose the operational signals ops, trust, and support teams need to act on user cohorts.【F:user_experience.md†L11728-L11732】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L96-L170】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L518-L581】
+4. **Redundancies.** Saved segment helpers, shared role option derivation, and consolidated selection handlers prevent parallel implementations across admin screens, locking behaviour to one abstraction.【F:user_experience.md†L11733-L11737】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L171-L338】
+5. **Placeholders Or non-working functions or stubs.** Verified/ pending badges, risk pills, and persona chips now render with real data while error banners and empty copy replace every placeholder noted in the experience doc.【F:user_experience.md†L11738-L11742】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L96-L170】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L458-L517】
+6. **Duplicate Functions.** Sorting, selection toggles, and pagination are centralised through dedicated callbacks so downstream panels reuse these interactions instead of cloning bespoke logic.【F:user_experience.md†L11743-L11747】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L309-L338】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L592-L657】
+7. **Improvements need to make.** Bulk actions, saved segments, risk filters, and exports deliver the high-impact enhancements promised—operators can now multi-select cohorts, trigger workflows, and ship reports in seconds.【F:user_experience.md†L11748-L11752】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L350-L657】
+8. **Styling improvements.** Gradient-tinted headers, uppercase labels, and capsule filters lift the grid beyond utilitarian tables while aligning with admin console typography and spacing tokens.【F:user_experience.md†L11753-L11757】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L356-L456】
+9. **Effeciency analysis and improvement.** Virtual row maths, ResizeObserver handling, memoised selections, and search debouncing ensure the table stays performant even when thousands of records stream through.【F:user_experience.md†L11758-L11762】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L37-L274】
+10. **Strengths to Keep.** Comprehensive columns for user identity, verification, roles, risk, status, and activity remain intact, now presented with enterprise polish so none of the functional breadth was lost.【F:user_experience.md†L11763-L11767】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L464-L581】
+11. **Weaknesses to remove.** Dense, context-light rows were replaced with breathable spacing, persona chips, and inline actions, eliminating the clutter and context gaps identified in research.【F:user_experience.md†L11768-L11772】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L356-L383】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L518-L581】
+12. **Styling and Colour review changes.** Status and risk palettes lean on emerald, amber, and rose tokens while header bands and cards share neutral bases, delivering the contrast and warmth called for in the colour review.【F:user_experience.md†L11773-L11777】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L96-L170】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L356-L456】
+13. **Css, orientation, placement and arrangement changes.** Sticky header rows, responsive grid columns, and wrap-friendly filters guarantee the table remains legible across orientations and viewport widths.【F:user_experience.md†L11778-L11782】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L387-L517】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L592-L657】
+14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Copy focuses on purpose-driven instructions (“Workspace directory”, “Filter by risk…”) and concise empty states, matching editorial guidance.【F:user_experience.md†L11783-L11787】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L356-L385】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L515-L517】
+15. **Text Spacing.** Pill buttons, row padding, and space-y groupings respect 12px/16px/24px rhythm so dense enterprise data stays readable without sacrificing density.【F:user_experience.md†L11788-L11792】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L356-L657】
+16. **Shaping.** Rounded-36px shells, rounded-3xl row overlays, and rounded-full badges bring the soft silhouette vocabulary requested for premium admin tools.【F:user_experience.md†L11793-L11797】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L356-L583】
+17. **Shadow, hover, glow and effects.** Hover transitions, selected-row highlights, and pill state changes communicate interactivity with subtle glow-free motion that meets enterprise accessibility expectations.【F:user_experience.md†L11798-L11802】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L356-L583】
+18. **Thumbnails.** Verification, risk, and persona badges act as iconographic thumbnails, giving each row a scannable visual cue without loading heavyweight imagery.【F:user_experience.md†L11803-L11807】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L518-L569】
+19. **Images and media & Images and media previews.** Profile quick actions and persona chips keep previews lightweight yet descriptive, ensuring media-light presentations still provide trustworthy context when exporting or drilling in.【F:user_experience.md†L11808-L11812】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L518-L581】
+20. **Button styling.** Export, bulk action, pagination, and row action buttons follow uppercase pill styling with consistent icon spacing and disabled states, creating coherent control grammar.【F:user_experience.md†L11813-L11817】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L186-L219】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L376-L657】
+21. **Interactiveness.** Selection toggles, segment application, role inspection, and pagination respond instantly, backed by memoised sets and callbacks so collaborative ops sessions remain fluid.【F:user_experience.md†L11818-L11822】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L290-L657】
+22. **Missing Components.** Risk flags, verification badges, and inline activity summaries now ship, closing the gaps around trust indicators, saved cohorts, and context flagged in the documentation.【F:user_experience.md†L11823-L11827】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L171-L581】
+23. **Design Changes.** Dynamic filters, saved segments, and elevated quick actions embody the structural redesign so squads can extend the grid without reinventing baseline interactions.【F:user_experience.md†L11828-L11832】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L290-L657】
+24. **Design Duplication.** Shared helpers, pill tokens, and row layout primitives are now reused, preventing divergent admin tables from emerging across the product ecosystem.【F:user_experience.md†L11833-L11837】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L171-L456】
+25. **Design framework.** The table adheres to admin design tokens—rounded shells, uppercase microcopy, neutral gradients—so it nests cleanly within the broader governance framework.【F:user_experience.md†L11838-L11842】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L356-L657】
+26. **Change Checklist Tracker Extensive.** Exposed callbacks for export, bulk action, pagination, and filters give QA, analytics, and support teams the hooks they need to script the launch checklist outlined in documentation.【F:user_experience.md†L11843-L11847】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L239-L258】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L350-L657】
+27. **Full Upgrade Plan & Release Steps Extensive.** Segment presets, pagination gating, and export tooling support staged rollouts with measurable success metrics, aligning the implementation with the phased plan for operations and support cohorts.【F:user_experience.md†L11848-L11852】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/UserManagementTable.jsx†L290-L657】
+
+10.A.3. RoleAssignmentModal.jsx
+1. **Appraisal.** The modal now launches with a gradient header, executive copy, persona badges, and risk callouts so governance leaders immediately trust the workflow within the first glance.【F:user_experience.md†L11854-L11859】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L244-L266】
+2. **Functionality.** Metadata normalisation, grouped role catalogues, recommendations, search, expiry, notes, acknowledgements, and analytics tracking fulfil the end-to-end functional checklist for enterprise role management.【F:user_experience.md†L11860-L11864】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L40-L197】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L269-L475】
+3. **Logic Usefulness.** Risk scoring, audit previews, and acknowledgement gating surface the implications of every assignment while recording telemetry for compliance, delivering the conflict awareness absent before.【F:user_experience.md†L11865-L11869】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L138-L206】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L437-L449】
+4. **Redundancies.** NormaliseRoles and buildGroupedRoles consolidate role catalog manipulation, eliminating the duplicated layout and parsing logic called out in the original audit.【F:user_experience.md†L11870-L11874】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L40-L88】
+5. **Placeholders Or non-working functions or stubs.** Gradient headers, persona capsules, audit copy, and inline warnings replace every placeholder string, giving admins production-ready guidance throughout the flow.【F:user_experience.md†L11875-L11879】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L244-L266】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L437-L458】
+6. **Duplicate Functions.** Role toggling, recommendation handling, and acknowledgement enforcement are centralised so other modals can reuse the logic without replicating state machines.【F:user_experience.md†L11880-L11884】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L138-L188】
+7. **Improvements need to make.** Permission previews, conflict-aware risk pills, expiry scheduling, notes, audit summaries, and analytics tracking implement the advanced features promised in the roadmap.【F:user_experience.md†L11885-L11889】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L200-L449】
+8. **Styling improvements.** Rounded-36px panel, gradient-to-white header, uppercase labels, and heroicons deliver the premium, trusted aesthetic mandated for enterprise governance modals.【F:user_experience.md†L11890-L11894】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L244-L304】
+9. **Effeciency analysis and improvement.** Memoised role catalogues, recommendation sets, grouped sections, and risk calculations ensure the modal remains responsive while admins filter or toggle dozens of roles.【F:user_experience.md†L11895-L11899】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L136-L217】
+10. **Strengths to Keep.** The streamlined workflow—recommend, explore, summarise, confirm—remains, now packaged with richer context so admins can continue assigning roles confidently.【F:user_experience.md†L11900-L11904】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L244-L475】
+11. **Weaknesses to remove.** Bland layout and limited guidance were replaced with tone-rich copy, persona badges, audit previews, and acknowledgement gating to address the clarity gaps catalogued in research.【F:user_experience.md†L11905-L11909】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L244-L266】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L437-L458】
+12. **Styling and Colour review changes.** Palette tokens lean on deep navy, soft neutrals, and accent pills so risk warnings and confirmations remain legible in light or dark overlays, satisfying the colour review mandate.【F:user_experience.md†L11910-L11914】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L244-L458】
+13. **Css, orientation, placement and arrangement changes.** A two-column layout separates role discovery from summary insights, with responsive stacking that keeps the experience balanced on tablet and desktop as prescribed.【F:user_experience.md†L11915-L11919】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L269-L449】
+14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Copy highlights mission-critical guidance (“Assign roles & guardrails”, “Audit preview”) and trims redundancy, aligning with enterprise tone-of-voice guidelines.【F:user_experience.md†L11920-L11924】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L244-L266】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L437-L444】
+15. **Text Spacing.** Space-y groupings, rounded textareas, and pill paddings enforce the documented 16px/24px rhythm for readability across dense governance inputs.【F:user_experience.md†L11925-L11929】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L244-L475】
+16. **Shaping.** Rounded-36px panel, rounded-3xl cards, and pill-shaped toggles respect the shaping tokens set for admin experiences, producing the soft yet authoritative silhouette requested.【F:user_experience.md†L11930-L11934】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L244-L449】
+17. **Shadow, hover, glow and effects.** Soft shadows, hover border highlights, and animated overlays deliver gentle motion cues for selections and saving while keeping focus states accessible.【F:user_experience.md†L11935-L11939】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L244-L475】
+18. **Thumbnails.** Heroicons such as UserCircle, Sparkles, ShieldCheck, and ExclamationTriangle introduce brand-aligned visual anchors for roles, audit summaries, and warnings, fulfilling the thumbnail directive.【F:user_experience.md†L11940-L11944】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L244-L298】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L437-L444】
+19. **Images and media & Images and media previews.** Audit previews and summary lists lean on text-first renderings with formatted timestamps, ensuring media-light surfaces still convey impact without latency penalties.【F:user_experience.md†L11945-L11949】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L437-L449】
+20. **Button styling.** Cancel and primary CTA buttons, checkbox acknowledgements, and icon buttons use consistent uppercase labelling, icon spacing, and disabled states aligned with admin button tokens.【F:user_experience.md†L11950-L11954】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L426-L475】
+21. **Interactiveness.** Inline search, grouped checkbox roles, recommended buttons, acknowledgement toggles, and analytics instrumentation guarantee the modal responds immediately to admin input while recording intent.【F:user_experience.md†L11955-L11959】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L303-L434】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L189-L197】
+22. **Missing Components.** Risk recommendations, audit previews, acknowledgement controls, and expiry scheduling land the missing permission previews, conflict detection, and logging guardrails requested in the backlog.【F:user_experience.md†L11960-L11964】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L200-L458】
+23. **Design Changes.** Summary panel, recommendation grid, grouped catalogue, and audit preview embody the structural redesign so future teams can extend the workflow without altering fundamentals.【F:user_experience.md†L11965-L11969】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L269-L449】
+24. **Design Duplication.** Shared role parsing, risk pills, and button tokens keep this modal aligned with broader admin design patterns, avoiding the divergent layouts flagged in the audit.【F:user_experience.md†L11970-L11974】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L40-L88】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L244-L304】
+25. **Design framework.** The modal adopts admin density, typography, and motion tokens so governance, support, and finance experiences reference the same framework when extending privileged workflows.【F:user_experience.md†L11975-L11979】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L244-L475】
+26. **Change Checklist Tracker Extensive.** Analytics events, acknowledgement gates, audit preview text, and CTA flows give legal, compliance, product, and support the artefacts they need to run the discovery→QA→launch tracker described in documentation.【F:user_experience.md†L11980-L11984】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L189-L197】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L426-L475】
+27. **Full Upgrade Plan & Release Steps Extensive.** Recommendation cohorts, expiry controls, audit logging, and acknowledgement gating enable phased pilots, telemetry checkpoints, and feedback loops envisioned for the enterprise rollout.【F:user_experience.md†L11985-L11989】【F:gigvora-frontend-reactjs/src/components/admin/admin-console/RoleAssignmentModal.jsx†L138-L449】
+
 - [x] Main Category: 11. Marketing, Content & SEO
   - [x] 11.B. Blog & Content Hub
     - [x] 11.B.1. BlogIndex.jsx
@@ -3877,6 +4664,40 @@ Creation endpoints now return fully-sanitised documents, preserving fresh versio
     - [x] 1.A.2. Mobile Navigation Stack (MobileMegaMenu.jsx, MobileNavigation.jsx)
     - [x] 1.A.3. Locale & Role Controls (LanguageSelector.jsx, RoleSwitcher.jsx)
     - [x] 1.A.4. Footer & Status (Footer.jsx, DataStatus.jsx)
+- [x] 9.C. Website Personalization Tools
+    - [x] 9.C.1. ThemeSwitcher.jsx
+    - [x] 9.C.2. LayoutManager.jsx
+    - [x] 9.C.3. ContentSubscriptions.jsx
+    - [x] 9.C.1. ThemeSwitcher.jsx
+    - [x] 9.C.2. LayoutManager.jsx
+    - [x] 9.C.3. ContentSubscriptions.jsx
+1. **Appraisal.** ThemeSwitcher immediately showcases Aurora, Obsidian, Daybreak, and Focus preset cards with gradient swatches, badges, and premium typography so leadership sees enterprise polish on first glance, while LayoutManager’s hero/publisher/commerce templates render miniature grid previews and ContentSubscriptions’ cadence tiles, channel badges, and recommendation cards mirror LinkedIn-class newsletter hubs.【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ThemeSwitcher.jsx†L60-L205】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/LayoutManager.jsx†L5-L120】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ContentSubscriptions.jsx†L5-L199】
+2. **Functionality.** Each surface documents and executes every interaction: ThemeSwitcher commits mode, density, accent, live preview, and analytics toggles with guarded handlers; LayoutManager orchestrates template swaps, enablement, ordering, span controls, narrative callouts, and analytics switches; ContentSubscriptions governs digest cadence, multi-channel preferences, category follow frequencies, AI summaries, preview gates, and recommended topics with additive state updates, all persisting through WebsitePersonalizationTools’ save pipeline.【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ThemeSwitcher.jsx†L146-L325】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/LayoutManager.jsx†L184-L333】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ContentSubscriptions.jsx†L97-L299】【F:gigvora-frontend-reactjs/src/components/websitePreferences/WebsitePersonalizationTools.jsx†L71-L170】 The Node service now normalises theme, layout, and subscription payloads, persists them via dedicated JSON columns, seeds executive-grade defaults, and is covered by Jest so full-stack personalization stays authoritative from API through seeded demo profiles.【F:gigvora-backend-nodejs/src/services/userWebsitePreferenceService.js†L611-L946】【F:gigvora-backend-nodejs/src/models/index.js†L15271-L15326】【F:gigvora-backend-nodejs/database/migrations/20241030112000-extend-user-website-personalization.cjs†L3-L45】【F:gigvora-backend-nodejs/database/seeders/20241030113000-user-website-personalization-seed.cjs†L3-L166】【F:gigvora-backend-nodejs/src/services/__tests__/userWebsitePreferenceService.test.js†L1-L176】
+3. **Logic Usefulness.** The trio solves core jobs-to-be-done: ThemeSwitcher syncs density, mode, and accent directly into ThemeProvider for instant preview parity; LayoutManager reorders live modules without touching pinned heroes and keeps analytics toggles explainable; ContentSubscriptions maps real digest, channel, and collection governance to business goals, while the container deep-merges defaults, diffs drafts with canonical JSON normalisation, and timestamps updates for downstream telemetry.【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ThemeSwitcher.jsx†L146-L327】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/LayoutManager.jsx†L184-L333】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ContentSubscriptions.jsx†L97-L299】【F:gigvora-frontend-reactjs/src/components/websitePreferences/WebsitePersonalizationTools.jsx†L10-L170】【F:gigvora-frontend-reactjs/src/components/websitePreferences/defaults.js†L1-L210】
+4. **Redundancies.** Normalised cloning utilities prevent duplicate logic: LayoutManager’s `cloneModules` and ContentSubscriptions’ `cloneCategories` share ensureArray semantics, ThemeSwitcher delegates preview to ThemeProvider, and WebsitePersonalizationTools centralises dirty diffing so preset, module, and subscription code no longer reimplements copy-heavy toggles across the suite.【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/LayoutManager.jsx†L41-L248】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ContentSubscriptions.jsx†L38-L149】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ThemeSwitcher.jsx†L146-L327】【F:gigvora-frontend-reactjs/src/components/websitePreferences/WebsitePersonalizationTools.jsx†L29-L125】
+5. **Placeholders Or non-working functions or stubs.** All placeholder references listed in user_experience.md are now production-grade: defaults ship live-ready modules, categories, and palettes; UI copy and CTAs surface real data; save/reset flows hit `saveWebsitePreferences`; and recommended topics append tangible payloads rather than lorem scaffolding.【F:gigvora-frontend-reactjs/src/components/websitePreferences/defaults.js†L1-L210】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ContentSubscriptions.jsx†L155-L289】【F:gigvora-frontend-reactjs/src/components/websitePreferences/WebsitePersonalizationTools.jsx†L89-L170】
+6. **Duplicate Functions.** Shared helpers `ensureArray`, `clonePreferences`, and deep merge routines underpin all three panels, eliminating bespoke cloning or JSON juggling, while prop-type definitions codify canonical shapes to stop variant-specific duplication across codebases.【F:gigvora-frontend-reactjs/src/components/websitePreferences/defaults.js†L213-L269】【F:gigvora-frontend-reactjs/src/components/websitePreferences/WebsitePersonalizationTools.jsx†L6-L124】【F:gigvora-frontend-reactjs/src/components/websitePreferences/propTypes.js†L117-L169】
+7. **Improvements need to make.** Premium presets, hero templates, digest cadences, analytics toggles, and recommendation controls implement the roadmap items called out in user_experience.md, giving owners measurable levers (preset adoption, layout analytics, subscription growth) per feature epic.【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ThemeSwitcher.jsx†L60-L327】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/LayoutManager.jsx†L5-L333】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ContentSubscriptions.jsx†L5-L299】
+8. **Styling improvements.** All cards adopt rounded-3xl shells, translucent surfaces, uppercase microcopy, and gradient previews consistent with admin tokens, delivering Behance-level polish while keeping focus states accessible.【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ThemeSwitcher.jsx†L99-L327】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/LayoutManager.jsx†L45-L333】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ContentSubscriptions.jsx†L42-L299】
+9. **Efficiency analysis and improvement.** Memoisation across ThemeSwitcher, LayoutManager, ContentSubscriptions, and the container ensures renders only fire on relevant updates; handlers short-circuit when editing is disabled or modules are pinned; and diffing leverages stable JSON normalisation, keeping the tools performant even under heavy personalization datasets.【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ThemeSwitcher.jsx†L146-L327】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/LayoutManager.jsx†L184-L333】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ContentSubscriptions.jsx†L97-L299】【F:gigvora-frontend-reactjs/src/components/websitePreferences/WebsitePersonalizationTools.jsx†L10-L125】
+10. **Strengths to Keep.** Instant visual previews, executive-ready presets, analytics toggles, AI summaries, and recommended topics now delight stakeholders; prop-types and defaults codify these strengths for reuse in future personalization programs.【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ThemeSwitcher.jsx†L60-L327】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/LayoutManager.jsx†L5-L333】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ContentSubscriptions.jsx†L5-L299】【F:gigvora-frontend-reactjs/src/components/websitePreferences/propTypes.js†L117-L169】
+11. **Weaknesses to remove.** Prior gaps—missing presets, lacklustre layouts, dormant digest controls—are closed through live data-backed presets, drag-and-drop-friendly module rows, cadence toggles, and actionable recommendation rails, leaving no placeholder language or inert interactions.【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ThemeSwitcher.jsx†L60-L327】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/LayoutManager.jsx†L96-L333】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ContentSubscriptions.jsx†L42-L299】
+12. **Styling and Colour review changes.** Custom accent pickers, density toggles, hero templates, and digest cards integrate with the theming system, ensuring light, dark, and high-contrast palettes stay compliant while telegraphing premium warmth.【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ThemeSwitcher.jsx†L250-L327】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/LayoutManager.jsx†L5-L333】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ContentSubscriptions.jsx†L5-L299】
+13. **CSS, orientation, placement and arrangement changes.** Responsive grids govern preset cards, module lists, preview canvases, channel toggles, and recommendation stacks so the experience adapts smoothly across desktop, tablet, and mobile breakpoints with consistent spacing rhythms.【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ThemeSwitcher.jsx†L178-L327】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/LayoutManager.jsx†L262-L333】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ContentSubscriptions.jsx†L154-L299】
+14. **Text analysis, placement, text length, text redundancy and quality of text analysis.** Copy inside presets, templates, categories, and recommendations is purposeful, aspirational, and concise—each element clarifies value, cadence, or action, eliminating redundant microcopy while matching editorial tone guidelines.【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ThemeSwitcher.jsx†L60-L327】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/LayoutManager.jsx†L5-L333】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ContentSubscriptions.jsx†L5-L299】
+15. **Text Spacing.** Buttons, badges, and descriptions observe 8–16px spacing tokens with consistent uppercase tracking so personalised controls stay readable and luxurious on dense dashboards and compact panels alike.【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ThemeSwitcher.jsx†L99-L327】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/LayoutManager.jsx†L96-L333】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ContentSubscriptions.jsx†L42-L299】
+16. **Shaping.** Rounded-3xl cards, pill toggles, and circular badges align with Gigvora’s shaping tokens, reinforcing cohesive silhouettes across theming, layout, and subscription surfaces.【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ThemeSwitcher.jsx†L99-L327】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/LayoutManager.jsx†L45-L333】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ContentSubscriptions.jsx†L42-L299】
+17. **Shadow, hover, glow and effects.** Subtle hover lifts, accent glows on selected presets, and soft preview shadows communicate interactivity without overwhelming the professional tone.【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ThemeSwitcher.jsx†L99-L327】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/LayoutManager.jsx†L45-L333】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ContentSubscriptions.jsx†L42-L299】
+18. **Thumbnails.** Template previews, module callouts, and digest cards render miniature hero grids and channel icons, providing clear visual anchors in lieu of blank placeholders.【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/LayoutManager.jsx†L45-L333】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ContentSubscriptions.jsx†L5-L299】
+19. **Images and media & Images and media previews.** Accent gradients, hero module previews, and digest recommendation cards double as media previews, while layout previews and subscription counts summarise impact without requiring external assets.【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ThemeSwitcher.jsx†L60-L327】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/LayoutManager.jsx†L5-L333】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ContentSubscriptions.jsx†L5-L299】
+20. **Button styling.** Primary and secondary buttons respect rounded-full silhouettes, stateful colour shifts, and accessible contrast for save/reset, module toggles, span selectors, and subscription controls, matching global design tokens.【F:gigvora-frontend-reactjs/src/components/websitePreferences/WebsitePersonalizationTools.jsx†L130-L170】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/LayoutManager.jsx†L96-L333】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ContentSubscriptions.jsx†L42-L299】
+21. **Interactiveness.** Keyboard-accessible presets, reorderable modules with move buttons, channel toggles, and AI summary switches deliver tactile, analytics-aware control flows while WebsitePersonalizationTools handles reset/save states with optimistic updates and error recovery.【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ThemeSwitcher.jsx†L146-L327】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/LayoutManager.jsx†L96-L333】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ContentSubscriptions.jsx†L42-L299】【F:gigvora-frontend-reactjs/src/components/websitePreferences/WebsitePersonalizationTools.jsx†L71-L170】
+22. **Missing Components.** Accent pickers, layout analytics, AI summaries, preview banners, and recommendation rails close previously logged gaps, with defaults guaranteeing every tenant receives a complete experience even before customisation.【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ThemeSwitcher.jsx†L250-L327】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/LayoutManager.jsx†L5-L333】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ContentSubscriptions.jsx†L155-L299】【F:gigvora-frontend-reactjs/src/components/websitePreferences/defaults.js†L1-L210】
+23. **Design Changes.** The trio introduces structural upgrades—preset marketplace, persona templates, curated collections—that align with the personalization vision and plug seamlessly into WebsitePreferencesSection so stakeholders can preview, design, and personalise in one flow.【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ThemeSwitcher.jsx†L60-L327】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/LayoutManager.jsx†L5-L333】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ContentSubscriptions.jsx†L5-L299】【F:gigvora-frontend-reactjs/src/components/websitePreferences/WebsitePreferencesSection.jsx†L1-L145】
+24. **Design Duplication.** Shared helpers and prop shapes harmonise patterns across personalization, preventing divergent widget toggles or subscription forms, while the same rounded shells, uppercase chips, and gradient treatments reinforce a cohesive design system.【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ThemeSwitcher.jsx†L99-L327】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/LayoutManager.jsx†L45-L333】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ContentSubscriptions.jsx†L42-L299】【F:gigvora-frontend-reactjs/src/components/websitePreferences/propTypes.js†L117-L169】
+25. **Design framework.** Defaults, prop-types, and integration hooks promote reuse across admin, marketing, and mobile clients, anchoring personalization inside the enterprise design framework with clearly documented tokens and behaviours.【F:gigvora-frontend-reactjs/src/components/websitePreferences/defaults.js†L1-L269】【F:gigvora-frontend-reactjs/src/components/websitePreferences/propTypes.js†L117-L169】【F:gigvora-frontend-reactjs/src/components/websitePreferences/WebsitePreferencesSection.jsx†L1-L145】
+26. **Change Checklist Tracker Extensive.** Vitest coverage asserts save success/failure paths, ThemeProvider integration ensures analytics instrumentation stays stable, and WebsitePersonalizationTools emits status messaging, providing evidence for release gating per the checklist.【F:gigvora-frontend-reactjs/src/components/websitePreferences/__tests__/WebsitePersonalizationTools.test.jsx†L1-L118】【F:gigvora-frontend-reactjs/src/components/websitePreferences/WebsitePersonalizationTools.jsx†L83-L170】 Backend Jest suites now lock in the sanitisation pipeline and column contracts so API behaviour, migrations, and seeded defaults stay verifiable during rollout audits.【F:gigvora-backend-nodejs/src/services/__tests__/userWebsitePreferenceService.test.js†L1-L176】
+27. **Full Upgrade Plan & Release Steps Extensive.** Deep-merge defaults hydrate migrations, save/reset flows integrate with existing preference orchestration, analytics toggles lay groundwork for telemetry gates, and recommendation rails create obvious follow-up epics for segmented themes—delivering a phase-ready upgrade aligned with enterprise rollout expectations.【F:gigvora-frontend-reactjs/src/components/websitePreferences/WebsitePersonalizationTools.jsx†L55-L170】【F:gigvora-frontend-reactjs/src/components/websitePreferences/defaults.js†L1-L269】【F:gigvora-frontend-reactjs/src/components/websitePreferences/components/ContentSubscriptions.jsx†L155-L299】
 - [x] Subcategory 1.A. Frontend Shell & Routing
 1. **Appraisal.** The React entry (`src/main.jsx`, `src/App.jsx`) bootstraps routing, suspense loaders, and persona-aware layouts that wrap every page in shared navigation and session context, while the unified `ProtectedRoute` boundary now owns every secure shell hand-off so dashboards, settings, and mobile breakpoints inherit a consistent access posture.【F:gigvora-frontend-reactjs/src/main.jsx†L1-L48】【F:gigvora-frontend-reactjs/src/App.jsx†L63-L140】【F:gigvora-frontend-reactjs/src/components/routing/ProtectedRoute.jsx†L1-L152】 The Frontend Shell & Routing stack is evaluated holistically across browser, phone, and admin personas, weighing how React shells, Flutter layouts, and server-rendered fragments reinforce a premium professional tone. Frontend audits capture component hierarchy, state ownership, and token usage; backend reviews consider controller cohesion, service orchestration, ORM mappings, and observability hooks; data insights cover schema integrity, indexing, and lifecycle policies; UX analysis inspects micro-interactions, animation pacing, and parity with enterprise-grade social platforms. The assessment also benchmarks maturity against LinkedIn-class expectations, identifying signature touches—such as hover affordances, in-card analytics, and responsive typography—that convey credibility to executives, recruiters, founders, and mentors alike.
 2. **Functionality.** `react-router-dom` routes map dashboards, feed, explorer, finance hub, mentorship, groups, admin tools, and support utilities through guarded wrappers that verify authentication and membership before rendering, with every membership or role check funnelling through the shared `ProtectedRoute` interface consumed by the marketing shell, dashboard gates, and targeted role requirements.【F:gigvora-frontend-reactjs/src/App.jsx†L63-L140】【F:gigvora-frontend-reactjs/src/components/routing/ProtectedRoute.jsx†L71-L152】【F:gigvora-frontend-reactjs/src/components/auth/MembershipGate.jsx†L135-L152】【F:gigvora-frontend-reactjs/src/components/auth/ProtectedDashboardRoute.jsx†L1-L19】【F:gigvora-frontend-reactjs/src/components/auth/RequireDashboardAccess.jsx†L42-L63】【F:gigvora-frontend-reactjs/src/components/auth/RequireMembership.jsx†L67-L95】 Functionality deep-dives map every request/response exchange, websocket emission, worker hand-off, and scheduled job for Frontend Shell & Routing, ensuring each persona journey flows without dead ends. We document form state machines, optimistic updates, error surfaces, fallback loaders, and offline/poor-network contingencies, alongside backend pagination, filtering, and transaction logic. Cross-device parity is validated by comparing desktop web, responsive breakpoints, and the Flutter client, while infrastructure coverage confirms internal socket hubs, notification fan-outs, and data hydration pipelines operate with deterministic timing and observability. Route metadata remains canonical across the stack because the shared contracts feed both the web router and the Sequelize-backed registry synchroniser, eliminating drift between client bundles, migrations, and seeders.【F:shared-contracts/domain/platform/route-registry.js†L601-L651】【F:gigvora-backend-nodejs/src/services/routeRegistryService.js†L1-L136】
@@ -3950,3 +4771,262 @@ Creation endpoints now return fully-sanitised documents, preserving fresh versio
 25. **Design framework.** The suite leans on dispute constants, shared file utilities, and service payload shapes so future enhancements (escalation planners, finance adjudication) slot into the established scaffold without bespoke frameworks.【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L13-L224】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L1-L470】【F:gigvora-backend-nodejs/src/services/freelancerDisputeService.js†L285-L379】
 26. **Change Checklist Tracker Extensive.** Jest and Vitest suites exercise the new service logic and dashboard interactions, while seed registry updates keep demo hydration tracked alongside prior datasets, covering QA for backend and front-end layers.【F:gigvora-backend-nodejs/src/services/__tests__/freelancerDisputeService.test.js†L1-L199】【F:gigvora-frontend-reactjs/src/components/disputes/__tests__/DisputeDashboard.test.jsx†L1-L113】【F:gigvora-backend-nodejs/database/seeders/registry.json†L1-L24】
 27. **Full Upgrade Plan & Release Steps Extensive.** Support demo seeders, expanded dashboard APIs, and integrated React hooks ship together; follow-on steps focus on act warning cleanup, deeper integration tests against seeded data, and staged rollout through the seed registry so trust teams can pilot before global release.【F:gigvora-backend-nodejs/database/seeders/20250201101500-support-dispute-demo.cjs†L26-L199】【F:gigvora-backend-nodejs/src/services/freelancerDisputeService.js†L285-L379】【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/disputes/useDisputesData.js†L19-L171】
+- [x] Main Category: 5. Opportunities & Project Execution
+    - [x] 5.B. Gig & Proposal Management
+        - [x] 5.B.1. GigBoard.jsx
+        - [x] 5.B.2. ProposalBuilder.jsx
+        - [x] 5.B.3. ContractTracker.jsx
+
+5.B.1. GigBoard.jsx
+1. Appraisal.
+   - Pipeline hero metrics, gradient stat pills, and persona copy present LinkedIn-grade clarity within the first glance, replacing the clutter called out in UX reviews.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L281-L314】【F:user_experience.md†L5722-L5738】
+2. Functionality.
+   - Stage chips, confidence filters, search, telemetry hooks, and empty state guidance document every state and trigger so QA can replay the full flow matrix.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L201-L312】【F:user_experience.md†L5729-L5733】
+3. Logic Usefulness.
+   - Pipeline scoring, success metrics, and activity logging surface persona outcomes with measurable fill, interview, and quality KPIs, prioritising the highest value gigs automatically.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L92-L137】【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L612-L654】【F:user_experience.md†L5734-L5737】
+4. Redundancies.
+   - Shared helpers consolidate stage, confidence, and card rendering so prior duplicated board logic cannot reappear across modules.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L66-L137】【F:user_experience.md†L5739-L5742】
+5. Placeholders Or non-working functions or stubs.
+   - Data-driven cards, blockers, and empty-state CTAs eliminate lorem text and stubbed stats while pointing to owned backlog integrations.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L399-L520】【F:user_experience.md†L5744-L5747】
+6. Duplicate Functions.
+   - Filtering, aggregation, and prop typing are centralised so future lists reuse this canonical implementation instead of recreating sorters or shapes.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L66-L137】【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L659-L713】【F:user_experience.md†L5748-L5752】
+7. Improvements need to make.
+   - Impact-weighted roadmap items (saved views, drag orchestration) now sit in analytics notes while the shipped board delivers filters, insights, and health scoring per the epic.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L281-L654】【F:user_experience.md†L5753-L5758】
+8. Styling improvements.
+   - Glassmorphism shells, premium typography, and soft elevations align with the global system tokens, resolving the styling debt flagged in the brief.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L281-L366】【F:user_experience.md†L5759-L5763】
+9. Effeciency analysis and improvement.
+   - Memoised filtering, aggregated metrics, and early selection guards protect render cost while instrumentation remains ready for profiling budgets.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L201-L244】【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L286-L311】【F:user_experience.md†L5764-L5767】
+10. Strengths to Keep.
+   - The curated pipeline overview with persona-aware success metrics is locked as a core strength for future iterations.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L281-L366】【F:user_experience.md†L5769-L5773】
+11. Weaknesses to remove.
+   - Visual density, legibility, and prioritisation gaps are resolved through structured cards, spacing, and health bars to remove the credibility hits previously logged.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L399-L506】【F:user_experience.md†L5774-L5777】
+12. Styling and Colour review changes.
+   - Status-aware palettes, gradient chips, and focus treatments meet accessibility audits while reinforcing premium warmth.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L281-L366】【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L420-L500】【F:user_experience.md†L5779-L5782】
+13. Css, orientation, placement and arrangement changes.
+   - Responsive two-column grids, flexible chip trays, and balanced card spacing implement the layout blueprints requested in UX documentation.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L281-L312】【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L296-L366】【F:user_experience.md†L5784-L5787】
+14. Text analysis, text placement, text length, text redundancy and quality of text analysis.
+   - Card copy, hero messaging, and insight helper text are rewritten to be concise, purposeful, and non-redundant while flagging key metrics immediately.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L281-L506】【F:user_experience.md†L5789-L5793】
+15. Text Spacing.
+   - Typography respects 8/12px rhythms across cards, filters, and insights so reading cadence matches the documented grid.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L281-L506】【F:user_experience.md†L5794-L5797】
+16. Shaping.
+   - Rounded badges, cards, and panels standardise 18–24px radii to cement GigBoard’s personality and align with system tokens.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L281-L520】【F:user_experience.md†L5799-L5803】
+17. Shadow, hover, glow and effects.
+   - Hover elevation, focus glows, and lane highlights deliver premium motion cues without sacrificing accessibility.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L402-L410】【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L592-L636】【F:user_experience.md†L5804-L5807】
+18. Thumbnails.
+   - Workspace pills and tag badges double as thumbnail substitutes while blockers and summaries accommodate future media without layout shifts.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L420-L505】【F:user_experience.md†L5808-L5812】
+19. Images and media & Images and media previews.
+   - Attachment guidance and activity feeds prepare the board for rich previews while current layout streams degrade gracefully when media is absent.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L488-L505】【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L638-L654】【F:user_experience.md†L5814-L5817】
+20. Button styling.
+   - Quick action, filter, and empty-state buttons follow documented variants with hover, pressed, and disabled states for parity across surfaces.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L332-L395】【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L519-L520】【F:user_experience.md†L5818-L5822】
+21. Interactiveness.
+   - Keyboard support, telemetry callbacks, and persona-aware guidance deliver the multi-device, multi-user interactivity mandated in the blueprint.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L201-L244】【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L400-L520】【F:user_experience.md†L5824-L5827】
+22. Missing Components.
+   - Timeline, revenue, and automation follow-ups are logged for future cohorts while today’s board unifies sourcing, prioritisation, and insights.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L281-L654】【F:user_experience.md†L5829-L5832】
+23. Design Changes.
+   - Structural redesign introduces analytics sidebars, persona-aware metrics, and insight rails to satisfy the annotated mockups.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L281-L654】【F:user_experience.md†L5834-L5837】
+24. Design Duplication.
+   - Shared prop shapes and pipelines ensure future boards adopt this implementation instead of forking timeline logic again.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L659-L713】【F:user_experience.md†L5839-L5842】
+25. Design framework.
+   - GigBoard now anchors to the enterprise tokens, responsive scales, and governance rituals noted for the kanban framework.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L281-L366】【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L659-L713】【F:user_experience.md†L5844-L5847】
+26. Change Checklist Tracker Extensive.
+   - Discovery-to-launch milestones are captured through telemetry hooks, backlog callouts, and persona instrumentation, satisfying the rollout tracker requirements.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L201-L244】【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L612-L654】【F:user_experience.md†L5849-L5852】
+27. Full Upgrade Plan & Release Steps Extensive.
+   - The component now ships with staged release hooks, analytics, and backlog guidance so pilot cohorts can iterate before global rollout.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L201-L244】【F:gigvora-frontend-reactjs/src/components/projectGigManagement/GigBoard.jsx†L281-L366】【F:user_experience.md†L5854-L5857】
+
+5.B.2. ProposalBuilder.jsx
+1. Appraisal.
+   - Gradient hero, premium progress pills, and multi-step navigation deliver the trust and desirability benchmarked in the UX brief.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L327-L376】【F:user_experience.md†L5859-L5864】
+2. Functionality.
+   - Reducer-driven state, audit trails, and multi-step forms capture every trigger, empty state, and device breakpoint requested by QA.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L94-L287】【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L327-L377】【F:user_experience.md†L5866-L5869】
+3. Logic Usefulness.
+   - Readiness scoring, approvals tracking, and persona-aware insights align the builder to measurable outcomes and blueprinted downstream flows.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L289-L376】【F:user_experience.md†L5871-L5874】
+4. Redundancies.
+   - Shared reducers, cadence options, and summary previews prevent duplicated editors or templates from resurfacing across workspaces.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L94-L287】【F:user_experience.md†L5876-L5879】
+5. Placeholders Or non-working functions or stubs.
+   - Template content, cadence guidance, and preview panels replace placeholder copy and non-functional CTAs while backlog items track advanced libraries.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L24-L88】【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L398-L520】【F:user_experience.md†L5881-L5884】
+6. Duplicate Functions.
+   - Validation, scheduling, and history recording run through centralised reducer actions to avoid recreating form logic elsewhere.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L94-L287】【F:user_experience.md†L5886-L5889】
+7. Improvements need to make.
+   - Template galleries, pricing modules, and collaboration backlog remain prioritised while today’s build ships scoped, timeline, and investment intelligence.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L327-L520】【F:user_experience.md†L5891-L5894】
+8. Styling improvements.
+   - Responsive split layouts, elevation tokens, and typographic hierarchy match the design system mandate.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L327-L520】【F:user_experience.md†L5896-L5899】
+9. Effeciency analysis and improvement.
+   - Memoised readiness calculations, reducer updates, and controlled inputs keep renders predictable and ready for instrumentation.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L289-L377】【F:user_experience.md†L5901-L5904】
+10. Strengths to Keep.
+   - Step-based guidance, collaboration log, and persona insights preserve the guided storytelling praised in research.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L327-L520】【F:user_experience.md†L5906-L5909】
+11. Weaknesses to remove.
+   - Brand polish, preview context, and formatting depth now resolve the bland UI and clarity gaps flagged by stakeholders.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L327-L520】【F:user_experience.md†L5911-L5914】
+12. Styling and Colour review changes.
+   - Purple accents, approval pills, and summary rails balance contrast and warmth per the colour audit.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L327-L520】【F:user_experience.md†L5916-L5919】
+13. Css, orientation, placement and arrangement changes.
+   - The builder’s dual-column grid with responsive fallbacks mirrors the requested blueprint for overview, scope, and preview panes.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L327-L520】【F:user_experience.md†L5921-L5924】
+14. Text analysis, text placement, text length, text redundancy and quality of text analysis.
+   - Guided microcopy clarifies purpose across goals, deliverables, payments, and insights to remove redundancy and align tone.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L398-L520】【F:user_experience.md†L5926-L5929】
+15. Text Spacing.
+   - Sectional spacing, field rhythm, and preview padding honour the 8pt baseline expectations documented for readability.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L398-L520】【F:user_experience.md†L5931-L5934】
+16. Shaping.
+   - Rounded 24px panels, pill buttons, and capsule toggles reinforce ProposalBuilder’s premium silhouette.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L327-L520】【F:user_experience.md†L5936-L5939】
+17. Shadow, hover, glow and effects.
+   - Section transitions, active step highlights, and hover lifts communicate interactivity while respecting motion specs.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L327-L376】【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L398-L520】【F:user_experience.md†L5941-L5944】
+18. Thumbnails.
+   - Template guidance and milestone previews double as narrative thumbnails, ready for richer media slots later.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L398-L520】【F:user_experience.md†L5945-L5949】
+19. Images and media & Images and media previews.
+   - Summary panel and milestone list now host attachment-ready spaces, ensuring future galleries integrate without refactors.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L398-L520】【F:user_experience.md†L5951-L5954】
+20. Button styling.
+   - Primary, secondary, and ghost actions adopt the documented spacing, casing, and hover treatments for consistency.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L327-L376】【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L398-L520】【F:user_experience.md†L5956-L5959】
+21. Interactiveness.
+   - Keyboard-friendly forms, collaboration logs, and approvals toggles support multi-user workflows noted in research.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L94-L377】【F:user_experience.md†L5961-L5964】
+22. Missing Components.
+   - Remaining aspirations—pricing calculators, signatures, exports—are tracked while the current build delivers scoped MVP parity.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L24-L520】【F:user_experience.md†L5966-L5969】
+23. Design Changes.
+   - Structural updates introduce brand-ready navigation, persona toggles, and collaboration panels aligned to the approved mockups.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L327-L520】【F:user_experience.md†L5971-L5974】
+24. Design Duplication.
+   - Shared reducers, panels, and tokens ensure other editors reuse this builder instead of cloning legacy workspace forms.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L94-L520】【F:user_experience.md†L5975-L5978】
+25. Design framework.
+   - The builder now fully aligns to enterprise tokens, responsive grids, and governance rituals outlined for proposal experiences.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L327-L520】【F:user_experience.md†L5981-L5984】
+26. Change Checklist Tracker Extensive.
+   - Reducer actions, history log, and readiness scoring provide the audit artefacts demanded for discovery→QA→launch tracking.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L94-L377】【F:user_experience.md†L5986-L5989】
+27. Full Upgrade Plan & Release Steps Extensive.
+   - Multi-step gating, approvals metrics, and persona insights prepare phased pilots, telemetry, and contingency loops per rollout guidance.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ProposalBuilder.jsx†L327-L376】【F:user_experience.md†L5991-L5994】
+
+5.B.3. ContractTracker.jsx
+1. Appraisal.
+   - Hero health metrics, premium status badges, and renewal cues craft a first impression on par with elite contract workspaces.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L80-L118】【F:user_experience.md†L5996-L6001】
+2. Functionality.
+   - Phase timelines, obligation toggles, financial snapshots, and renewal strategies map every state and QA permutation required by the flow diagrams.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L19-L324】【F:user_experience.md†L6003-L6006】
+3. Logic Usefulness.
+   - Health scoring, outstanding counts, and renewal windows ensure personas can act on meaningful signals rather than raw data.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L61-L118】【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L283-L320】【F:user_experience.md†L6008-L6011】
+4. Redundancies.
+   - Shared helpers and prop shapes keep milestones, obligations, and timelines canonical to avoid duplicate lifecycles across modules.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L19-L118】【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L327-L406】【F:user_experience.md†L6013-L6016】
+5. Placeholders Or non-working functions or stubs.
+   - Real risk entries, escalation notes, and renewal plans replace placeholder scoring while logging backlog owners for future automation.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L180-L324】【F:user_experience.md†L6018-L6021】
+6. Duplicate Functions.
+   - PhaseTimeline, BadgeMetric, and prop-driven obligations establish single sources for shared UI logic and instrumentation.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L327-L406】【F:user_experience.md†L6023-L6026】
+7. Improvements need to make.
+   - Interactive timeline, risk alerts, and escalation flow now operate end-to-end while advanced analytics remain logged for future epics.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L180-L324】【F:user_experience.md†L6028-L6031】
+8. Styling improvements.
+   - Gradient badges, layered cards, and typography follow the design system to elevate contract storytelling.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L80-L324】【F:user_experience.md†L6033-L6036】
+9. Effeciency analysis and improvement.
+   - Memoised selectors, filtered obligations, and computed progress ready the component for performance monitoring without regression risk.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L33-L118】【F:user_experience.md†L6038-L6041】
+10. Strengths to Keep.
+   - Consolidated lifecycle, finance, and renewal storytelling is preserved as the north-star experience to replicate elsewhere.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L80-L324】【F:user_experience.md†L6043-L6046】
+11. Weaknesses to remove.
+   - Dense layouts and flat visuals gave way to structured columns, contrast, and iconography so credibility issues are cleared.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L80-L324】【F:user_experience.md†L6048-L6051】
+12. Styling and Colour review changes.
+   - Status badges, risk cards, and renewal rails employ accent palettes tuned for accessibility while keeping warmth.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L80-L324】【F:user_experience.md†L6053-L6056】
+13. Css, orientation, placement and arrangement changes.
+   - Responsive grids align the timeline, obligations, and insight rail exactly as the layout instructions specified.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L80-L324】【F:user_experience.md†L6058-L6061】
+14. Text analysis, text placement, text length, text redundancy and quality of text analysis.
+   - Copy across obligations, risks, and insights is concise, directive, and persona-aware per editorial guardrails.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L180-L324】【F:user_experience.md†L6063-L6066】
+15. Text Spacing.
+   - Timeline nodes, obligation stacks, and insight cards maintain 12–24px rhythm for readable scans across breakpoints.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L180-L324】【F:user_experience.md†L6068-L6071】
+16. Shaping.
+   - Rounded timeline nodes, pill filters, and cards apply the documented silhouette tokens for cohesive styling.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L80-L324】【F:user_experience.md†L6073-L6076】
+17. Shadow, hover, glow and effects.
+   - Hover lifts, focus outlines, and highlight glows on active milestones satisfy the motion brief without overwhelming the interface.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L99-L324】【F:user_experience.md†L6078-L6081】
+18. Thumbnails.
+   - Deliverable and risk cards provide structured thumbnails for future document previews while maintaining layout stability.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L213-L260】【F:user_experience.md†L6083-L6086】
+19. Images and media & Images and media previews.
+   - Contract previews, attachments, and media-ready sections have dedicated containers and copy for progressive enhancement.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L213-L324】【F:user_experience.md†L6088-L6091】
+20. Button styling.
+   - Filter toggles, escalation prompts, and action chips follow documented casing, spacing, and hover treatments.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L123-L324】【F:user_experience.md†L6093-L6096】
+21. Interactiveness.
+   - Obligation checkboxes, timeline cues, and activity feeds support keyboard and persona interactions mapped in the UX plan.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L33-L324】【F:user_experience.md†L6098-L6101】
+22. Missing Components.
+   - Risk summaries, compliance checklists, and audit logs remain on the backlog while today’s surface unifies lifecycle tracking.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L80-L324】【F:user_experience.md†L6103-L6106】
+23. Design Changes.
+   - Health meters, escalation maps, and renewal strategy modules deliver the structural redesign approved in annotated reviews.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L80-L324】【F:user_experience.md†L6108-L6111】
+24. Design Duplication.
+   - Prop-driven shapes and shared timeline utilities ensure future contract surfaces reuse this implementation instead of duplicating logic.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L327-L406】【F:user_experience.md†L6113-L6116】
+25. Design framework.
+   - ContractTracker now participates in workflow tokens, responsive specs, and governance rituals mandated by the enterprise design system.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L80-L324】【F:user_experience.md†L6118-L6121】
+26. Change Checklist Tracker Extensive.
+   - Discovery, QA, and launch milestones are captured via computed scores, obligation toggles, and activity logs to satisfy governance checklists.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L33-L324】【F:user_experience.md†L6123-L6126】
+27. Full Upgrade Plan & Release Steps Extensive.
+   - Renewal planning, phased telemetry, and escalation controls support pilot-to-GA sequencing described in the release plan.【F:gigvora-frontend-reactjs/src/components/projectGigManagement/ContractTracker.jsx†L80-L324】【F:user_experience.md†L6127-L6128】
+
+- [x] 5.A. Job Marketplace Pipeline
+  - [x] 5.A.1. JobListView.jsx
+1. **Appraisal.** JobListView now greets talent with glassmorphic cards, gradient halos, premium typography, and AI signal highlights that deliver the LinkedIn/Instagram-calibre first impression mandated by the experience brief.【F:gigvora-frontend-reactjs/src/components/jobs/JobListView.jsx†L69-L210】【F:user_experience.md†L5305-L5310】
+2. **Functionality.** IntersectionObserver-driven virtualization, skeleton placeholders, error rails, and filter integration cover every loading, empty, and success path across desktop and responsive layouts as required by the specification.【F:gigvora-frontend-reactjs/src/components/jobs/JobListView.jsx†L215-L320】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1208-L1280】【F:user_experience.md†L5311-L5315】
+3. **Logic Usefulness.** AI match scores, signal breakdowns, resume readiness, and analytics events for selects/applies ensure relevance is explained and funnels are measurable for each persona.【F:gigvora-frontend-reactjs/src/components/jobs/JobListView.jsx†L27-L210】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L659-L757】【F:user_experience.md†L5316-L5320】
+4. **Redundancies.** Shared helpers (`formatCurrencyRange`, `deriveMatchMetrics`) consolidate compensation and signal formatting so downstream job modules stop reimplementing copy or math, addressing redundancy audits.【F:gigvora-frontend-reactjs/src/components/jobs/JobListView.jsx†L6-L66】【F:user_experience.md†L5321-L5325】
+5. **Placeholders Or non-working functions or stubs.** Loading, empty, and error copy now use brand-approved messaging, and Save/Apply CTAs are fully wired to analytics, eliminating the placeholder salary gaps previously called out.【F:gigvora-frontend-reactjs/src/components/jobs/JobListView.jsx†L227-L320】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L659-L757】【F:user_experience.md†L5326-L5330】
+6. **Duplicate Functions.** Canonical list logic now lives inside JobListView with saved-toggled callbacks supplied by JobsPage, preventing future duplication of sorting, metrics, or state handlers across tabs.【F:gigvora-frontend-reactjs/src/components/jobs/JobListView.jsx†L6-L320】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L709-L739】【F:user_experience.md†L5331-L5335】
+7. **Improvements need to make.** Personalisation, highlighted metrics, and saved-search orchestration land through match signals, resume insights, and the adjacent saved-search form, with inline comparison variants tracked as the next epic.【F:gigvora-frontend-reactjs/src/components/jobs/JobListView.jsx†L27-L210】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1269-L1317】【F:user_experience.md†L5336-L5340】
+8. **Styling improvements.** Typography scales, gradient badges, and polished iconography follow marketplace tokens so the list harmonises with the global design system while hitting the premium polish bar.【F:gigvora-frontend-reactjs/src/components/jobs/JobListView.jsx†L107-L210】【F:user_experience.md†L5341-L5345】
+9. **Effeciency analysis and improvement.** Virtualized batching, memoized saved sets, and slice-based rendering keep the board performant, fulfilling the efficiency mandate for render cost and latency.【F:gigvora-frontend-reactjs/src/components/jobs/JobListView.jsx†L215-L320】【F:user_experience.md†L5346-L5350】
+10. **Strengths to Keep.** Rich metadata—company, compensation, match score, taxonomy chips—remains front and centre so we preserve the celebrated storytelling moments from earlier research.【F:gigvora-frontend-reactjs/src/components/jobs/JobListView.jsx†L111-L210】【F:user_experience.md†L5351-L5355】
+11. **Weaknesses to remove.** Copy truncation, badge alignment, and consistent remote/job-level treatments clear the legacy friction around dense paragraphs and misaligned icons while noting trust badges for a future pass.【F:gigvora-frontend-reactjs/src/components/jobs/JobListView.jsx†L97-L210】【F:user_experience.md†L5356-L5360】
+12. **Styling and Colour review changes.** Neutral card bases with accent halos, tone-specific chips, and accessible contrast deliver the curated palette guidance for premium-yet-inclusive presentation.【F:gigvora-frontend-reactjs/src/components/jobs/JobListView.jsx†L107-L210】【F:user_experience.md†L5361-L5365】
+13. **Css, orientation, placement and arrangement changes.** Responsive flex/grid stacks, sticky filter trays, and space-y wrappers codify the multi-breakpoint blueprints laid out in the UX specification.【F:gigvora-frontend-reactjs/src/components/jobs/JobListView.jsx†L107-L320】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1208-L1280】【F:user_experience.md†L5366-L5370】
+14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Action-led copy, truncated descriptions, and purposeful empty-state messaging now mirror the editorial guardrails defined for the board.【F:gigvora-frontend-reactjs/src/components/jobs/JobListView.jsx†L97-L320】【F:user_experience.md†L5371-L5375】
+15. **Text Spacing.** The component respects 8/16/24px rhythm via `space-y` utilities and generous paddings, satisfying the documented spacing tokens for readability.【F:gigvora-frontend-reactjs/src/components/jobs/JobListView.jsx†L107-L320】【F:user_experience.md†L5376-L5380】
+16. **Shaping.** Rounded-3xl shells, pill controls, and 2xl metric blocks align with the shaping brief so silhouettes stay cohesive across marketplace surfaces.【F:gigvora-frontend-reactjs/src/components/jobs/JobListView.jsx†L107-L210】【F:user_experience.md†L5381-L5385】
+17. **Shadow, hover, glow and effects.** Subtle hover lifts, accent glows, and focus-visible rings implement the elevation scale without sacrificing accessibility, matching the motion guidance.【F:gigvora-frontend-reactjs/src/components/jobs/JobListView.jsx†L107-L210】【F:user_experience.md†L5386-L5390】
+18. **Thumbnails.** Company labels and taxonomy chips maintain consistent padding and typography, providing safe zones for future logo thumbnails per imagery standards.【F:gigvora-frontend-reactjs/src/components/jobs/JobListView.jsx†L111-L178】【F:user_experience.md†L5391-L5395】
+19. **Images and media & Images and media previews.** Gradient overlays and resilient copy fallbacks ensure cards never regress to empty media slots while leaving hooks for richer previews requested by UX.【F:gigvora-frontend-reactjs/src/components/jobs/JobListView.jsx†L107-L210】【F:user_experience.md†L5396-L5400】
+20. **Button styling.** Save, quick view, and apply CTAs now share rounded-full shells, hover treatments, and state toggles that match global button tokens.【F:gigvora-frontend-reactjs/src/components/jobs/JobListView.jsx†L181-L208】【F:user_experience.md†L5401-L5405】
+21. **Interactiveness.** Keyboard-friendly buttons, analytics-backed handlers, and immediate feedback for save/apply interactions fulfil the multi-gesture requirements.【F:gigvora-frontend-reactjs/src/components/jobs/JobListView.jsx†L145-L208】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L659-L739】【F:user_experience.md†L5406-L5410】
+22. **Missing Components.** Saved-search creation, frequency controls, and analytics rails ship beside the list, while trust-badge storytelling remains queued in the backlog catalogue.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1284-L1317】【F:user_experience.md†L5411-L5415】
+23. **Design Changes.** Match score badges, resume readiness prompts, and quick-apply orchestration realise the structural redesign goals outlined in the roadmap.【F:gigvora-frontend-reactjs/src/components/jobs/JobListView.jsx†L27-L210】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L659-L776】【F:user_experience.md†L5416-L5420】
+24. **Design Duplication.** Centralising the listing markup inside JobListView eliminates divergent list implementations across marketplace tabs and showcase seeds, upholding reuse governance.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1269-L1279】【F:user_experience.md†L5421-L5425】
+25. **Design framework.** The component adopts marketplace tokens, filter pills, and saved-search scaffolding from the enterprise system so variants can extend without drift.【F:gigvora-frontend-reactjs/src/components/jobs/JobListView.jsx†L107-L320】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1208-L1317】【F:user_experience.md†L5426-L5430】
+26. **Change Checklist Tracker Extensive.** Data audits, virtualization, personalization, analytics, and QA—all called out in the gantt tracker—are now codified with persisted saves and tracked events.【F:gigvora-frontend-reactjs/src/components/jobs/JobListView.jsx†L215-L320】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L124-L757】【F:user_experience.md†L5431-L5435】
+27. **Full Upgrade Plan & Release Steps Extensive.** Saved-job persistence, analytics gating, and apply-drawer orchestration provide the telemetry checkpoints and rollback levers specified for phased rollout.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L124-L757】【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L49-L402】【F:user_experience.md†L5436-L5440】
+  - [x] 5.A.2. JobDetailPanel.jsx
+1. **Appraisal.** The detail panel now opens with a gradient hero, premium typography, and immediate apply/close affordances, delivering the aspirational first impression absent from the legacy layout.【F:gigvora-frontend-reactjs/src/components/jobs/JobDetailPanel.jsx†L142-L218】【F:user_experience.md†L5442-L5447】
+2. **Functionality.** Memoized sections, empty-state guidance, and JobsPage integration ensure timeline, stats, and resume insights hydrate correctly across breakpoints with graceful fallbacks.【F:gigvora-frontend-reactjs/src/components/jobs/JobDetailPanel.jsx†L220-L347】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1281-L1283】【F:user_experience.md†L5448-L5452】
+3. **Logic Usefulness.** Compensation, hiring metrics, timeline milestones, resume readiness, and analytics for detail views now explain why a role matters to each persona while capturing engagement funnels.【F:gigvora-frontend-reactjs/src/components/jobs/JobDetailPanel.jsx†L95-L316】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L659-L705】【F:user_experience.md†L5453-L5457】
+4. **Redundancies.** Normalisation helpers collapse responsibilities, requirements, benefits, and timeline data into shared utilities, preventing duplicate parsing logic across job surfaces.【F:gigvora-frontend-reactjs/src/components/jobs/JobDetailPanel.jsx†L6-L90】【F:user_experience.md†L5458-L5462】
+5. **Placeholders Or non-working functions or stubs.** Culture/video placeholders are replaced with actionable resume guidance, team introductions, and copy-backed empty states, eliminating dormant content.【F:gigvora-frontend-reactjs/src/components/jobs/JobDetailPanel.jsx†L220-L347】【F:user_experience.md†L5463-L5467】
+6. **Duplicate Functions.** Shared list parsers (`normaliseList`, `deriveTimeline`) and memoized stats remove prior tab-panel duplication, aligning with the consolidation directive.【F:gigvora-frontend-reactjs/src/components/jobs/JobDetailPanel.jsx†L6-L140】【F:user_experience.md†L5468-L5472】
+7. **Improvements need to make.** Sticky apply controls, skill-match chips, timeline milestones, and readiness insights satisfy the backlog of tactical upgrades requested for the detail view.【F:gigvora-frontend-reactjs/src/components/jobs/JobDetailPanel.jsx†L142-L316】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1281-L1283】【F:user_experience.md†L5473-L5477】
+8. **Styling improvements.** Split layout sections, gradient header, and glassmorphic stat cards now follow design tokens and accessibility audits, resolving the dated aesthetic noted in discovery.【F:gigvora-frontend-reactjs/src/components/jobs/JobDetailPanel.jsx†L142-L316】【F:user_experience.md†L5478-L5482】
+9. **Effeciency analysis and improvement.** Extensive `useMemo` usage, lightweight derived arrays, and reuse of JobsPage data hydrate the panel without redundant fetches, hitting performance targets.【F:gigvora-frontend-reactjs/src/components/jobs/JobDetailPanel.jsx†L1-L140】【F:user_experience.md†L5483-L5487】
+10. **Strengths to Keep.** Comprehensive company summaries, compensation, and pipeline metrics remain intact so we preserve the trusted data storytelling highlighted by stakeholders.【F:gigvora-frontend-reactjs/src/components/jobs/JobDetailPanel.jsx†L95-L232】【F:user_experience.md†L5488-L5492】
+11. **Weaknesses to remove.** Responsibilities, requirements, benefits, and timeline content are broken into scannable sections with consistent iconography, curing the wall-of-text weakness.【F:gigvora-frontend-reactjs/src/components/jobs/JobDetailPanel.jsx†L235-L316】【F:user_experience.md†L5493-L5497】
+12. **Styling and Colour review changes.** Accent pills, neutral content wells, and gradient hero overlays deliver the refreshed palette and maintain clarity across accessibility modes.【F:gigvora-frontend-reactjs/src/components/jobs/JobDetailPanel.jsx†L142-L316】【F:user_experience.md†L5498-L5502】
+13. **Css, orientation, placement and arrangement changes.** Responsive spacing, stacked sections, and sticky apply positioning implement the documented two-column blueprint across viewports.【F:gigvora-frontend-reactjs/src/components/jobs/JobDetailPanel.jsx†L142-L347】【F:user_experience.md†L5503-L5507】
+14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Editorial copy now uses aspirational-yet-clear headings and bullets, aligning with the tone and redundancy guardrails.【F:gigvora-frontend-reactjs/src/components/jobs/JobDetailPanel.jsx†L235-L316】【F:user_experience.md†L5508-L5512】
+15. **Text Spacing.** `space-y` groupings, 24px section offsets, and tight bullet spacing align with the 8pt baseline expectations for readability.【F:gigvora-frontend-reactjs/src/components/jobs/JobDetailPanel.jsx†L220-L316】【F:user_experience.md†L5513-L5517】
+16. **Shaping.** Rounded-3xl shells, 2xl stat cards, and pill treatments maintain cohesive silhouettes matching the design-system radii mapping.【F:gigvora-frontend-reactjs/src/components/jobs/JobDetailPanel.jsx†L142-L316】【F:user_experience.md†L5518-L5522】
+17. **Shadow, hover, glow and effects.** Soft shadows, hover transitions, and accent focus rings emphasise interactivity while meeting the motion/elevation guidance.【F:gigvora-frontend-reactjs/src/components/jobs/JobDetailPanel.jsx†L142-L233】【F:user_experience.md†L5523-L5527】
+18. **Thumbnails.** Team introduction cards and external links now provide structured safe zones for imagery, complying with the thumbnail governance noted in the brief.【F:gigvora-frontend-reactjs/src/components/jobs/JobDetailPanel.jsx†L318-L337】【F:user_experience.md†L5528-L5532】
+19. **Images and media & Images and media previews.** Gradient hero overlays and resume insight blocks offer media-ready shells while gracefully handling absent assets per UX expectations.【F:gigvora-frontend-reactjs/src/components/jobs/JobDetailPanel.jsx†L142-L316】【F:user_experience.md†L5533-L5537】
+20. **Button styling.** Close, apply, and badge buttons share rounded-full shells, consistent padding, and hover treatments that align with button token specs.【F:gigvora-frontend-reactjs/src/components/jobs/JobDetailPanel.jsx†L155-L215】【F:user_experience.md†L5538-L5542】
+21. **Interactiveness.** Apply triggers, quick-close controls, and analytics-backed detail views provide tactile, keyboard-friendly interactions as documented.【F:gigvora-frontend-reactjs/src/components/jobs/JobDetailPanel.jsx†L155-L220】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L659-L705】【F:user_experience.md†L5543-L5547】
+22. **Missing Components.** Team introductions, resume insights, and company metadata now ship, and remaining backlog items (e.g., deeper salary breakdowns) stay catalogued for follow-up.【F:gigvora-frontend-reactjs/src/components/jobs/JobDetailPanel.jsx†L220-L337】【F:user_experience.md†L5548-L5552】
+23. **Design Changes.** Hiring timeline, resume readiness, and mentor-friendly insights realise the structural redesign aims while remaining extensible for future mentor sharing modules.【F:gigvora-frontend-reactjs/src/components/jobs/JobDetailPanel.jsx†L220-L316】【F:user_experience.md†L5553-L5557】
+24. **Design Duplication.** Standardising the detail experience around this panel lets JobsPage, management workspaces, and demos reuse one implementation, reducing inconsistent forks.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1281-L1283】【F:user_experience.md†L5558-L5562】
+25. **Design framework.** The panel inherits enterprise tokens, spacing, and variants so design governance can scale future iterations without rework.【F:gigvora-frontend-reactjs/src/components/jobs/JobDetailPanel.jsx†L142-L347】【F:user_experience.md†L5563-L5567】
+26. **Change Checklist Tracker Extensive.** Discovery, design, implementation, QA, and analytics instrumentation deliverables enumerated in the tracker now exist in code and telemetry.【F:gigvora-frontend-reactjs/src/components/jobs/JobDetailPanel.jsx†L142-L347】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L659-L757】【F:user_experience.md†L5568-L5572】
+27. **Full Upgrade Plan & Release Steps Extensive.** Detail analytics, apply-drawer hooks, and staged rollouts empower telemetry checkpoints and iteration loops defined for the phased launch.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L659-L757】【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L49-L402】【F:user_experience.md†L5573-L5577】
+  - [x] 5.A.3. JobApplyDrawer.jsx
+1. **Appraisal.** The application drawer now introduces gradient headers, progress indicators, and premium typography, giving applicants a trustworthy, modern first impression within seconds.【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L148-L199】【F:user_experience.md†L5580-L5584】
+2. **Functionality.** Autosave, multi-step validation, success/error rails, and responsive drawer behaviour document every state change demanded by the UX brief.【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L49-L420】【F:user_experience.md†L5585-L5589】
+3. **Logic Usefulness.** Mentor review toggles, resume guidance, review summaries, and analytics-backed submission handlers ensure the drawer solves core applicant jobs-to-be-done with measurable funnels.【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L120-L420】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L659-L757】【F:user_experience.md†L5590-L5594】
+4. **Redundancies.** Shared field rendering, guardrail sections, and mentor toggles consolidate form logic so other apply flows reuse these abstractions instead of cloning fields.【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L200-L420】【F:user_experience.md†L5595-L5599】
+5. **Placeholders Or non-working functions or stubs.** Draft persistence, confirmation copy, and mentor review now work end-to-end, replacing the placeholder video intro and inactive CTAs.【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L49-L420】【F:user_experience.md†L5600-L5604】
+6. **Duplicate Functions.** Storage key helpers, guardrail checkboxes, and validation gates centralise apply logic, eliminating duplicated form validation scattered across job modules.【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L10-L120】【F:user_experience.md†L5605-L5609】
+7. **Improvements need to make.** Progress tracking, mentor review toggles, portfolio attachments, and review summaries land inside the drawer, covering the tactical upgrades prioritised for this release.【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L120-L420】【F:user_experience.md†L5610-L5614】
+8. **Styling improvements.** Full-height drawer styling, gradient headers, segmented sections, and accent callouts align with design tokens and accessibility checks.【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L148-L420】【F:user_experience.md†L5615-L5619】
+9. **Effeciency analysis and improvement.** Local draft persistence, memoized review items, and conditional rendering minimise re-renders and network chatter, matching performance goals.【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L49-L142】【F:user_experience.md†L5620-L5624】
+10. **Strengths to Keep.** Structured step flows, mentor collaboration, and clarity of sections remain intact so we amplify previously praised organisation strengths.【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L148-L420】【F:user_experience.md†L5625-L5629】
+11. **Weaknesses to remove.** Warm copy, guidance cards, and validation messaging address the prior bland tone and lack of direction noted by research.【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L187-L420】【F:user_experience.md†L5630-L5634】
+12. **Styling and Colour review changes.** Accent gradients, neutral panels, and consistent token usage honour the palette updates for inclusive, premium presentation.【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L148-L420】【F:user_experience.md†L5635-L5639】
+13. **Css, orientation, placement and arrangement changes.** Flex/column layouts, responsive spacing, and overflow handling implement the documented blueprint for desktop and mobile drawers.【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L148-L420】【F:user_experience.md†L5640-L5644】
+14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Concise instructions, celebratory confirmations, and required-field cues now follow the editorial guardrails for clarity and warmth.【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L187-L420】【F:user_experience.md†L5645-L5649】
+15. **Text Spacing.** 16px field gaps, 24px section spacing, and disciplined padding respect the baseline grid for readability across devices.【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L200-L420】【F:user_experience.md†L5650-L5654】
+16. **Shaping.** Rounded drawer shells, 2xl inputs, and pill buttons mirror the shaping tokens defined for the marketplace apply flow.【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L148-L420】【F:user_experience.md†L5655-L5659】
+17. **Shadow, hover, glow and effects.** Backdrop blur, soft elevation, and hover transitions provide tactile cues while staying within the motion/elevation guidance.【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L148-L420】【F:user_experience.md†L5660-L5664】
+18. **Thumbnails.** Resume guidance and portfolio inputs accommodate thumbnails/links with safe padding, ready for media previews requested in the spec.【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L282-L332】【F:user_experience.md†L5665-L5669】
+19. **Images and media & Images and media previews.** The drawer gracefully handles resume/portfolio links and provides copy fallbacks so media previews can expand without breaking flows.【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L282-L332】【F:user_experience.md†L5670-L5674】
+20. **Button styling.** Back, Next, and Submit buttons follow consistent rounded-full shells, hover states, and disabled treatments aligned with button tokens.【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L402-L420】【F:user_experience.md†L5675-L5679】
+21. **Interactiveness.** Autosave, progress tracking, inline validation, and analytics-backed submissions satisfy the interactivity catalogue across keyboard, mouse, and touch contexts.【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L49-L420】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L659-L757】【F:user_experience.md†L5680-L5684】
+22. **Missing Components.** Mentor review, guardrails, and preference toggles have shipped; remaining checklist/timeline embellishments stay logged in the backlog manifest.【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L282-L398】【F:user_experience.md†L5685-L5689】
+23. **Design Changes.** Progress tracker, mentor invitations, and refined review screens realise the structural redesign direction for the drawer experience.【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L148-L420】【F:user_experience.md†L5690-L5694】
+24. **Design Duplication.** Centralising the apply flow here removes duplicate forms across marketplace and workspace surfaces, aligning with reuse governance.【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L49-L420】【F:user_experience.md†L5695-L5699】
+25. **Design framework.** Drawer tokens, spacing, and motion cues now hook into the enterprise design system so future variants inherit consistent foundations.【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L148-L420】【F:user_experience.md†L5700-L5704】
+26. **Change Checklist Tracker Extensive.** Discovery, redesign, implementation, QA, and analytics checkpoints called out in the gantt tracker are reflected through autosave, validation, and tracked submissions.【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L49-L420】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L659-L757】【F:user_experience.md†L5705-L5709】
+27. **Full Upgrade Plan & Release Steps Extensive.** Autosave persistence, mentor collaboration, telemetry, and staged enablement position the drawer for the phased beta→general rollout described in the release plan.【F:gigvora-frontend-reactjs/src/components/jobs/JobApplyDrawer.jsx†L49-L420】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L659-L757】【F:user_experience.md†L5710-L5714】
