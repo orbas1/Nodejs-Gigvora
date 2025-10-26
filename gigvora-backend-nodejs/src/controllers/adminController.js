@@ -25,6 +25,14 @@ import {
 } from '../services/platformSettingsWatchersService.js';
 import { getRuntimeOperationalSnapshot } from '../services/runtimeObservabilityService.js';
 import { getSeoSettings, updateSeoSettings } from '../services/seoSettingsService.js';
+import {
+  generateSeoSitemap,
+  getSeoConsoleSnapshot,
+  listSeoMetaTemplates,
+  listSeoSchemaTemplates,
+  listSeoSitemapJobs,
+  submitSeoSitemapJob,
+} from '../services/seoConsoleService.js';
 import { getSystemSettings, updateSystemSettings } from '../services/systemSettingsService.js';
 import {
   sanitizeAdminDashboardFilters,
@@ -181,6 +189,43 @@ export async function fetchSeoSettings(req, res) {
 export async function persistSeoSettings(req, res) {
   const settings = await updateSeoSettings(req.body ?? {});
   res.json(settings);
+}
+
+export async function fetchSeoConsoleSnapshotController(req, res) {
+  const snapshot = await getSeoConsoleSnapshot();
+  res.json(snapshot);
+}
+
+export async function generateSeoConsoleSitemap(req, res) {
+  const actor = resolveActorMetadata(req.user);
+  const result = await generateSeoSitemap(req.body ?? {}, { actor });
+  res.status(201).json(result);
+}
+
+export async function listSeoConsoleSitemapJobs(req, res) {
+  const { limit } = req.query ?? {};
+  const jobs = await listSeoSitemapJobs({ limit });
+  res.json({ jobs });
+}
+
+export async function submitSeoConsoleSitemapJob(req, res) {
+  const { notes } = req.body ?? {};
+  const job = await submitSeoSitemapJob(req.params.jobId, {
+    actor: resolveActorMetadata(req.user),
+    notes,
+  });
+  res.json({ job });
+}
+
+export async function listSeoConsoleSchemaTemplates(req, res) {
+  const includeInactive = req.query?.includeInactive === 'true';
+  const templates = await listSeoSchemaTemplates({ includeInactive });
+  res.json({ templates });
+}
+
+export async function listSeoConsoleMetaTemplates(req, res) {
+  const templates = await listSeoMetaTemplates();
+  res.json({ templates });
 }
 
 export async function fetchSystemSettings(req, res) {

@@ -102,7 +102,9 @@ export const SeoPageOverride = sequelize.define(
     title: { type: DataTypes.STRING(180), allowNull: true },
     description: { type: DataTypes.TEXT('long'), allowNull: true },
     keywords: { type: jsonType, allowNull: false, defaultValue: [] },
+    focusKeyword: { type: DataTypes.STRING(120), allowNull: true },
     canonicalUrl: { type: DataTypes.STRING(2048), allowNull: true },
+    robots: { type: DataTypes.STRING(160), allowNull: true },
     social: { type: jsonType, allowNull: false, defaultValue: {} },
     twitter: { type: jsonType, allowNull: false, defaultValue: {} },
     structuredData: { type: jsonType, allowNull: false, defaultValue: {} },
@@ -129,11 +131,13 @@ SeoSetting.addHook('beforeValidate', (setting) => {
 
 SeoPageOverride.addHook('beforeValidate', (override) => {
   override.keywords = normaliseKeywordArray(override.keywords);
+  override.focusKeyword = typeof override.focusKeyword === 'string' ? override.focusKeyword.trim() : null;
   override.metaTags = Array.isArray(override.metaTags) ? override.metaTags : [];
   override.social = typeof override.social === 'object' ? override.social : {};
   override.twitter = typeof override.twitter === 'object' ? override.twitter : {};
   override.structuredData = typeof override.structuredData === 'object' ? override.structuredData : {};
   override.canonicalUrl = normaliseUrl(override.canonicalUrl);
+  override.robots = typeof override.robots === 'string' ? override.robots.trim() : null;
 });
 
 SeoSetting.hasMany(SeoPageOverride, {
@@ -144,6 +148,91 @@ SeoSetting.hasMany(SeoPageOverride, {
 });
 
 SeoPageOverride.belongsTo(SeoSetting, {
+  as: 'setting',
+  foreignKey: 'seoSettingId',
+});
+
+export const SeoSitemapJob = sequelize.define(
+  'SeoSitemapJob',
+  {
+    id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+    seoSettingId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'seo_settings',
+        key: 'id',
+      },
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE',
+    },
+    baseUrl: { type: DataTypes.STRING(2048), allowNull: false },
+    includeImages: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    includeLastModified: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    totalUrls: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    indexedUrls: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    warnings: { type: jsonType, allowNull: true },
+    xml: { type: DataTypes.TEXT('long'), allowNull: false },
+    status: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'generated' },
+    message: { type: DataTypes.TEXT('long'), allowNull: true },
+    triggeredBy: { type: jsonType, allowNull: true },
+    generatedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    submittedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'seo_sitemap_jobs',
+    indexes: [{ fields: ['seoSettingId', 'generatedAt'], name: 'seo_sitemap_jobs_setting_generated_idx' }],
+  },
+);
+
+export const SeoSchemaTemplate = sequelize.define(
+  'SeoSchemaTemplate',
+  {
+    id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+    slug: { type: DataTypes.STRING(120), allowNull: false, unique: true },
+    label: { type: DataTypes.STRING(180), allowNull: false },
+    description: { type: DataTypes.TEXT('long'), allowNull: true },
+    schemaType: { type: DataTypes.STRING(120), allowNull: false },
+    jsonTemplate: { type: jsonType, allowNull: false, defaultValue: {} },
+    sampleData: { type: jsonType, allowNull: true },
+    recommendedFields: { type: jsonType, allowNull: true },
+    richResultPreview: { type: jsonType, allowNull: true },
+    documentationUrl: { type: DataTypes.STRING(2048), allowNull: true },
+    isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    lastReviewedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'seo_schema_templates',
+    indexes: [{ unique: true, fields: ['slug'], name: 'seo_schema_templates_slug_unique' }],
+  },
+);
+
+export const SeoMetaTemplate = sequelize.define(
+  'SeoMetaTemplate',
+  {
+    id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+    slug: { type: DataTypes.STRING(120), allowNull: false, unique: true },
+    label: { type: DataTypes.STRING(180), allowNull: false },
+    description: { type: DataTypes.TEXT('long'), allowNull: true },
+    persona: { type: DataTypes.STRING(80), allowNull: true },
+    fields: { type: jsonType, allowNull: false, defaultValue: {} },
+    recommendedUseCases: { type: jsonType, allowNull: true },
+    isDefault: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  },
+  {
+    tableName: 'seo_meta_templates',
+    indexes: [{ unique: true, fields: ['slug'], name: 'seo_meta_templates_slug_unique' }],
+  },
+);
+
+SeoSetting.hasMany(SeoSitemapJob, {
+  as: 'sitemapJobs',
+  foreignKey: 'seoSettingId',
+  onDelete: 'CASCADE',
+  hooks: true,
+});
+
+SeoSitemapJob.belongsTo(SeoSetting, {
   as: 'setting',
   foreignKey: 'seoSettingId',
 });
@@ -179,6 +268,22 @@ SeoSetting.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+SeoMetaTemplate.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    slug: plain.slug,
+    label: plain.label,
+    description: plain.description ?? '',
+    persona: plain.persona ?? null,
+    fields: plain.fields ?? {},
+    recommendedUseCases: plain.recommendedUseCases ?? null,
+    isDefault: Boolean(plain.isDefault),
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 SeoPageOverride.prototype.toPublicObject = function toPublicObject() {
   const plain = this.get({ plain: true });
   return {
@@ -188,12 +293,56 @@ SeoPageOverride.prototype.toPublicObject = function toPublicObject() {
     title: plain.title ?? '',
     description: plain.description ?? '',
     keywords: normaliseKeywordArray(plain.keywords),
+    focusKeyword: typeof plain.focusKeyword === 'string' ? plain.focusKeyword : '',
     canonicalUrl: plain.canonicalUrl ?? '',
+    robots: typeof plain.robots === 'string' ? plain.robots : '',
     social: plain.social ?? {},
     twitter: plain.twitter ?? {},
     structuredData: plain.structuredData ?? {},
     metaTags: Array.isArray(plain.metaTags) ? plain.metaTags : [],
     noindex: Boolean(plain.noindex),
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+SeoSitemapJob.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    seoSettingId: plain.seoSettingId,
+    baseUrl: plain.baseUrl,
+    includeImages: Boolean(plain.includeImages),
+    includeLastModified: Boolean(plain.includeLastModified),
+    totalUrls: plain.totalUrls ?? 0,
+    indexedUrls: plain.indexedUrls ?? 0,
+    warnings: plain.warnings ?? null,
+    xml: plain.xml,
+    status: plain.status ?? 'generated',
+    message: plain.message ?? null,
+    triggeredBy: plain.triggeredBy ?? null,
+    generatedAt: plain.generatedAt,
+    submittedAt: plain.submittedAt ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+SeoSchemaTemplate.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    slug: plain.slug,
+    label: plain.label,
+    description: plain.description ?? '',
+    schemaType: plain.schemaType,
+    jsonTemplate: plain.jsonTemplate ?? {},
+    sampleData: plain.sampleData ?? null,
+    recommendedFields: plain.recommendedFields ?? null,
+    richResultPreview: plain.richResultPreview ?? null,
+    documentationUrl: plain.documentationUrl ?? null,
+    isActive: Boolean(plain.isActive),
+    lastReviewedAt: plain.lastReviewedAt ?? null,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
@@ -236,6 +385,8 @@ SeoPageOverride.prototype.applyTo = function applyTo(setting) {
     defaultDescription: override.description || base?.defaultDescription,
     defaultKeywords: override.keywords.length ? override.keywords : base?.defaultKeywords ?? [],
     canonicalBaseUrl: override.canonicalUrl || base?.canonicalBaseUrl,
+    focusKeyword: override.focusKeyword || base?.focusKeyword || '',
+    robotsPolicy: override.robots || base?.robotsPolicy || '',
     socialDefaults: { ...(base?.socialDefaults ?? {}), ...override.social },
     structuredData: { ...(base?.structuredData ?? {}), ...override.structuredData },
     metaTags: override.metaTags.length ? override.metaTags : base?.metaTags ?? [],
