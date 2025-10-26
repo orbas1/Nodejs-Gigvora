@@ -1575,6 +1575,31 @@ Components (each individual component):
     - [x] 9.B.1. AccountSettingsForm.jsx
     - [x] 9.B.2. NotificationPreferences.jsx
     - [x] 9.B.3. PrivacyControls.jsx
+  - ✓ 10.B. Monitoring & Analytics
+    - ✓ 10.B.1. InsightsOverview.jsx
+    - ✓ 10.B.2. MetricsExplorer.jsx
+    - ✓ 10.B.3. AuditTrailViewer.jsx
+
+    InsightsOverview.jsx now consumes the live admin monitoring service to stream executive snapshots, persona spotlights,
+    anomaly narratives, roadmap cards, and journey analytics with production-ready loading, error, and analytics handling so ops
+    leads see context the moment they arrive.【F:gigvora-frontend-reactjs/src/components/admin/monitoring/InsightsOverview.jsx†L408-L545】
+    The backend ships matching Sequelize models, migrations, and seeded snapshots plus the `getInsightsOverview` resolver, giving
+    the UI real telemetry instead of mock cards and proving coverage through unit and Vitest suites.【F:gigvora-backend-nodejs/src/models/adminMonitoringModels.js†L12-L67】【F:gigvora-backend-nodejs/database/migrations/20250201100000-admin-monitoring-tables.cjs†L10-L38】【F:gigvora-backend-nodejs/database/seeders/20250201101000-admin-monitoring-seed.cjs†L20-L118】【F:gigvora-backend-nodejs/src/services/adminMonitoringService.js†L203-L218】【F:gigvora-backend-nodejs/src/services/__tests__/adminMonitoringService.test.js†L257-L290】【F:gigvora-frontend-reactjs/src/components/admin/monitoring/__tests__/MonitoringComponents.test.jsx†L226-L245】
+
+    MetricsExplorer.jsx delivers segment-aware filtering, saved perspectives, tonal alerts, and benchmark toggles backed by
+    memoised state and analytics so analysts can pivot between personas, channels, and comparisons without jitter or redundant
+    logic.【F:gigvora-frontend-reactjs/src/components/admin/monitoring/MetricsExplorer.jsx†L1-L390】 Shared services expose
+    metrics, alerts, and saved-view CRUD with validation, migrations, and seeds so the UI is powered by the same production data
+    shape exercised in Vitest and Jest, eliminating stubs across the stack.【F:gigvora-backend-nodejs/src/services/adminMonitoringService.js†L220-L342】【F:gigvora-backend-nodejs/src/models/adminMonitoringModels.js†L69-L195】【F:gigvora-backend-nodejs/database/migrations/20250201100000-admin-monitoring-tables.cjs†L40-L109】【F:gigvora-backend-nodejs/database/seeders/20250201101000-admin-monitoring-seed.cjs†L123-L224】【F:gigvora-backend-nodejs/src/services/__tests__/adminMonitoringService.test.js†L292-L348】【F:gigvora-frontend-reactjs/src/components/admin/monitoring/__tests__/MonitoringComponents.test.jsx†L248-L273】
+
+    AuditTrailViewer.jsx now pairs executive summaries, severity filtering, contextual drawers, and CSV export workflows with
+    responsive grids and analytics so compliance teams get actionable audit intelligence without placeholders.【F:gigvora-frontend-reactjs/src/components/admin/monitoring/AuditTrailViewer.jsx†L1-L200】 The backend lists, paginates, and
+    exports events through hardened Sequelize models, CSV writers, and Zod-validated queries while service and Vitest coverage
+    confirm pagination, summary hydration, and export fidelity end to end.【F:gigvora-backend-nodejs/src/services/adminMonitoringService.js†L344-L562】【F:gigvora-backend-nodejs/src/models/adminMonitoringModels.js†L197-L274】【F:gigvora-backend-nodejs/database/migrations/20250201100000-admin-monitoring-tables.cjs†L110-L149】【F:gigvora-backend-nodejs/database/seeders/20250201101000-admin-monitoring-seed.cjs†L226-L288】【F:gigvora-backend-nodejs/src/services/__tests__/adminMonitoringService.test.js†L350-L412】【F:gigvora-frontend-reactjs/src/components/admin/monitoring/__tests__/MonitoringComponents.test.jsx†L276-L293】
+
+    The admin monitoring foundation wires controllers, routes, and Zod schemas into the protected admin router, and the shared
+    client surfaces REST helpers so frontend and backend stay aligned on contracts verified by service and UI test suites.【F:gigvora-backend-nodejs/src/controllers/adminMonitoringController.js†L1-L50】【F:gigvora-backend-nodejs/src/routes/adminMonitoringRoutes.js†L1-L52】【F:gigvora-backend-nodejs/src/routes/adminRoutes.js†L140-L171】【F:gigvora-backend-nodejs/src/validation/schemas/adminMonitoringSchemas.js†L1-L134】【F:gigvora-backend-nodejs/src/services/adminMonitoringService.js†L1-L573】【F:gigvora-backend-nodejs/src/services/__tests__/adminMonitoringService.test.js†L226-L412】【F:gigvora-frontend-reactjs/src/services/adminMonitoring.js†L1-L39】
+
   - [x] 10.C. Content & Governance
     - [x] 10.C.1. ContentApprovalQueue.jsx
     - [x] 10.C.2. PolicyEditor.jsx
