@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
@@ -125,9 +125,12 @@ export default function SignUpForm({ className, showHighlightsPanel = true }) {
   const [communicationsOptIn, setCommunicationsOptIn] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [prefillNotice, setPrefillNotice] = useState(null);
+  const [prefillApplied, setPrefillApplied] = useState(false);
 
   const googleEnabled = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
   const maxBirthDate = new Date().toISOString().split('T')[0];
+  const derivedAge = useMemo(() => calculateAge(form.dateOfBirth), [form.dateOfBirth]);
 
   const passwordInsights = useMemo(() => validatePasswordStrength(form.password), [form.password]);
   const passwordRules = useMemo(() => {
@@ -189,6 +192,58 @@ export default function SignUpForm({ className, showHighlightsPanel = true }) {
 
   const disableSubmit = status !== 'idle' || !acceptTerms;
 
+  useEffect(() => {
+    if (prefillApplied || typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    if ([...params.keys()].length === 0) {
+      setPrefillApplied(true);
+      return undefined;
+    }
+
+    setForm((previous) => ({
+      ...previous,
+      firstName: params.get('firstName')?.trim() || params.get('given_name')?.trim() || previous.firstName,
+      lastName: params.get('lastName')?.trim() || params.get('family_name')?.trim() || previous.lastName,
+      email: params.get('email')?.trim() || previous.email,
+      dateOfBirth: params.get('dob')?.trim() || params.get('dateOfBirth')?.trim() || previous.dateOfBirth,
+    }));
+
+    const marketingParam = params.get('marketing');
+    if (marketingParam !== null) {
+      setCommunicationsOptIn(!['false', '0', 'no'].includes(marketingParam.toLowerCase()));
+    }
+
+    const personaParams = params.getAll('persona').length
+      ? params.getAll('persona')
+      : params.getAll('role');
+    if (personaParams.length) {
+      setRoleSelections(() => {
+        const valid = personaParams.filter((value) => ROLE_OPTIONS.some((option) => option.value === value));
+        return new Set(valid);
+      });
+    }
+
+    if (params.get('acceptedTerms') === 'true') {
+      setAcceptTerms(true);
+    }
+
+    setPrefillNotice({
+      title: 'Invite details applied',
+      description:
+        'We loaded the essentials from your invite so you can confirm, enhance, and launch your workspace without retyping.',
+      personaHint: personaParams.length
+        ? 'Persona picks are already waiting for you. Adjust them below to tailor your dashboards.'
+        : null,
+    });
+    setInfo('We preloaded details from your invite to accelerate setup.');
+    setPrefillApplied(true);
+
+    return undefined;
+  }, [prefillApplied, setInfo]);
+
   const handleChange = (event) => {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -222,6 +277,58 @@ export default function SignUpForm({ className, showHighlightsPanel = true }) {
     return map;
   }, []);
 
+  const completionMeta = useMemo(() => {
+    const sections = [
+      {
+        id: 'profile',
+        label: 'Profile basics',
+        complete:
+          Boolean(form.firstName && form.lastName) && isValidEmail(form.email),
+      },
+      {
+        id: 'security',
+        label: 'Security baseline',
+        complete:
+          Boolean(form.password && form.confirmPassword) &&
+          form.password === form.confirmPassword &&
+          passwordInsights.valid,
+      },
+      {
+        id: 'compliance',
+        label: 'Age & compliance',
+        complete: Number.isFinite(derivedAge) && derivedAge >= MINIMUM_SIGNUP_AGE && acceptTerms,
+      },
+      {
+        id: 'persona',
+        label: 'Persona journeys',
+        complete: selectedRoles.length > 0,
+      },
+      {
+        id: 'communications',
+        label: 'Communication prefs',
+        complete: communicationsOptIn !== null,
+      },
+    ];
+
+    const completeCount = sections.filter((section) => section.complete).length;
+    const percent = Math.round((completeCount / sections.length) * 100);
+
+    return { sections, completeCount, percent };
+  }, [
+    acceptTerms,
+    communicationsOptIn,
+    derivedAge,
+    form.confirmPassword,
+    form.email,
+    form.firstName,
+    form.lastName,
+    form.password,
+    passwordInsights.valid,
+    selectedRoles.length,
+  ]);
+
+  const completionTone = completionMeta.percent >= 80 ? 'bg-emerald-500' : completionMeta.percent >= 50 ? 'bg-amber-500' : 'bg-rose-500';
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     clearMessage();
@@ -237,12 +344,12 @@ export default function SignUpForm({ className, showHighlightsPanel = true }) {
       setError('Please share your date of birth.');
       return;
     }
-    const derivedAge = calculateAge(form.dateOfBirth);
-    if (!Number.isFinite(derivedAge)) {
+    const derivedAgeValue = derivedAge;
+    if (!Number.isFinite(derivedAgeValue)) {
       setError('Enter a valid date of birth to continue.');
       return;
     }
-    if (derivedAge < MINIMUM_SIGNUP_AGE) {
+    if (derivedAgeValue < MINIMUM_SIGNUP_AGE) {
       setError(`You must be at least ${MINIMUM_SIGNUP_AGE} years old to create an account.`);
       return;
     }
@@ -263,7 +370,7 @@ export default function SignUpForm({ className, showHighlightsPanel = true }) {
         lastName: form.lastName,
         email: normalizedEmail,
         password: form.password,
-        age: derivedAge,
+        age: derivedAgeValue,
         twoFactorEnabled: true,
         twoFactorMethod: 'email',
         preferredRoles: selectedRoles,
@@ -347,6 +454,39 @@ export default function SignUpForm({ className, showHighlightsPanel = true }) {
           </p>
         </div>
         <FormStatusMessage type={messageType ?? 'info'} message={message} {...feedbackProps} />
+        {prefillNotice ? (
+          <div className="rounded-3xl border border-accent/20 bg-accent/5 p-6">
+            <p className="text-sm font-semibold text-slate-900">{prefillNotice.title}</p>
+            <p className="mt-1 text-xs text-slate-600">{prefillNotice.description}</p>
+            {prefillNotice.personaHint ? (
+              <p className="mt-3 text-xs font-semibold text-accent">{prefillNotice.personaHint}</p>
+            ) : null}
+          </div>
+        ) : null}
+        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">
+            <span>Setup progress</span>
+            <span className="text-slate-900">{completionMeta.percent}% ready</span>
+          </div>
+          <div className="mt-4 h-2 rounded-full bg-white" aria-hidden="true">
+            <div className={`h-2 rounded-full transition-all duration-300 ${completionTone}`} style={{ width: `${Math.max(completionMeta.percent, 8)}%` }} />
+          </div>
+          <ul className="mt-4 grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
+            {completionMeta.sections.map((section) => (
+              <li key={section.id} className="flex items-center gap-2">
+                <span
+                  className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold ${
+                    section.complete ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-500'
+                  }`}
+                  aria-hidden="true"
+                >
+                  {section.complete ? '✓' : '•'}
+                </span>
+                <span>{section.label}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
         <div className="grid gap-6 md:grid-cols-2">
           <div className="space-y-2">
             <label htmlFor="firstName" className="text-sm font-medium text-slate-700">

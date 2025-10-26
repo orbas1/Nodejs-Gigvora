@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
@@ -19,6 +19,7 @@ import {
   normaliseEmail,
   redirectToSocialAuth,
   saveRememberedLogin,
+  resolveResendCooldown,
 } from '../../utils/authHelpers.js';
 import { resolveLanding } from '../../utils/authNavigation.js';
 
@@ -49,6 +50,9 @@ export default function SignInForm({ className }) {
   const [challenge, setChallenge] = useState(null);
   const [rememberMe, setRememberMe] = useState(() => Boolean(rememberedMeta?.email));
   const [showPassword, setShowPassword] = useState(false);
+  const [prefillNotice, setPrefillNotice] = useState(null);
+  const [prefillAcknowledged, setPrefillAcknowledged] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(null);
   const {
     status,
     setStatus,
@@ -79,6 +83,100 @@ export default function SignInForm({ className }) {
       return null;
     }
   }, [rememberedSavedAt]);
+
+  useEffect(() => {
+    if (prefillAcknowledged || typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const emailParam = params.get('email');
+    const messageParam = params.get('auth_message');
+    const sourceParam = params.get('from');
+    const hasPrefill = Boolean(emailParam || messageParam);
+
+    if (!hasPrefill) {
+      return undefined;
+    }
+
+    if (emailParam) {
+      setEmail(emailParam.trim());
+    }
+
+    if (messageParam) {
+      setInfo(messageParam.trim());
+    } else {
+      setInfo('We pre-filled your email from the secure link you followed.');
+    }
+
+    setPrefillNotice({
+      source: 'link',
+      title: 'Loaded from your secure access link',
+      description:
+        'We recognised the trusted link you used and pre-filled your details so you can review and submit instantly.',
+      sourceLabel: sourceParam ? sourceParam.replace(/_/g, ' ') : 'Magic link',
+    });
+    setPrefillAcknowledged(true);
+
+    return undefined;
+  }, [prefillAcknowledged, setInfo]);
+
+  useEffect(() => {
+    if (prefillAcknowledged || !rememberedMeta?.email) {
+      return;
+    }
+
+    setPrefillNotice({
+      source: 'remembered',
+      title: 'Trusted device recognised',
+      description:
+        'We matched this browser to a trusted device from your last visit. Review the details below and continue securely.',
+      sourceLabel: 'Remembered device',
+    });
+    setInfo('We remembered this device for a faster, secure sign-in.');
+    setPrefillAcknowledged(true);
+  }, [prefillAcknowledged, rememberedMeta?.email, setInfo]);
+
+  useEffect(() => {
+    if (!awaitingTwoFactor || !challenge?.tokenId || typeof window === 'undefined') {
+      setResendCooldown(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+    let remaining = resolveResendCooldown(challenge);
+    setResendCooldown(remaining);
+
+    const intervalId = window.setInterval(() => {
+      if (cancelled) {
+        return;
+      }
+      remaining = Math.max(0, remaining - 1);
+      setResendCooldown(remaining);
+      if (remaining === 0) {
+        window.clearInterval(intervalId);
+      }
+    }, 1000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [awaitingTwoFactor, challenge]);
+
+  const resendDisabled = status !== 'idle' || (resendCooldown ?? 0) > 0;
+  const resendLabel = resendCooldown && resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend code';
+
+  const prefillNoticeNode = prefillNotice ? (
+    <div className="rounded-2xl border border-accent/20 bg-accent/5 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold uppercase tracking-[0.35em] text-accent">
+        <span>{prefillNotice.sourceLabel}</span>
+        <span>Ready</span>
+      </div>
+      <p className="mt-3 text-sm font-semibold text-slate-900">{prefillNotice.title}</p>
+      <p className="mt-1 text-xs text-slate-600">{prefillNotice.description}</p>
+    </div>
+  ) : null;
 
   const handleCapsLockState = (event) => {
     if (typeof event.getModifierState !== 'function') {
@@ -241,6 +339,7 @@ export default function SignInForm({ className }) {
             </p>
           </div>
           <FormStatusMessage type={messageType ?? 'info'} message={message} {...feedbackProps} />
+          {prefillNoticeNode}
           <div className="space-y-2">
             <label htmlFor="email" className="text-sm font-medium text-slate-700">
               Email
@@ -400,6 +499,7 @@ export default function SignInForm({ className }) {
             </ol>
           </div>
           <FormStatusMessage type={messageType ?? 'info'} message={message} {...feedbackProps} />
+          {prefillNoticeNode}
           <div className="space-y-2">
             <label htmlFor="twoFactorCode" className="text-sm font-medium text-slate-700">
               Enter the 6-digit verification code
@@ -431,9 +531,9 @@ export default function SignInForm({ className }) {
               type="button"
               onClick={handleResend}
               className="font-semibold text-accent transition hover:text-accentDark disabled:text-slate-400"
-              disabled={status !== 'idle'}
+              disabled={resendDisabled}
             >
-              Resend code
+              {resendLabel}
             </button>
             <button
               type="button"
