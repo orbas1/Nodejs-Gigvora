@@ -15151,6 +15151,57 @@ UserWebsitePreference.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const UserDashboardNavigationPreference = sequelize.define(
+  'UserDashboardNavigationPreference',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    dashboardKey: { type: DataTypes.STRING(80), allowNull: false, defaultValue: 'global' },
+    collapsed: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    order: { type: jsonType, allowNull: true },
+    hidden: { type: jsonType, allowNull: true },
+    pinned: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'user_dashboard_navigation_preferences',
+    indexes: [
+      {
+        unique: true,
+        fields: ['userId', 'dashboardKey'],
+        name: 'user_dashboard_navigation_preferences_user_dashboard_key',
+      },
+    ],
+  },
+);
+
+UserDashboardNavigationPreference.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const normaliseArray = (value) =>
+    Array.isArray(value)
+      ? value
+          .map((entry) =>
+            entry == null
+              ? null
+              : `${entry}`
+                  .trim()
+                  .replace(/\s+/g, ' ')
+                  .slice(0, 120),
+          )
+          .filter((entry) => entry)
+      : [];
+
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    dashboardKey: plain.dashboardKey ?? 'global',
+    collapsed: Boolean(plain.collapsed),
+    order: normaliseArray(plain.order),
+    hidden: normaliseArray(plain.hidden),
+    pinned: normaliseArray(plain.pinned),
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 export const AnalyticsEvent = sequelize.define(
   'AnalyticsEvent',
   {
@@ -23135,6 +23186,11 @@ User.hasMany(DataExportRequest, { foreignKey: 'userId', as: 'dataExportRequests'
 DataExportRequest.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 UserWebsitePreference.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasOne(UserWebsitePreference, { foreignKey: 'userId', as: 'websitePreferences' });
+UserDashboardNavigationPreference.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(UserDashboardNavigationPreference, {
+  foreignKey: 'userId',
+  as: 'dashboardNavigationPreferences',
+});
 
 User.hasMany(Notification, { foreignKey: 'userId', as: 'notifications' });
 User.hasMany(EmployerBrandStory, { foreignKey: 'authorId', as: 'authoredBrandStories' });
@@ -24598,6 +24654,7 @@ export default {
   Notification,
   NotificationPreference,
   UserWebsitePreference,
+  UserDashboardNavigationPreference,
   AnalyticsEvent,
   AnalyticsDailyRollup,
   DeliverableVault,

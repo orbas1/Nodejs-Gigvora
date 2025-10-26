@@ -95,6 +95,11 @@ const migrationSpecs = [
     expectedTables: ['user_dashboard_overviews'],
   },
   {
+    key: 'userDashboardNavigationPreferences',
+    path: '../../database/migrations/20250325100000-dashboard-navigation-preferences.cjs',
+    expectedTables: ['user_dashboard_navigation_preferences'],
+  },
+  {
     key: 'careerPipelineAutomation',
     path: '../../database/migrations/20240915103000-career-pipeline-automation.cjs',
     expectedTables: ['career_pipeline_boards', 'career_pipeline_stages', 'career_opportunities'],

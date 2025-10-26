@@ -15,6 +15,25 @@ const guardMock = vi.hoisted(() =>
   )),
 );
 
+const fetchNavigationPreferences = vi.hoisted(() =>
+  vi.fn(async () => ({
+    dashboardKey: 'company',
+    collapsed: false,
+    order: [],
+    hidden: [],
+    pinned: [],
+  })),
+);
+
+const saveNavigationPreferences = vi.hoisted(() => vi.fn(async () => ({})));
+const analyticsTrackMock = vi.hoisted(() => vi.fn());
+const useSessionMock = vi.hoisted(() =>
+  vi.fn(() => ({
+    session: { id: 101, primaryDashboard: 'company' },
+    isAuthenticated: true,
+  })),
+);
+
 vi.mock('../../components/security/DashboardAccessGuard.jsx', () => ({
   __esModule: true,
   default: guardMock,
@@ -33,6 +52,22 @@ vi.mock('../../components/ads/AdPlacementRail.jsx', () => ({
 vi.mock('../../images/Gigvora Logo.png', () => ({
   __esModule: true,
   default: 'gigvora-logo.png',
+}));
+
+vi.mock('../../services/navigationPreferences.js', () => ({
+  __esModule: true,
+  fetchNavigationPreferences,
+  saveNavigationPreferences,
+}));
+
+vi.mock('../../services/analytics.js', () => ({
+  __esModule: true,
+  default: { track: analyticsTrackMock },
+}));
+
+vi.mock('../../hooks/useSession.js', () => ({
+  __esModule: true,
+  default: useSessionMock,
 }));
 
 const baseProps = {
@@ -64,11 +99,28 @@ beforeAll(() => {
   vi.stubGlobal('IntersectionObserver', MockIntersectionObserver);
 });
 
+beforeEach(() => {
+  fetchNavigationPreferences.mockResolvedValue({
+    dashboardKey: 'company',
+    collapsed: false,
+    order: [],
+    hidden: [],
+    pinned: [],
+  });
+  saveNavigationPreferences.mockResolvedValue({});
+  analyticsTrackMock.mockClear();
+  useSessionMock.mockReturnValue({
+    session: { id: 101, primaryDashboard: 'company' },
+    isAuthenticated: true,
+  });
+});
+
 afterAll(() => {
   vi.unstubAllGlobals();
 });
 
 afterEach(() => {
+  vi.clearAllMocks();
   window.localStorage.clear();
 });
 
@@ -140,6 +192,10 @@ describe('DashboardLayout layout behaviour', () => {
   it('toggles collapsed state and persists preference', async () => {
     renderLayout({ currentDashboard: 'company', sections: navigationSections });
 
+    await waitFor(() => {
+      expect(fetchNavigationPreferences).toHaveBeenCalled();
+    });
+
     expect(screen.getByTestId('dashboard-sidebar').dataset.collapsed).toBe('false');
 
     const collapseButton = screen.getByRole('button', { name: /collapse sidebar/i });
@@ -155,6 +211,20 @@ describe('DashboardLayout layout behaviour', () => {
       );
     });
 
+    await waitFor(() => {
+      expect(saveNavigationPreferences).toHaveBeenCalledWith(101, {
+        dashboardKey: 'company',
+        order: ['overview', 'activity'],
+        hidden: [],
+        collapsed: true,
+      });
+    });
+
+    expect(analyticsTrackMock).toHaveBeenCalledWith('web_dashboard_sidebar_toggle', {
+      dashboard: 'company',
+      collapsed: true,
+    });
+
     fireEvent.click(screen.getByRole('button', { name: /expand sidebar/i }));
 
     await waitFor(() => {
@@ -166,6 +236,15 @@ describe('DashboardLayout layout behaviour', () => {
         JSON.stringify({ collapsed: false }),
       );
     });
+
+    await waitFor(() => {
+      expect(saveNavigationPreferences).toHaveBeenLastCalledWith(101, {
+        dashboardKey: 'company',
+        order: ['overview', 'activity'],
+        hidden: [],
+        collapsed: false,
+      });
+    });
   });
 
   it('restores persisted collapsed preference on mount', async () => {
@@ -173,6 +252,14 @@ describe('DashboardLayout layout behaviour', () => {
       'gigvora.dashboard.company.sidebar',
       JSON.stringify({ collapsed: true }),
     );
+
+    fetchNavigationPreferences.mockResolvedValueOnce({
+      dashboardKey: 'company',
+      collapsed: true,
+      order: [],
+      hidden: [],
+      pinned: [],
+    });
 
     renderLayout({ currentDashboard: 'company', sections: navigationSections });
 

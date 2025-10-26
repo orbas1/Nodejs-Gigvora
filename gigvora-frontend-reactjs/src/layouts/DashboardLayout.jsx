@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AdjustmentsHorizontalIcon,
   ArrowLeftOnRectangleIcon,
@@ -15,6 +15,9 @@ import MessagingDock from '../components/messaging/MessagingDock.jsx';
 import AdPlacementRail from '../components/ads/AdPlacementRail.jsx';
 import DashboardAccessGuard from '../components/security/DashboardAccessGuard.jsx';
 import DashboardQuickNav from '../components/dashboard/shared/DashboardQuickNav.jsx';
+import analytics from '../services/analytics.js';
+import { fetchNavigationPreferences, saveNavigationPreferences } from '../services/navigationPreferences.js';
+import useSession from '../hooks/useSession.js';
 
 function slugify(value) {
   if (!value) {
@@ -197,34 +200,59 @@ const DEFAULT_AD_SURFACE_BY_DASHBOARD = {
   headhunter: 'headhunter_dashboard',
 };
 
-function DashboardSwitcher({ dashboards, currentId, onNavigate }) {
+function DashboardSwitcher({ dashboards = [], currentId, onNavigate }) {
   if (!dashboards.length) {
     return null;
   }
 
   return (
-    <div className="hidden items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm lg:flex">
-      <Squares2X2Icon className="h-4 w-4 text-accent" />
-      <span>Dashboards</span>
-      <div className="flex items-center gap-1">
-        {dashboards.map((dashboard) => {
-          const isActive = dashboard.id === currentId;
-          return (
-            <button
-              key={dashboard.id}
-              type="button"
-              className={`rounded-full px-2 py-0.5 text-xs font-semibold transition ${
-                isActive ? 'bg-accent text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'
-              }`}
-              onClick={() => onNavigate?.(dashboard.href)}
-              aria-pressed={isActive}
-            >
+    <>
+      <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/90 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm lg:hidden">
+        <Squares2X2Icon className="h-4 w-4 text-accent" />
+        <label htmlFor="dashboard-switcher-mobile" className="sr-only">
+          Select dashboard
+        </label>
+        <select
+          id="dashboard-switcher-mobile"
+          className="flex-1 rounded-xl border border-slate-200 bg-white px-2 py-1 text-sm font-medium text-slate-700"
+          value={currentId ?? dashboards[0]?.id ?? ''}
+          onChange={(event) => {
+            const selected = dashboards.find((dashboard) => dashboard.id === event.target.value);
+            if (selected) {
+              onNavigate?.(selected.href);
+            }
+          }}
+        >
+          {dashboards.map((dashboard) => (
+            <option key={dashboard.id} value={dashboard.id}>
               {dashboard.label}
-            </button>
-          );
-        })}
+            </option>
+          ))}
+        </select>
       </div>
-    </div>
+      <div className="hidden items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm lg:flex">
+        <Squares2X2Icon className="h-4 w-4 text-accent" />
+        <span>Dashboards</span>
+        <div className="flex items-center gap-1">
+          {dashboards.map((dashboard) => {
+            const isActive = dashboard.id === currentId;
+            return (
+              <button
+                key={dashboard.id}
+                type="button"
+                className={`rounded-full px-2 py-0.5 text-xs font-semibold transition ${
+                  isActive ? 'bg-accent text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                }`}
+                onClick={() => onNavigate?.(dashboard.href)}
+                aria-pressed={isActive}
+              >
+                {dashboard.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -240,13 +268,7 @@ DashboardSwitcher.propTypes = {
   onNavigate: PropTypes.func,
 };
 
-DashboardSwitcher.defaultProps = {
-  dashboards: [],
-  currentId: undefined,
-  onNavigate: undefined,
-};
-
-function MenuSection({ section, isOpen, onToggle, onItemClick, activeItemId, collapsed }) {
+function MenuSection({ section, isOpen = true, onToggle, onItemClick, activeItemId, collapsed = false }) {
   if (!section.items.length) {
     return null;
   }
@@ -396,18 +418,11 @@ MenuSection.propTypes = {
   collapsed: PropTypes.bool,
 };
 
-MenuSection.defaultProps = {
-  isOpen: true,
-  onItemClick: undefined,
-  activeItemId: undefined,
-  collapsed: false,
-};
-
 function CustomizationPanel({
   open,
-  items,
-  order,
-  hidden,
+  items = [],
+  order = [],
+  hidden = new Set(),
   onClose,
   onReorder,
   onToggleVisibility,
@@ -506,9 +521,9 @@ export default function DashboardLayout({
   title,
   subtitle,
   description,
-  menuSections,
-  sections,
-  availableDashboards,
+  menuSections = [],
+  sections = [],
+  availableDashboards = [],
   children,
   activeMenuItem,
   onMenuItemSelect,
@@ -516,14 +531,20 @@ export default function DashboardLayout({
   requiredRoles,
   requiredPermissions,
   guardFallback,
-  enforceAccessControl,
+  enforceAccessControl = true,
 }) {
   const navigate = useNavigate();
+  const { session } = useSession();
+  const userId = session?.id ?? null;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [customizerOpen, setCustomizerOpen] = useState(false);
   const [openSectionIds, setOpenSectionIds] = useState(() => new Set());
   const [activeScrollItemId, setActiveScrollItemId] = useState(activeMenuItem ?? '');
+  const [preferencesReady, setPreferencesReady] = useState(() => !userId);
+  const lastSavedPreferencesRef = useRef({ dashboardKey: '', order: [], hidden: [], collapsed: false });
+  const pendingSaveRef = useRef(null);
+  const suppressNextSyncRef = useRef(false);
 
   const normalizedSections = useMemo(
     () => normalizeMenuSections(menuSections?.length ? menuSections : sections),
@@ -533,6 +554,12 @@ export default function DashboardLayout({
   useEffect(() => {
     setOpenSectionIds(new Set(normalizedSections.map((section) => section.id)));
   }, [normalizedSections]);
+
+  useEffect(() => {
+    if (!userId) {
+      setPreferencesReady(true);
+    }
+  }, [userId]);
 
   useEffect(() => {
     if (activeMenuItem) {
@@ -574,10 +601,73 @@ export default function DashboardLayout({
   const [hiddenItemIds, setHiddenItemIds] = useState(() => new Set());
 
   useEffect(() => {
+    lastSavedPreferencesRef.current.dashboardKey = dashboardId;
+  }, [dashboardId]);
+
+  useEffect(() => {
     const { order, hidden } = loadStoredCustomization(customizationKey);
     setCustomOrder(order);
     setHiddenItemIds(new Set(hidden));
   }, [customizationKey]);
+
+  useEffect(() => {
+    if (!userId) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        const remote = await fetchNavigationPreferences(userId, {
+          dashboardKey: dashboardId,
+          signal: controller.signal,
+        });
+        if (cancelled || !remote) {
+          return;
+        }
+
+        const remoteOrder = Array.isArray(remote.order) ? remote.order.map((id) => `${id}`.trim()).filter(Boolean) : [];
+        const remoteHidden = Array.isArray(remote.hidden)
+          ? remote.hidden.map((id) => `${id}`.trim()).filter(Boolean)
+          : [];
+        const hasRemoteOrder = remoteOrder.length > 0;
+        const hasRemoteHidden = remoteHidden.length > 0;
+
+        if (hasRemoteOrder) {
+          setCustomOrder(remoteOrder);
+        }
+        if (hasRemoteHidden) {
+          setHiddenItemIds(new Set(remoteHidden));
+        }
+        if (Object.prototype.hasOwnProperty.call(remote, 'collapsed')) {
+          setSidebarCollapsed(Boolean(remote.collapsed));
+        }
+
+        lastSavedPreferencesRef.current = {
+          dashboardKey: dashboardId,
+          order: remoteOrder,
+          hidden: remoteHidden,
+          collapsed: Object.prototype.hasOwnProperty.call(remote, 'collapsed')
+            ? Boolean(remote.collapsed)
+            : false,
+        };
+        suppressNextSyncRef.current = true;
+      } catch (error) {
+        // Non-blocking fetch failure.
+      } finally {
+        if (!cancelled) {
+          setPreferencesReady(true);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [dashboardId, userId]);
 
   useEffect(() => {
     const orderIds = customOrder.length ? customOrder : allMenuItems.map((item) => item.id);
@@ -592,6 +682,60 @@ export default function DashboardLayout({
   useEffect(() => {
     saveStoredSidebarPreferences(sidebarPreferencesKey, { collapsed: sidebarCollapsed });
   }, [sidebarPreferencesKey, sidebarCollapsed]);
+
+  useEffect(() => {
+    const orderIds = customOrder.length ? customOrder : allMenuItems.map((item) => item.id);
+    const hiddenIds = Array.from(hiddenItemIds);
+    const payload = {
+      dashboardKey: dashboardId,
+      order: orderIds,
+      hidden: hiddenIds,
+      collapsed: sidebarCollapsed,
+    };
+
+    const matchesPayload = (candidate) =>
+      candidate &&
+      candidate.dashboardKey === payload.dashboardKey &&
+      candidate.collapsed === payload.collapsed &&
+      candidate.order.join('|') === payload.order.join('|') &&
+      candidate.hidden.join('|') === payload.hidden.join('|');
+
+    if (!userId || !preferencesReady) {
+      return;
+    }
+
+    if (suppressNextSyncRef.current) {
+      suppressNextSyncRef.current = false;
+      lastSavedPreferencesRef.current = payload;
+      return;
+    }
+
+    if (matchesPayload(lastSavedPreferencesRef.current) || matchesPayload(pendingSaveRef.current)) {
+      return;
+    }
+
+    pendingSaveRef.current = payload;
+    saveNavigationPreferences(userId, payload)
+      .then(() => {
+        lastSavedPreferencesRef.current = payload;
+      })
+      .catch(() => {
+        // Best-effort sync failure.
+      })
+      .finally(() => {
+        if (matchesPayload(pendingSaveRef.current)) {
+          pendingSaveRef.current = null;
+        }
+      });
+  }, [
+    allMenuItems,
+    customOrder,
+    dashboardId,
+    hiddenItemIds,
+    preferencesReady,
+    sidebarCollapsed,
+    userId,
+  ]);
 
   const orderedMenuItems = useMemo(() => {
     const knownIds = new Set(allMenuItems.map((item) => item.id));
@@ -704,6 +848,12 @@ export default function DashboardLayout({
     (item) => {
       if (!item) return;
       onMenuItemSelect?.(item.id, item);
+      analytics.track('web_dashboard_navigation_item_selected', {
+        dashboard: dashboardId,
+        itemId: item.id,
+        href: item.href ?? null,
+        target: item.target ?? null,
+      });
       setMobileOpen(false);
       if (item.id) {
         setActiveScrollItemId(item.id);
@@ -734,7 +884,7 @@ export default function DashboardLayout({
 
       navigate(href);
     },
-    [navigate, onMenuItemSelect],
+    [dashboardId, navigate, onMenuItemSelect],
   );
 
   const handleToggleSection = useCallback((sectionId) => {
@@ -763,23 +913,62 @@ export default function DashboardLayout({
         }
         ids.splice(currentIndex, 1);
         ids.splice(boundedIndex, 0, itemId);
+        analytics.track('web_dashboard_navigation_reordered', {
+          dashboard: dashboardId,
+          itemId,
+          fromIndex: currentIndex,
+          toIndex: boundedIndex,
+        });
         return ids;
       });
     },
-    [allMenuItems],
+    [allMenuItems, dashboardId],
   );
 
-  const handleToggleHidden = useCallback((itemId) => {
-    setHiddenItemIds((previous) => {
-      const next = new Set(previous);
-      if (next.has(itemId)) {
-        next.delete(itemId);
-      } else {
-        next.add(itemId);
-      }
+  const handleToggleHidden = useCallback(
+    (itemId) => {
+      setHiddenItemIds((previous) => {
+        const next = new Set(previous);
+        const wasHidden = next.has(itemId);
+        if (wasHidden) {
+          next.delete(itemId);
+          analytics.track('web_dashboard_navigation_item_shown', {
+            dashboard: dashboardId,
+            itemId,
+          });
+        } else {
+          next.add(itemId);
+          analytics.track('web_dashboard_navigation_item_hidden', {
+            dashboard: dashboardId,
+            itemId,
+          });
+        }
+        return next;
+      });
+    },
+    [dashboardId],
+  );
+
+  const handleSidebarCollapseToggle = useCallback(() => {
+    setSidebarCollapsed((previous) => {
+      const next = !previous;
+      analytics.track('web_dashboard_sidebar_toggle', {
+        dashboard: dashboardId,
+        collapsed: next,
+      });
       return next;
     });
-  }, []);
+  }, [dashboardId]);
+
+  const handleOpenCustomizer = useCallback(() => {
+    analytics.track('web_dashboard_navigation_customizer_opened', { dashboard: dashboardId });
+    setCustomizerOpen(true);
+  }, [dashboardId]);
+
+  const handleCloseCustomizer = useCallback(() => {
+    analytics.track('web_dashboard_navigation_customizer_closed', { dashboard: dashboardId });
+    setCustomizerOpen(false);
+  }, [dashboardId]);
 
   const normalizedDashboardKey =
     typeof currentDashboard === 'string' ? currentDashboard.trim().toLowerCase() : '';
@@ -840,7 +1029,7 @@ export default function DashboardLayout({
             {hasMenuCustomization ? (
               <button
                 type="button"
-                onClick={() => setCustomizerOpen(true)}
+                onClick={handleOpenCustomizer}
                 className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
                 aria-label="Customize navigation"
               >
@@ -880,7 +1069,7 @@ export default function DashboardLayout({
         <div className={`border-t border-slate-200 ${sidebarCollapsed ? 'px-3 py-3' : 'px-5 py-4'}`}>
           <button
             type="button"
-            onClick={() => setSidebarCollapsed((previous) => !previous)}
+            onClick={handleSidebarCollapseToggle}
             className={`flex w-full items-center rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900 ${
               sidebarCollapsed ? 'justify-center' : 'justify-between'
             }`}
@@ -965,7 +1154,7 @@ export default function DashboardLayout({
         items={allMenuItems}
         order={orderedMenuItems}
         hidden={hiddenItemIds}
-        onClose={() => setCustomizerOpen(false)}
+        onClose={handleCloseCustomizer}
         onReorder={handleReorder}
         onToggleVisibility={handleToggleHidden}
       />

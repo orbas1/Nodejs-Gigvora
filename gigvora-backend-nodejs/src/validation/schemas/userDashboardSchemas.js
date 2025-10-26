@@ -66,6 +66,58 @@ function optionalDecimal(minimum, maximum) {
   }, z.union([z.number().min(minimum).max(maximum), z.literal(null)]));
 }
 
+function optionalBooleanLike() {
+  return z.preprocess((value) => {
+    if (value === undefined) {
+      return undefined;
+    }
+    if (value === null || value === '') {
+      return undefined;
+    }
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      if (['true', '1', 'yes', 'on'].includes(normalized)) {
+        return true;
+      }
+      if (['false', '0', 'no', 'off'].includes(normalized)) {
+        return false;
+      }
+    }
+    if (typeof value === 'number') {
+      if (Number.isNaN(value)) {
+        return undefined;
+      }
+      return value !== 0;
+    }
+    if (typeof value === 'boolean') {
+      return value;
+    }
+    return undefined;
+  }, z.boolean().optional());
+}
+
+function optionalIdList(maxLength = 120, maxItems = 200) {
+  return z
+    .preprocess((value) => {
+      if (value === undefined) {
+        return undefined;
+      }
+      if (value === null) {
+        return [];
+      }
+      const source = Array.isArray(value) ? value : [value];
+      return source
+        .map((entry) => {
+          if (entry == null) {
+            return '';
+          }
+          return `${entry}`.trim();
+        })
+        .filter((entry) => entry.length);
+    }, z.array(z.string().min(1).max(maxLength)).max(maxItems))
+    .optional();
+}
+
 export const updateUserDashboardOverviewSchema = z
   .object({
     greetingName: optionalTrimmedString(120).optional(),
@@ -90,6 +142,17 @@ export const updateUserDashboardOverviewSchema = z
   })
   .strict();
 
+export const updateUserNavigationPreferencesSchema = z
+  .object({
+    dashboardKey: optionalTrimmedString(80).optional(),
+    collapsed: optionalBooleanLike(),
+    order: optionalIdList(),
+    hidden: optionalIdList(),
+    pinned: optionalIdList(),
+  })
+  .strict();
+
 export default {
   updateUserDashboardOverviewSchema,
+  updateUserNavigationPreferencesSchema,
 };

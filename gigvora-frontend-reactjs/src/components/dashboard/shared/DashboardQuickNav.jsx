@@ -20,7 +20,7 @@ function formatBadge(value) {
   return String(value);
 }
 
-export default function DashboardQuickNav({ sections, activeItemId, onSelect }) {
+export default function DashboardQuickNav({ sections = [], activeItemId, onSelect }) {
   if (!Array.isArray(sections) || !sections.length) {
     return null;
   }
@@ -91,10 +91,4 @@ DashboardQuickNav.propTypes = {
   ),
   activeItemId: PropTypes.string,
   onSelect: PropTypes.func,
-};
-
-DashboardQuickNav.defaultProps = {
-  sections: [],
-  activeItemId: undefined,
-  onSelect: undefined,
 };

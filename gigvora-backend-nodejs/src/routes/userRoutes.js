@@ -7,7 +7,10 @@ import * as userDisputeController from '../controllers/userDisputeController.js'
 import asyncHandler from '../utils/asyncHandler.js';
 import authenticate from '../middleware/authenticate.js';
 import validateRequest from '../middleware/validateRequest.js';
-import { updateUserDashboardOverviewSchema } from '../validation/schemas/userDashboardSchemas.js';
+import {
+  updateUserDashboardOverviewSchema,
+  updateUserNavigationPreferencesSchema,
+} from '../validation/schemas/userDashboardSchemas.js';
 import userConsentRoutes from './userConsentRoutes.js';
 import userCalendarRoutes from './userCalendarRoutes.js';
 import userNetworkingRoutes from './userNetworkingRoutes.js';
@@ -51,6 +54,19 @@ router.put(
   authenticate({ roles: EXTENDED_ACCOUNT_ROLES, matchParam: 'id' }),
   validateRequest({ body: updateUserDashboardOverviewSchema }),
   asyncHandler(userController.updateUserDashboardOverview),
+);
+
+router.get(
+  '/:id/navigation-preferences',
+  authenticate({ roles: EXTENDED_ACCOUNT_ROLES, matchParam: 'id' }),
+  asyncHandler(userController.getUserNavigationPreferences),
+);
+
+router.put(
+  '/:id/navigation-preferences',
+  authenticate({ roles: EXTENDED_ACCOUNT_ROLES, matchParam: 'id' }),
+  validateRequest({ body: updateUserNavigationPreferencesSchema }),
+  asyncHandler(userController.updateUserNavigationPreferences),
 );
 
 router.post(

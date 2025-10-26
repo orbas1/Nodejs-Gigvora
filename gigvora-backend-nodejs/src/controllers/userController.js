@@ -22,6 +22,10 @@ import {
   getUserWebsitePreferences as fetchUserWebsitePreferences,
   updateUserWebsitePreferences as saveUserWebsitePreferences,
 } from '../services/userWebsitePreferenceService.js';
+import {
+  getUserNavigationPreferences as fetchUserNavigationPreferences,
+  updateUserNavigationPreferences as saveUserNavigationPreferences,
+} from '../services/userNavigationPreferenceService.js';
 import { normalizeLocationPayload } from '../utils/location.js';
 import { resolveRequestUserId } from '../utils/requestContext.js';
 
@@ -257,5 +261,17 @@ export async function getWebsitePreferences(req, res) {
 
 export async function updateWebsitePreferences(req, res) {
   const preferences = await saveUserWebsitePreferences(req.params.id, req.body ?? {});
+  res.json(preferences);
+}
+
+export async function getUserNavigationPreferences(req, res) {
+  const preferences = await fetchUserNavigationPreferences(req.params.id, {
+    dashboardKey: req.query?.dashboardKey,
+  });
+  res.json(preferences);
+}
+
+export async function updateUserNavigationPreferences(req, res) {
+  const preferences = await saveUserNavigationPreferences(req.params.id, req.body ?? {});
   res.json(preferences);
 }
