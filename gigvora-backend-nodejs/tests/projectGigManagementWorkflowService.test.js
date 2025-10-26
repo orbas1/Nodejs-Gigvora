@@ -27,6 +27,10 @@ describe('projectGigManagementWorkflowService', () => {
       description: 'Refactor onboarding across growth pods.',
       budgetCurrency: 'USD',
       budgetAllocated: 25000,
+      category: 'Growth enablement',
+      skills: ['onboarding', 'ux operations'],
+      durationWeeks: 10,
+      lifecycleState: 'open',
       milestones: [
         { title: 'Discovery interviews', dueDate: new Date(), ordinal: 1 },
         { title: 'Prototype sprint', dueDate: new Date(Date.now() + 7 * 86400000), ordinal: 2 },
@@ -36,8 +40,45 @@ describe('projectGigManagementWorkflowService', () => {
         { fullName: 'Jordan Designer', role: 'Designer' },
       ],
       integrations: [{ provider: 'github' }, { provider: 'figma' }],
-      workspace: { status: 'in_progress', progressPercent: 35, nextMilestone: 'Prototype sprint' },
+      workspace: {
+        status: 'in_progress',
+        progressPercent: 35,
+        nextMilestone: 'Prototype sprint',
+        riskLevel: 'medium',
+        healthScore: 64,
+        velocityScore: 58,
+        clientSatisfaction: 4.2,
+        automationCoverage: 45,
+        billingStatus: 'on_track',
+        metricsSnapshot: { approvalsPending: 1 },
+      },
+      autoMatch: {
+        enabled: true,
+        acceptEnabled: true,
+        budgetMin: 3000,
+        budgetMax: 12000,
+        weeklyHoursMin: 10,
+        weeklyHoursMax: 30,
+        durationWeeksMin: 4,
+        durationWeeksMax: 12,
+        skills: ['ux', 'enablement'],
+        notes: 'Prioritise facilitators with onboarding depth.',
+      },
     });
+
+    expect(project.category).toBe('Growth enablement');
+    expect(project.skills).toEqual(expect.arrayContaining(['onboarding', 'ux operations']));
+    expect(project.durationWeeks).toBe(10);
+    expect(project.lifecycleState).toBe('open');
+    expect(project.autoMatchEnabled).toBe(true);
+    expect(project.autoMatchAcceptEnabled).toBe(true);
+    expect(project.autoMatchBudgetMin).toBeCloseTo(3000);
+    expect(project.autoMatchBudgetMax).toBeCloseTo(12000);
+    expect(project.autoMatchSkills).toEqual(expect.arrayContaining(['ux', 'enablement']));
+    expect(project.autoMatchUpdatedBy).toBe(ownerId);
+    expect(project.workspace.status).toBe('active');
+    expect(project.workspace.billingStatus).toBe('on_track');
+    expect(project.workspace.metricsSnapshot).toMatchObject({ approvalsPending: 1 });
 
     await addProjectAsset(ownerId, project.id, {
       label: 'Discovery notes',
