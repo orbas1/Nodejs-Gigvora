@@ -1,503 +1,362 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import {
-  ArrowPathIcon,
-  BoltIcon,
   ClipboardDocumentListIcon,
-  FireIcon,
-  FlagIcon,
-  InformationCircleIcon,
-  ShieldExclamationIcon,
+  ClockIcon,
+  ExclamationCircleIcon,
   ShieldCheckIcon,
-  SignalIcon,
-  SparklesIcon,
-  UserMinusIcon,
 } from '@heroicons/react/24/outline';
+import {
+  createModerationAction,
+  fetchModerationActions,
+} from '../../../services/contentGovernance.js';
 
-const SEVERITY_LEVELS = {
-  critical: {
-    label: 'Critical',
-    description: 'Immediate enforcement and legal review recommended.',
-    gradient: 'from-rose-500 via-rose-600 to-rose-700',
-    badge: 'bg-rose-500/10 text-rose-200 border-rose-400/60',
-  },
-  high: {
-    label: 'High',
-    description: 'Act within 30 minutes and notify communications.',
-    gradient: 'from-amber-500 via-amber-600 to-amber-700',
-    badge: 'bg-amber-500/10 text-amber-200 border-amber-400/60',
-  },
-  medium: {
-    label: 'Medium',
-    description: 'Review within the SLA and capture rationale.',
-    gradient: 'from-sky-500 via-sky-600 to-sky-700',
-    badge: 'bg-sky-500/10 text-sky-200 border-sky-400/60',
-  },
-  low: {
-    label: 'Low',
-    description: 'Monitor ongoing behaviour and educate the member.',
-    gradient: 'from-emerald-500 via-emerald-600 to-emerald-700',
-    badge: 'bg-emerald-500/10 text-emerald-200 border-emerald-400/60',
-  },
-};
-
-const DEFAULT_ACTIONS = [
-  {
-    id: 'approve',
-    label: 'Approve',
-    description: 'Content complies with policy. Restore visibility and close the case.',
-    tone: 'emerald',
-    icon: ShieldCheckIcon,
-  },
-  {
-    id: 'request_changes',
-    label: 'Request edits',
-    description: 'Provide revision guidance and keep the case on watch.',
-    tone: 'sky',
-    icon: ClipboardDocumentListIcon,
-  },
-  {
-    id: 'suspend',
-    label: 'Suspend account',
-    description: 'Temporarily suspend posting rights while investigating.',
-    tone: 'amber',
-    icon: UserMinusIcon,
-  },
-  {
-    id: 'escalate',
-    label: 'Escalate to legal',
-    description: 'Hand over to legal and policy for joint response.',
-    tone: 'rose',
-    icon: ShieldExclamationIcon,
-  },
+const ACTION_OPTIONS = [
+  { value: 'approve', label: 'Approve for publish' },
+  { value: 'reject', label: 'Reject and remove' },
+  { value: 'request_changes', label: 'Request changes' },
+  { value: 'escalate', label: 'Escalate to specialist' },
+  { value: 'suspend', label: 'Suspend actor' },
+  { value: 'restore', label: 'Restore content' },
+  { value: 'add_note', label: 'Add reviewer note' },
 ];
 
-function riskBand(score) {
-  const numeric = Number.parseFloat(score);
-  if (!Number.isFinite(numeric)) return 'low';
-  if (numeric >= 85) return 'critical';
-  if (numeric >= 60) return 'high';
-  if (numeric >= 35) return 'medium';
-  return 'low';
-}
+const STATUS_OPTIONS = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'in_review', label: 'In review' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'rejected', label: 'Rejected' },
+  { value: 'escalated', label: 'Escalated' },
+  { value: 'needs_changes', label: 'Needs changes' },
+];
 
-function SeverityMeter({ level, score }) {
-  const severity = SEVERITY_LEVELS[level] ?? SEVERITY_LEVELS.low;
+const PRIORITY_OPTIONS = [
+  { value: 'urgent', label: 'Urgent' },
+  { value: 'high', label: 'High' },
+  { value: 'standard', label: 'Standard' },
+  { value: 'low', label: 'Low' },
+];
+
+const SEVERITY_OPTIONS = [
+  { value: 'critical', label: 'Critical' },
+  { value: 'high', label: 'High' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'low', label: 'Low' },
+];
+
+function TimelineEntry({ action }) {
   return (
-    <div className="space-y-3 rounded-3xl border border-white/10 bg-white/5 p-6 text-xs text-white/70">
-      <div className="flex items-center justify-between">
-        <span className="inline-flex items-center gap-2 text-sm font-semibold text-white">
-          <FireIcon className="h-5 w-5" aria-hidden="true" /> {severity.label}
-        </span>
-        <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-white/70">
-          Risk {Number.isFinite(Number(score)) ? Math.round(Number(score)) : '—'}
-        </span>
+    <li className="relative flex gap-3 rounded-2xl border border-slate-200 bg-white/60 p-3 text-sm text-slate-600 shadow-sm">
+      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white">
+        <ShieldCheckIcon className="h-5 w-5" aria-hidden />
       </div>
-      <p>{severity.description}</p>
-      <div className={`h-2 w-full overflow-hidden rounded-full bg-white/20`}> 
-        <div
-          className={`h-full w-full bg-gradient-to-r ${severity.gradient}`}
-          style={{ width: `${Math.min(100, Math.max(0, Number(score) || 0))}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-SeverityMeter.propTypes = {
-  level: PropTypes.oneOf(Object.keys(SEVERITY_LEVELS)).isRequired,
-  score: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-};
-
-SeverityMeter.defaultProps = {
-  score: null,
-};
-
-function ActionButton({ action, disabled, onExecute }) {
-  const toneClasses = {
-    emerald: 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100',
-    sky: 'border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100',
-    amber: 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100',
-    rose: 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100',
-  };
-  const Icon = action.icon ?? ShieldCheckIcon;
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={() => onExecute?.(action.id)}
-      className={`w-full rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 ${toneClasses[action.tone]}`}
-    >
-      <div className="flex items-center gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/70 text-slate-700">
-          <Icon className="h-5 w-5" aria-hidden="true" />
-        </span>
-        <div>
-          <p className="text-slate-900">{action.label}</p>
-          <p className="text-xs font-normal text-slate-600">{action.description}</p>
+      <div className="flex-1">
+        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <span>{action.action.replace('_', ' ')}</span>
+          <span className="rounded-full bg-slate-100 px-2 py-0.5">Severity {action.severity}</span>
+          {action.riskScore != null && <span className="rounded-full bg-slate-100 px-2 py-0.5">Risk {action.riskScore}</span>}
         </div>
+        {action.reason && <p className="mt-1 text-sm text-slate-700">{action.reason}</p>}
+        {action.resolutionSummary && (
+          <p className="mt-1 text-xs text-slate-500">Resolution: {action.resolutionSummary}</p>
+        )}
+        <p className="mt-2 text-xs text-slate-500">{new Date(action.createdAt).toLocaleString()}</p>
       </div>
-    </button>
+    </li>
   );
 }
 
-ActionButton.propTypes = {
+TimelineEntry.propTypes = {
   action: PropTypes.shape({
-    id: PropTypes.string.isRequired,
-    label: PropTypes.string.isRequired,
-    description: PropTypes.string,
-    tone: PropTypes.string,
-    icon: PropTypes.elementType,
+    action: PropTypes.string.isRequired,
+    severity: PropTypes.string.isRequired,
+    riskScore: PropTypes.number,
+    reason: PropTypes.string,
+    resolutionSummary: PropTypes.string,
+    createdAt: PropTypes.string.isRequired,
   }).isRequired,
-  disabled: PropTypes.bool,
-  onExecute: PropTypes.func,
 };
 
-ActionButton.defaultProps = {
-  disabled: false,
-  onExecute: undefined,
-};
+export default function ModerationActions({ submission = null, onActionComplete = () => {} }) {
+  const [form, setForm] = useState({
+    action: 'request_changes',
+    status: submission?.status || 'in_review',
+    priority: submission?.priority || 'standard',
+    severity: submission?.severity || 'medium',
+    riskScore: submission?.riskScore ?? '',
+    slaMinutes: submission?.slaMinutes ?? '',
+    reason: '',
+    resolutionSummary: '',
+    guidanceLink: '',
+  });
+  const [history, setHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
 
-export default function ModerationActions({
-  subject,
-  templates,
-  history,
-  analytics,
-  onExecute,
-  loading,
-  onTemplatePreview,
-}) {
-  const [selectedTemplateId, setSelectedTemplateId] = useState(null);
-  const [notes, setNotes] = useState('');
+  useEffect(() => {
+    setForm((prev) => ({
+      ...prev,
+      status: submission?.status || 'in_review',
+      priority: submission?.priority || 'standard',
+      severity: submission?.severity || 'medium',
+      riskScore: submission?.riskScore ?? '',
+      slaMinutes: submission?.slaMinutes ?? '',
+      reason: '',
+      resolutionSummary: '',
+      guidanceLink: '',
+    }));
+  }, [submission?.id, submission?.status, submission?.priority, submission?.severity, submission?.riskScore, submission?.slaMinutes]);
 
-  const severityLevel = useMemo(() => riskBand(subject?.riskScore ?? subject?.severityScore ?? subject?.score), [subject]);
-  const resolvedTemplates = templates?.length ? templates : [];
-  const availableActions = subject?.actions?.length ? subject.actions : DEFAULT_ACTIONS;
-  const appliedTemplate = useMemo(
-    () => resolvedTemplates.find((template) => template.id === selectedTemplateId) ?? null,
-    [resolvedTemplates, selectedTemplateId],
-  );
+  useEffect(() => {
+    if (!submission?.id) {
+      setHistory([]);
+      return;
+    }
+    let isMounted = true;
+    setLoadingHistory(true);
+    fetchModerationActions(submission.id)
+      .then((data) => {
+        if (!isMounted) return;
+        setHistory(data.actions || []);
+      })
+      .catch((fetchError) => {
+        if (!isMounted) return;
+        setError(fetchError);
+      })
+      .finally(() => {
+        if (isMounted) {
+          setLoadingHistory(false);
+        }
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [submission?.id]);
+
+  const tone = useMemo(() => {
+    if (form.severity === 'critical' || form.priority === 'urgent') return 'bg-rose-50 border-rose-200 text-rose-800';
+    if (form.severity === 'high' || form.priority === 'high') return 'bg-amber-50 border-amber-200 text-amber-800';
+    return 'bg-emerald-50 border-emerald-200 text-emerald-800';
+  }, [form.severity, form.priority]);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (!submission?.id) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await createModerationAction(submission.id, {
+        action: form.action,
+        status: form.status,
+        priority: form.priority,
+        severity: form.severity,
+        riskScore: form.riskScore === '' ? undefined : Number(form.riskScore),
+        slaMinutes: form.slaMinutes === '' ? undefined : Number(form.slaMinutes),
+        reason: form.reason || undefined,
+        resolutionSummary: form.resolutionSummary || undefined,
+        guidanceLink: form.guidanceLink || undefined,
+      });
+      setForm((prev) => ({
+        ...prev,
+        reason: '',
+        resolutionSummary: '',
+        guidanceLink: '',
+      }));
+      onActionComplete();
+      const refreshed = await fetchModerationActions(submission.id);
+      setHistory(refreshed.actions || []);
+    } catch (submitError) {
+      setError(submitError);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
-    <section className="space-y-8">
-      <header className="rounded-4xl border border-slate-200 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8 text-white shadow-[0_40px_80px_-40px_rgba(15,23,42,0.8)]">
-        <div className="flex flex-wrap items-start justify-between gap-6">
-          <div className="space-y-3">
-            <p className="text-sm font-semibold uppercase tracking-[0.4em] text-white/50">Moderation actions</p>
-            <h1 className="text-3xl font-semibold">Resolution control centre</h1>
-            <p className="max-w-2xl text-sm text-white/70">
-              Apply templated actions, capture rationale, and monitor enforcement impact with premium decision intelligence for
-              safety operations teams.
-            </p>
-            <div className="flex flex-wrap items-center gap-4 text-xs text-white/60">
-              <span className="inline-flex items-center gap-2">
-                <BoltIcon className="h-4 w-4" aria-hidden="true" /> SLA target {subject?.slaMinutes ?? '30'} minutes
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <FlagIcon className="h-4 w-4" aria-hidden="true" /> {subject?.reports ?? 0} community reports
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <SignalIcon className="h-4 w-4" aria-hidden="true" /> {subject?.aiSignals?.length ?? 0} AI signals
-              </span>
-            </div>
-          </div>
-          <div className="flex flex-col items-end gap-3 text-xs text-white/70">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2">
-              <SparklesIcon className="h-4 w-4" aria-hidden="true" /> Suggested template
-              {appliedTemplate ? `: ${appliedTemplate.name}` : ': None selected'}
-            </span>
-            {loading ? (
-              <span className="inline-flex items-center gap-2 text-xs text-white/60">
-                <ArrowPathIcon className="h-4 w-4 animate-spin" aria-hidden="true" /> Applying action…
-              </span>
-            ) : null}
-          </div>
+    <section className="flex flex-1 flex-col gap-4 rounded-3xl border border-slate-200 bg-white/80 p-5 shadow-inner">
+      <header className="flex items-center justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Moderation actions</p>
+          <h3 className="text-lg font-semibold text-slate-900">Resolve this submission</h3>
         </div>
-        <SeverityMeter level={severityLevel} score={subject?.riskScore ?? subject?.severityScore ?? subject?.score} />
+        <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${tone}`}>
+          <ClockIcon className="h-4 w-4" aria-hidden />
+          SLA {form.slaMinutes || submission?.slaMinutes || 'n/a'} mins
+        </div>
       </header>
 
-      <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="space-y-6">
-          <div className="space-y-4 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-soft">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Case details</p>
-                <h2 className="text-xl font-semibold text-slate-900">{subject?.title ?? 'Flagged submission'}</h2>
-                <p className="mt-2 text-sm text-slate-600">{subject?.summary ?? subject?.excerpt ?? 'No summary available.'}</p>
-              </div>
-              <div className="flex flex-col items-end gap-2 text-xs text-slate-500">
-                <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
-                  Reporter {subject?.reporter?.name ?? 'Community'}
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
-                  Account age {subject?.reporter?.accountAge ?? '—'}
-                </span>
-              </div>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              {Array.isArray(availableActions) && availableActions.length
-                ? availableActions.map((action) => (
-                    <ActionButton key={action.id} action={action} disabled={loading} onExecute={(actionId) => onExecute?.(actionId, { notes, template: selectedTemplateId, subject })} />
-                  ))
-                : null}
-            </div>
-            <div className="space-y-2 text-xs text-slate-500">
-              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.3em] text-slate-500">Decision rationale</p>
-              <textarea
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                placeholder="Capture reasoning, policy references, and follow-up tasks."
-                className="h-32 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-700 shadow-inner focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-              />
-              <p className="text-[0.65rem] text-slate-400">
-                Notes are appended to the enforcement record and included in the weekly governance digest.
-              </p>
-            </div>
-          </div>
+      {error && (
+        <div className="flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+          <ExclamationCircleIcon className="h-5 w-5" aria-hidden />
+          <span>{error.message || 'Unable to apply moderation action.'}</span>
+        </div>
+      )}
 
-          <div className="grid gap-6 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-soft md:grid-cols-2">
-            <div className="space-y-3 text-xs text-slate-600">
-              <h3 className="text-sm font-semibold text-slate-900">Templates</h3>
-              <ul className="space-y-2">
-                {resolvedTemplates.length
-                  ? resolvedTemplates.map((template) => (
-                      <li
-                        key={template.id}
-                        className={`rounded-2xl border p-3 transition ${
-                          template.id === selectedTemplateId
-                            ? 'border-slate-900 bg-slate-900/90 text-white shadow-[0_25px_60px_-40px_rgba(15,23,42,0.85)]'
-                            : 'border-slate-200 bg-white hover:border-slate-300 hover:text-slate-900'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-semibold">{template.name}</p>
-                            <p className={`mt-1 text-xs ${template.id === selectedTemplateId ? 'text-white/80' : 'text-slate-500'}`}>
-                              {template.description}
-                            </p>
-                          </div>
-                          <div className="flex flex-col gap-2 text-[0.65rem] font-semibold uppercase tracking-[0.3em]">
-                            <button
-                              type="button"
-                              onClick={() => setSelectedTemplateId(template.id)}
-                              className="rounded-full border border-current px-3 py-1"
-                            >
-                              Select
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => onTemplatePreview?.(template)}
-                              className="rounded-full border border-current px-3 py-1"
-                            >
-                              Preview
-                            </button>
-                          </div>
-                        </div>
-                        {template.metrics ? (
-                          <dl className="mt-3 grid grid-cols-2 gap-2 text-[0.65rem] uppercase tracking-[0.3em]">
-                            {template.metrics.map((metric) => (
-                              <div key={metric.label} className="rounded-2xl border border-white/20 bg-white/10 p-2 text-center">
-                                <dt>{metric.label}</dt>
-                                <dd className="mt-1 text-xs font-semibold text-white">
-                                  {metric.value}
-                                </dd>
-                              </div>
-                            ))}
-                          </dl>
-                        ) : null}
-                      </li>
-                    ))
-                  : (
-                    <li className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-4 text-xs text-slate-500">
-                      No templates configured yet. Add templates for consistency.
-                    </li>
-                  )}
-              </ul>
-            </div>
-            <div className="space-y-3 text-xs text-slate-600">
-              <h3 className="text-sm font-semibold text-slate-900">History</h3>
-              <ol className="space-y-2">
-                {(history ?? []).map((event) => (
-                  <li key={event.id ?? event.timestamp} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-slate-900">{event.actor ?? 'System'}</span>
-                      <span className="text-[0.65rem] uppercase tracking-[0.3em] text-slate-500">{event.action}</span>
-                    </div>
-                    <p className="mt-1 text-slate-600">{event.notes ?? 'Action recorded.'}</p>
-                    <p className="mt-1 text-slate-500">{new Date(event.timestamp).toLocaleString()}</p>
-                  </li>
-                ))}
-              </ol>
-              {!history?.length ? <p>No history captured yet.</p> : null}
-            </div>
-          </div>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
+            Action
+            <select
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
+              value={form.action}
+              onChange={(event) => setForm((prev) => ({ ...prev, action: event.target.value }))}
+            >
+              {ACTION_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
+            Status
+            <select
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
+              value={form.status}
+              onChange={(event) => setForm((prev) => ({ ...prev, status: event.target.value }))}
+            >
+              {STATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
+            Priority
+            <select
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
+              value={form.priority}
+              onChange={(event) => setForm((prev) => ({ ...prev, priority: event.target.value }))}
+            >
+              {PRIORITY_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
+            Severity
+            <select
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
+              value={form.severity}
+              onChange={(event) => setForm((prev) => ({ ...prev, severity: event.target.value }))}
+            >
+              {SEVERITY_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
 
-        <aside className="space-y-6">
-          <div className="space-y-3 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-soft">
-            <h3 className="text-sm font-semibold text-slate-900">Policy guardrails</h3>
-            <p className="text-xs text-slate-500">
-              Reference enforcement ladder stages, appeals protocol, and communication packages before finalising the action.
-            </p>
-            <ul className="space-y-2 text-xs text-slate-600">
-              {(subject?.guidelines ?? []).map((guide) => (
-                <li key={guide.id ?? guide.title} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-slate-900">{guide.title}</span>
-                    <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[0.65rem] uppercase tracking-[0.3em] text-slate-500">
-                      {guide.category ?? 'Policy'}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-slate-600">{guide.description}</p>
-                </li>
-              ))}
-              {!subject?.guidelines?.length ? <li className="text-xs text-slate-500">No guardrails attached.</li> : null}
-            </ul>
-          </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
+            Risk score
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              max="999.99"
+              value={form.riskScore}
+              onChange={(event) => setForm((prev) => ({ ...prev, riskScore: event.target.value }))}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
+              placeholder="0 – 999"
+            />
+          </label>
 
-          <div className="space-y-3 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-soft">
-            <h3 className="text-sm font-semibold text-slate-900">Impact analytics</h3>
-            <div className="space-y-3">
-              {(analytics ?? []).map((metric) => (
-                <div key={metric.label} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs text-slate-600">
-                    <span className="font-semibold text-slate-700">{metric.label}</span>
-                    <span>{metric.value}</span>
-                  </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      className={`h-full bg-gradient-to-r from-emerald-400 via-sky-400 to-accent`}
-                      style={{ width: `${Math.min(100, Math.max(0, metric.progress ?? 0))}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-              {!analytics?.length ? <p className="text-xs text-slate-500">No analytics available.</p> : null}
-            </div>
-          </div>
+          <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
+            SLA minutes
+            <input
+              type="number"
+              min="0"
+              value={form.slaMinutes}
+              onChange={(event) => setForm((prev) => ({ ...prev, slaMinutes: event.target.value }))}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
+              placeholder="Enter SLA"
+            />
+          </label>
+        </div>
 
-          <div className="space-y-3 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-soft">
-            <h3 className="text-sm font-semibold text-slate-900">Risk cues</h3>
-            <ul className="space-y-2 text-xs text-slate-600">
-              {(subject?.signals ?? []).map((signal) => (
-                <li key={signal.id ?? signal.label} className={`rounded-2xl border p-3 ${
-                  SEVERITY_LEVELS[signal.level]?.badge ?? 'border-slate-200 bg-slate-50 text-slate-600'
-                }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold">{signal.label}</span>
-                    <span>{signal.score ?? ''}</span>
-                  </div>
-                  <p className="mt-1 text-xs">
-                    {signal.description ?? 'Signal raised by automated classifiers.'}
-                  </p>
-                </li>
-              ))}
-              {!subject?.signals?.length ? (
-                <li className="rounded-2xl border border-dashed border-slate-200 bg-white/60 p-3 text-xs text-slate-500">
-                  No risk cues recorded.
-                </li>
-              ) : null}
-            </ul>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-xs text-slate-500">
-              <div className="flex items-center gap-2 font-semibold text-slate-700">
-                <InformationCircleIcon className="h-4 w-4" aria-hidden="true" /> Appeals guidance
-              </div>
-              <p className="mt-1">
-                If enforcement results in suspension, trigger the 24-hour appeal notification and attach evidence bundle for
-                audit logs.
-              </p>
-            </div>
-          </div>
-        </aside>
-      </div>
+        <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
+          Reason / findings
+          <textarea
+            rows={3}
+            value={form.reason}
+            onChange={(event) => setForm((prev) => ({ ...prev, reason: event.target.value }))}
+            className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
+            placeholder="Explain policy decision, cite evidence, and recommend follow-up actions."
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
+          Remediation plan
+          <textarea
+            rows={2}
+            value={form.resolutionSummary}
+            onChange={(event) => setForm((prev) => ({ ...prev, resolutionSummary: event.target.value }))}
+            className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
+            placeholder="Summarise the remediation steps shared with stakeholders."
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
+          Policy guidance link
+          <input
+            type="url"
+            value={form.guidanceLink}
+            onChange={(event) => setForm((prev) => ({ ...prev, guidanceLink: event.target.value }))}
+            className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
+            placeholder="https://"
+          />
+        </label>
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
+        >
+          {submitting ? 'Submitting…' : 'Apply action'}
+        </button>
+      </form>
+
+      <section className="space-y-3">
+        <header className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <ClipboardDocumentListIcon className="h-4 w-4" aria-hidden />
+          Action history
+        </header>
+        {loadingHistory ? (
+          <p className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">Loading history…</p>
+        ) : history.length === 0 ? (
+          <p className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+            No moderation actions recorded yet.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {history.map((action) => (
+              <TimelineEntry key={action.id} action={action} />
+            ))}
+          </ul>
+        )}
+      </section>
     </section>
   );
 }
 
 ModerationActions.propTypes = {
-  subject: PropTypes.shape({
-    title: PropTypes.string,
-    summary: PropTypes.string,
-    excerpt: PropTypes.string,
-    reporter: PropTypes.shape({
-      name: PropTypes.string,
-      accountAge: PropTypes.string,
-    }),
-    guidelines: PropTypes.arrayOf(
-      PropTypes.shape({
-        id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-        title: PropTypes.string,
-        description: PropTypes.string,
-        category: PropTypes.string,
-      }),
-    ),
-    signals: PropTypes.arrayOf(
-      PropTypes.shape({
-        id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-        label: PropTypes.string,
-        description: PropTypes.string,
-        score: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-        level: PropTypes.oneOf(Object.keys(SEVERITY_LEVELS)),
-      }),
-    ),
-    riskScore: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-    severityScore: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-    score: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-    reports: PropTypes.number,
-    aiSignals: PropTypes.arrayOf(PropTypes.object),
-    actions: PropTypes.arrayOf(
-      PropTypes.shape({
-        id: PropTypes.string.isRequired,
-        label: PropTypes.string.isRequired,
-        description: PropTypes.string,
-        tone: PropTypes.string,
-        icon: PropTypes.elementType,
-      }),
-    ),
+  submission: PropTypes.shape({
+    id: PropTypes.number,
+    status: PropTypes.string,
+    priority: PropTypes.string,
+    severity: PropTypes.string,
+    riskScore: PropTypes.number,
     slaMinutes: PropTypes.number,
   }),
-  templates: PropTypes.arrayOf(
-    PropTypes.shape({
-      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-      name: PropTypes.string.isRequired,
-      description: PropTypes.string,
-      metrics: PropTypes.arrayOf(
-        PropTypes.shape({
-          label: PropTypes.string.isRequired,
-          value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-        }),
-      ),
-    }),
-  ),
-  history: PropTypes.arrayOf(
-    PropTypes.shape({
-      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-      timestamp: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.instanceOf(Date)]),
-      action: PropTypes.string,
-      actor: PropTypes.string,
-      notes: PropTypes.string,
-    }),
-  ),
-  analytics: PropTypes.arrayOf(
-    PropTypes.shape({
-      label: PropTypes.string.isRequired,
-      value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-      progress: PropTypes.number,
-    }),
-  ),
-  onExecute: PropTypes.func,
-  loading: PropTypes.bool,
-  onTemplatePreview: PropTypes.func,
+  onActionComplete: PropTypes.func,
 };
-
-ModerationActions.defaultProps = {
-  subject: {},
-  templates: [],
-  history: [],
-  analytics: [],
-  onExecute: undefined,
-  loading: false,
-  onTemplatePreview: undefined,
-};
-

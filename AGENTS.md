@@ -5,3 +5,10 @@
     - [x] 10.C.1. ContentApprovalQueue.jsx
     - [x] 10.C.2. PolicyEditor.jsx
     - [x] 10.C.3. ModerationActions.jsx
+  - ✓ 10.C. Content & Governance
+    - ✓ 10.C.1. ContentApprovalQueue.jsx
+    - ✓ 10.C.2. PolicyEditor.jsx
+    - ✓ 10.C.3. ModerationActions.jsx
+    - ✓ 10.C.1. ContentApprovalQueue.jsx
+    - ✓ 10.C.2. PolicyEditor.jsx
+    - ✓ 10.C.3. ModerationActions.jsx
