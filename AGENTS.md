@@ -1,3 +1,13 @@
+- [x] 2.B. Onboarding Journeys
+  - [x] 2.B.1. OnboardingWizard.jsx
+  - [x] 2.B.2. PersonaSelection.jsx
+   - OnboardingWizard orchestrates persona, profile, team, preferences, and review steps with premium hero storytelling and progress telemetry, delivering LinkedIn/Instagram-grade onboarding.【F:user_experience.md†L1-L16】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L5-L120】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L620-L666】
+   - PersonaSelection spotlights benefits, metrics, signature moments, and core modules so every persona sees tailored value in seconds.【F:user_experience.md†L1-L18】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/PersonaSelection.jsx†L26-L256】
+   - Profile calibration, persona insights, and gradient overview panels personalise automation guidance and surface recommended wins for the chosen journey.【F:user_experience.md†L3-L35】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L240-L335】
+   - Team invitations, collaborator guidance, and review checklist translate setup inputs into actionable launch milestones with next-step narratives.【F:user_experience.md†L29-L60】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L340-L616】
+   - Preference tuning, signal chips, story themes, and AI draft toggles centralise behavioural controls without duplicate handlers.【F:user_experience.md†L17-L56】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L415-L547】
+   - Analytics instrumentation, validation guards, and polished CTAs ensure reliable launches with accessible focus treatments and error feedback.【F:user_experience.md†L21-L64】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L65-L708】
+   - Roadmap notes capture future personalisation and concierge support while today’s build ships end-to-end persona journeys.【F:user_experience.md†L20-L67】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L35-L118】
 - [x] Main Category: 6. Mentorship, Groups & Community Pillars
   - [x] 6.B. Group Collaboration Hubs
     - [x] 6.B.1. GroupLanding.jsx
