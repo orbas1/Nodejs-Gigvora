@@ -125,7 +125,6 @@ export default function MessagingDock() {
       setInboxLoading(true);
     }
     setInboxError(null);
-    let nextThreads = [];
     try {
       const response = await fetchInbox({
         userId: actorId,
@@ -139,39 +138,36 @@ export default function MessagingDock() {
           ? response.threads
           : [];
       setHasMoreThreads(Boolean(response?.meta?.hasMore ?? (payload.length === THREAD_PAGE_SIZE)));
-      setThreads((previous) => {
-        const merged = append ? [...previous] : [];
-        const existingIds = new Set(append ? previous.map((thread) => thread.id) : []);
-        payload.forEach((thread) => {
-          if (!append) {
-            merged.push(thread);
-            existingIds.add(thread.id);
-            return;
+      const mergedThreads = append ? [...threads] : [];
+      const existingIds = new Set(append ? threads.map((thread) => thread.id) : []);
+      payload.forEach((thread) => {
+        if (!append) {
+          mergedThreads.push(thread);
+          existingIds.add(thread.id);
+          return;
+        }
+        if (!existingIds.has(thread.id)) {
+          mergedThreads.push(thread);
+          existingIds.add(thread.id);
+        } else {
+          const existingIndex = mergedThreads.findIndex((candidate) => candidate.id === thread.id);
+          if (existingIndex !== -1) {
+            mergedThreads.splice(existingIndex, 1, thread);
           }
-          if (!existingIds.has(thread.id)) {
-            merged.push(thread);
-            existingIds.add(thread.id);
-          } else {
-            const existingIndex = merged.findIndex((candidate) => candidate.id === thread.id);
-            if (existingIndex !== -1) {
-              merged.splice(existingIndex, 1, thread);
-            }
-          }
-        });
-        nextThreads = merged;
-        return merged;
+        }
       });
+      setThreads(mergedThreads);
       setPage(requestedPage);
-      if (!nextThreads.length) {
+      if (!mergedThreads.length) {
         return;
       }
       if (!preserveSelection || !selectedThreadId) {
-        setSelectedThreadId(nextThreads[0].id);
+        setSelectedThreadId(mergedThreads[0].id);
         return;
       }
-      const exists = nextThreads.some((thread) => thread.id === selectedThreadId);
+      const exists = mergedThreads.some((thread) => thread.id === selectedThreadId);
       if (!exists) {
-        setSelectedThreadId(nextThreads[0].id);
+        setSelectedThreadId(mergedThreads[0].id);
       }
     } catch (err) {
       setInboxError(err?.body?.message ?? err?.message ?? 'Unable to load inbox threads.');
@@ -179,7 +175,7 @@ export default function MessagingDock() {
       setInboxLoading(false);
       setInboxAppending(false);
     }
-  }, [actorId, canUseMessaging, selectedThreadId]);
+  }, [actorId, canUseMessaging, selectedThreadId, threads]);
 
   const scheduleInboxLoad = useCallback(
     (options = {}, delay = 250) => {
