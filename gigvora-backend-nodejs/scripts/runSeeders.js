@@ -15,6 +15,7 @@ import models from '../src/models/index.js';
 
 const sequelize = models.sequelize;
 const queryInterface = sequelize.getQueryInterface();
+const { SeedExecutionAudit } = models;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -66,8 +67,8 @@ async function computeChecksum(filePath) {
 }
 
 async function ensureSeedAuditTable() {
-  if (seedAuditTableAvailable !== null) {
-    return seedAuditTableAvailable;
+  if (seedAuditTableAvailable === true) {
+    return true;
   }
   try {
     await queryInterface.describeTable('seed_execution_audits');
@@ -110,24 +111,24 @@ async function recordSeedAudit(entry) {
   }
 
   const executedAt = entry.executedAt ?? new Date();
-  const payload = {
-    seederName: entry.seederName,
-    checksum: entry.checksum,
-    direction: entry.direction,
-    status: entry.status,
-    executedBy: entry.executedBy,
-    executedFrom: entry.executedFrom,
-    environment: entry.environment,
-    durationMs: entry.durationMs,
-    executedAt,
-    datasetTags: entry.datasetTags ?? null,
-    metadata: entry.metadata ?? null,
-    notes: entry.notes,
-    createdAt: executedAt,
-    updatedAt: executedAt,
-  };
-
-  await queryInterface.bulkInsert('seed_execution_audits', [payload]);
+  try {
+    await SeedExecutionAudit.logRun({
+      seederName: entry.seederName,
+      checksum: entry.checksum ?? null,
+      direction: entry.direction,
+      status: entry.status,
+      executedBy: entry.executedBy ?? null,
+      executedFrom: entry.executedFrom ?? null,
+      environment: entry.environment ?? null,
+      durationMs: entry.durationMs ?? null,
+      executedAt,
+      datasetTags: entry.datasetTags ?? null,
+      metadata: entry.metadata ?? {},
+      notes: entry.notes ?? null,
+    });
+  } catch (error) {
+    logger.warn({ err: error, entry }, 'Failed to persist seed execution audit row');
+  }
 }
 
 function normaliseDuration(start, end) {

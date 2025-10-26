@@ -15,6 +15,7 @@ import models from '../src/models/index.js';
 
 const sequelize = models.sequelize;
 const queryInterface = sequelize.getQueryInterface();
+const { SchemaMigrationAudit } = models;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -49,8 +50,8 @@ async function computeChecksum(filePath) {
 }
 
 async function ensureMigrationAuditTable() {
-  if (migrationAuditTableAvailable !== null) {
-    return migrationAuditTableAvailable;
+  if (migrationAuditTableAvailable === true) {
+    return true;
   }
   try {
     await queryInterface.describeTable('schema_migration_audits');
@@ -72,23 +73,23 @@ async function recordMigrationAudit(entry) {
   }
 
   const executedAt = entry.executedAt ?? new Date();
-  const payload = {
-    migrationName: entry.migrationName,
-    checksum: entry.checksum,
-    direction: entry.direction,
-    status: entry.status,
-    executedBy: entry.executedBy,
-    executedFrom: entry.executedFrom,
-    environment: entry.environment,
-    durationMs: entry.durationMs,
-    executedAt,
-    notes: entry.notes,
-    metadata: entry.metadata ?? null,
-    createdAt: executedAt,
-    updatedAt: executedAt,
-  };
-
-  await queryInterface.bulkInsert('schema_migration_audits', [payload]);
+  try {
+    await SchemaMigrationAudit.logRun({
+      migrationName: entry.migrationName,
+      checksum: entry.checksum ?? null,
+      direction: entry.direction,
+      status: entry.status,
+      executedBy: entry.executedBy ?? null,
+      executedFrom: entry.executedFrom ?? null,
+      environment: entry.environment ?? null,
+      durationMs: entry.durationMs ?? null,
+      executedAt,
+      notes: entry.notes ?? null,
+      metadata: entry.metadata ?? {},
+    });
+  } catch (error) {
+    logger.warn({ err: error, entry }, 'Failed to persist schema migration audit row');
+  }
 }
 
 function normaliseDuration(start, end) {
