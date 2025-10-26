@@ -1,3 +1,101 @@
+  - [x] 12.A. UI Component System
+    - [x] 12.A.1. ButtonSuite.jsx
+    - [x] 12.A.2. InputFieldSet.jsx
+    - [x] 12.A.3. CardScaffold.jsx
+    - [x] 12.A.1. ButtonSuite.jsx
+    - [x] 12.A.2. InputFieldSet.jsx
+    - [x] 12.A.3. CardScaffold.jsx
+   - ButtonSuite.jsx now presents gradient-led primary buttons, sculpted outlines, ghost, elevated, and danger variants with unified typography, glassy surfaces, and WCAG-aligned focus rings.
+   - Provides gradient primary, secondary, outline, ghost, elevated, and danger variants with icon-only, full-width, loading, and pressed states wired into analytics-friendly data attributes.
+   - Leverages design tokens, ARIA state flags, and pressed metadata so analytics hooks capture engagement without duplicate logic.
+   - Consolidated button logic through the shared suite so feature areas consume consistent spacing, motion, and accessibility helpers.
+   - Native loading overlays and spinners ship inside the suite, removing placeholders while preserving accessible announcements.
+   - Interaction motion, ripple depth, and focus treatments now originate from this suite to prevent shadow reimplementations.
+   - Roadmap centers on progressive analytics experiments, localized copy testing, and variant adoption metrics after shipping gradients, loading spinners, and icon-only controls.
+   - Premium gradients, layered shadows, rounded-full geometry, and tokenized spacing deliver a unified executive aesthetic.
+   - Forward refs, memo-friendly composition, and prop normalization keep renders light while sharing context across toolbars.
+   - Keep the broad variant coverage and the ability to mix icons, text, and subtle emphasis toggles across responsive toolbars.
+   - Remove spacing inconsistencies and state gaps through centralized padding rules, pressed styling, and disabled/loading harmonization.
+   - Align palette tokens with global theming, supplying light and dark surfaces alongside accent gradients and contrast-tested outlines.
+   - Depend on CSS variables and consistent padding scales so vertical stacks, toolbars, and icon-only buttons align perfectly across breakpoints.
+   - Document title-case labels, assistive text patterns, and icon pairing rules to keep copy crisp across internationalized experiences.
+   - Apply tokenized 16px horizontal padding (scaled per size) to sustain rhythm, typography flow, and comfortable tap targets.
+   - Maintain the rounded-full silhouette with calibrated radii that mirror executive brand components across contexts.
+   - Deploy layered elevation, luminance glows, and 200ms easing to broadcast interactivity without overwhelming dashboards.
+   - Curate icon alignment, gap spacing, and optional badges so iconography reads cleanly at every size tier.
+   - Pair button documentation with icon library previews and live sandboxes for variant demonstrations.
+   - Expose gradient tokens, ghost outlines, icon placement rules, and destructive emphasis patterns for reuse across flows.
+   - Ship keyboard focus styling, ARIA labels, and deterministic loading overlays to make every variant tactile and screen-reader aware.
+   - Backlog now tracks split-button research and cross-surface adoption after delivering destructive, icon-only, and analytics-ready variants.
+   - Maintain token-driven documentation, usage recipes, and rollout notes covering gradients, motion, and analytics instrumentation.
+   - Encourage product pods to retire legacy buttons and consume the suite’s canonical tokens and motion recipes.
+   - Position the suite as the canonical button family within the design system, locking palettes, radii, spacing, and motion curves.
+   - Track adoption through discovery, component rollout, design QA, engineering migration, and analytics verification milestones.
+   - Stage releases through library publication, app-wide migrations, telemetry reviews, and iteration cadences informed by engagement data.
+   - InputFieldSet.jsx now pairs glassmorphism panels, luminous focus rings, typographic rigor, and icon affordances for an executive-grade first impression.
+   - Supports text, multiline, prefix/suffix copy, inline helper text, live validation states, masked counters, and accessory icons in a single configurable set.
+   - Harmonizes with form hooks, ARIA descriptors, and contextual analytics so value changes, errors, and successes stay observable.
+   - Retires bespoke input shells by centralizing label, description, prefix, and validation patterns inside the shared set.
+   - Removes placeholders through production-ready helper text, focus states, and character counters that guide every scenario.
+   - Channels validation, masking, and formatting helpers through a single pipeline to avoid re-creating logic per form.
+   - Roadmap concentrates on advanced masking and OTP modules after shipping inline help, live counters, accessibility metadata, and theming hooks.
+   - Glass surfaces, gradient focus halos, premium typography, and tokenized spacing align with the platform’s elevated styling system.
+   - Forward refs, consolidated onChange handlers, and memo-friendly structure keep renders efficient across large form grids.
+   - Preserve component variety—text, textarea, masked, icon-enhanced—so teams can compose rich form experiences without divergence.
+   - Resolve prior blandness by standardizing spacing, surfacing clear error and success treatments, and delivering polished helper text zones.
+   - Mirror global palette tokens with accessible success, warning, and error hues plus high-contrast focus outlines for every theme.
+   - Lock label alignment, padding scales, and grid spacing so stacked and inline layouts feel balanced on any breakpoint.
+   - Document label tone, helper text patterns, and microcopy do’s/don’ts for aspirational yet direct guidance.
+   - Maintain 12px label-field spacing and responsive letter-spacing to keep content legible across dense or spacious layouts.
+   - Apply a consistent 14px radius with subtle inner rounding to echo shell components while signaling focus zones.
+   - Deliver soft focus glows, gradient outlines, and assertive error highlights that respect light, dark, and high-contrast contexts.
+   - Offer icon, text, and badge slots for prefix/suffix content plus mask hints, ensuring affordances stay aligned and legible.
+   - Publish documentation previews showing neutral, focused, success, error, and disabled states with analytics hooks.
+   - Coordinate with ButtonSuite so inline actions and trailing controls inherit the same spacing, focus, and pressed treatments.
+   - Reinforce keyboard focus loops, descriptive screen reader messaging, and validation summaries for accessible data entry.
+   - Remaining backlog targets OTP entry, segmented PIN inputs, and advanced masks after delivering counters, icons, and success messaging.
+   - Form kit documentation now highlights tokens, focus recipes, and validation patterns alongside adoption and telemetry notes.
+   - Encourage product surfaces to retire bespoke inputs in favor of the suite’s canonical label, helper, and validation modules.
+   - Position InputFieldSet as the foundation for form tokens, radii, shadows, and typography across product, marketing, and admin flows.
+   - Track implementation through audit, design refinements, engineering rollout, documentation updates, and QA sign-off loops.
+   - Phase releases through component publication, staged form migrations, telemetry monitoring, and ongoing usability reviews.
+   - CardScaffold.jsx now showcases glassy surfaces, gradient highlight bars, premium typography stacks, and responsive slots that echo elite social platforms.
+   - Provides header, eyebrow, meta, action, media, and footer slots plus default, minimal, elevated, and dark variants with interactive and horizontal layouts.
+   - Anchors to design tokens, orientation data attributes, and analytics hooks so downstream services understand state, variant, and engagement intent.
+   - Collapses duplicate card markup by offering a canonical scaffold for product pods, marketing blocks, and admin dashboards.
+   - Ships real media, metric, and footer slots with fallback copy so no placeholder markup remains.
+   - Centralizes elevation, hover lift, and gradient border definitions to prevent bespoke card styling elsewhere.
+   - Future enhancements focus on metrics overlays and motion stories now that slot architecture, spacing tokens, and variant theming are live.
+   - Glass backdrops, gradient borders, and executive typography now define the scaffold’s premium styling profile.
+   - Optimized flex composition, wrapper reduction, and optional media sizing keep renders light while supporting composition.
+   - Preserve the flexible card concept with configurable header stacks, body content, and action bars for every persona.
+   - Resolve spacing inconsistencies and expand options with padding tokens, highlight bars, and multiple variant treatments.
+   - Harmonize card palettes with platform tokens, providing luminous light themes, rich dark surfaces, and accent gradients.
+   - Detail responsive grid, spacing tokens, and header/footer arrangements for vertical and horizontal orientations.
+   - Document hierarchy rules, meta alignment, and copy density guidelines to keep cards persuasive yet focused.
+   - Employ padding tokens and typographic rhythm so text blocks breathe consistently across device breakpoints.
+   - Apply rounded-[2.75rem] outer shells with softened inner radii to mirror platform shell styling while feeling premium.
+   - Layer ambient and focus shadows with subtle hover lift and 200ms easing for tactile, enterprise-ready feedback.
+   - Provide hero imagery frames, stat blocks, and iconography safe zones to keep media crisp.
+   - Document imagery loading, fallback illustrations, and streaming previews for cards with charts or video.
+   - Integrate ButtonSuite actions directly so CTAs inherit shared spacing, variants, and pressed states inside cards.
+   - Deliver focus outlines, interactive states, and tab-order support for clickable cards and dashboards.
+   - Remaining backlog explores list, analytics, and storytelling variants atop the new slot architecture.
+   - Maintain token-based documentation covering variants, orientation examples, and responsive composition guidance.
+   - Encourage teams to migrate bespoke cards into the shared scaffold, reducing maintenance and visual drift.
+   - Position CardScaffold as the canonical token reference for cards across product, marketing, and admin surfaces.
+   - Manage rollout via card audits, design alignment, engineering integration, QA snapshots, and analytics review gates.
+   - Sequence releases through library publication, feature migrations, telemetry observation, and knowledge base updates.
+Shared system upgrades:
+- Shared contracts now version component appearance tokens in `shared-contracts/domain/platform/component-tokens.js`, exposing frozen defaults and a deep merge utility for downstream overrides.
+- Backend migration `20250313113000-appearance-component-profiles.cjs`, Sequelize model extensions, validation schemas, and admin routes persist component profiles so tokens stay synchronized with database state.
+- Seeder `20250313120000-appearance-component-profiles.cjs` hydrates default button, input, and card definitions using the shared token contract, ensuring production-ready data in every environment.
+- `appearanceManagementService` normalizes, sanitizes, and serializes profile payloads, while controller and route handlers expose CRUD APIs for admin tooling.
+- Frontend `ComponentTokenContext` provider and hydrator fetch profile overrides via `appearanceManagement` service helpers, merging them with defaults so ButtonSuite, InputFieldSet, and CardScaffold render live theming instantly.
+
+   - Sources styling tokens from the ComponentTokenProvider, automatically merging backend `appearance_component_profiles` overrides so variant palettes and motion rules stay governed centrally.
+   - Consumes the shared token registry so shell, typography, and density styles reflect backend component profile overrides seeded and managed through the appearance management APIs.
+   - Pulls layout, highlight, and analytics tokens from the centralized provider backed by persisted component profiles, keeping card variants in sync with admin-managed definitions.
 1. **Appraisal.** `useFormManager` now codifies an enterprise baseline for form orchestration, shipping toggleable validation behaviours, reset semantics, and debug labelling so administrative, talent, and consumer journeys start from a polished footing.【F:gigvora-frontend-reactjs/src/hooks/FormManagerHook.js†L5-L205】
    - *State instrumentation.* Multi-channel state (values, errors, warnings, touched, dirty, submission flags) is tracked through paired `useState` and ref mirrors, giving high-trust readouts for multi-device parity and analytics replay.【F:gigvora-frontend-reactjs/src/hooks/FormManagerHook.js†L116-L163】
    - *Lifecycle mirroring.* Effect bridges keep external callbacks in sync, letting telemetry, automation, or drafts subscribe without rewriting handler glue every sprint.【F:gigvora-frontend-reactjs/src/hooks/FormManagerHook.js†L141-L183】
