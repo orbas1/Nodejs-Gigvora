@@ -205,6 +205,12 @@ const publicSiteMocks = vi.hoisted(() => ({
     heroHeadline: 'Test headline',
     communityStats: [{ label: 'Members', value: '1000+' }],
     operationsSummary: { uptime: { value: '99%' } },
+    marketing: {
+      announcement: { title: 'Launch', description: 'Now live', cta: { label: 'Read', href: '/launch' } },
+      personas: [{ id: 'ops', label: 'Operations', description: 'Keep launches on track' }],
+      productTour: { steps: [{ id: 'step-1', title: 'Tour', summary: 'Overview' }] },
+      pricing: { plans: [{ id: 'launch', name: 'Launch', pricing: { monthly: 99 } }] },
+    },
   })),
   fetchSitePage: vi.fn(async () => ({ id: 'home', blocks: [] })),
 }));
@@ -639,6 +645,7 @@ describe('useHomeExperience', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.data.settings.heroHeadline).toBe('Test headline');
     expect(creationStudioMocks.listCreationStudioItems).toHaveBeenCalled();
+    expect(result.current.data.marketing.personas[0].id).toBe('ops');
   });
 });
 

@@ -2356,12 +2356,12 @@ Shared system upgrades:
   - [x] 11.A. Marketing Funnel Pages
     - [x] 11.A.1. MarketingLayout.jsx
 1. Appraisal.
-   - Hero slotting, announcement rail, and gradient-backed shell deliver an immediate executive-calibre first impression with premium typography and trust storytelling baked into the frame.
+   - Hero slotting, announcement rail, and gradient-backed shell deliver an immediate executive-calibre first impression with premium typography and trust storytelling baked into the frame, now fed by sanitized marketing fragments merged through `resolveMarketingContent` so every rail reflects live CMS data instead of static fallbacks.【F:gigvora-frontend-reactjs/src/pages/HomePage.jsx†L33-L347】【F:gigvora-backend-nodejs/src/services/siteManagementService.js†L1075-L1191】【F:gigvora-backend-nodejs/database/migrations/20241205130000-site-homepage-experience.cjs†L818-L1005】
    - Metrics grid, trust badge wall, and persona switcher wrap the hero so visitors see quantifiable proof, customer validation, and personalised context within the initial scroll.
    - Radial background wash, uppercase accent copy, and soft blur flourishes mirror the polish of LinkedIn Premium or Stripe Atlas launch pages.
    - Analytics hooks fire on mount, aligning the experience with data-driven marketing expectations from top-tier networks.
 2. Functionality.
-   - Layout normalises provided metrics and trust signals, falls back to curated defaults, and renders announcement CTAs that emit `marketing_layout_announcement_clicked` events with precise metadata.
+   - Layout normalises provided metrics and trust signals, falls back to curated defaults, and renders announcement CTAs that emit `marketing_layout_announcement_clicked` events with precise metadata; the HomePage orchestrator now splices sanitized service fragments with CTA routing while migrations and service tests guarantee marketing personas, tour steps, and pricing plans persist real production payloads.【F:gigvora-frontend-reactjs/src/pages/HomePage.jsx†L289-L360】【F:gigvora-backend-nodejs/tests/siteManagementService.test.js†L37-L53】【F:gigvora-backend-nodejs/tests/migrations/group118Migrations.test.js†L244-L345】
    - Persona chips update selection state, forward to upstream handlers, and track `marketing_layout_persona_selected`, ensuring downstream modules stay in sync.
    - Hero slot accepts any React node so product, brand, or campaign-specific hero orchestrations render without modification.
    - View tracking records layout id, metric counts, and persona coverage so growth teams can audit funnel readiness.
@@ -2492,12 +2492,12 @@ Shared system upgrades:
    - Launch plan ties telemetry into marketing dashboards tracking funnel conversion lift.
     - [x] 11.A.2. ProductTour.jsx
 1. Appraisal.
-   - Persona-aware product walkthrough, gradient lighting, and cinematic media frame mirror experiences from Notion and Linear launches.
+   - Persona-aware product walkthrough, gradient lighting, and cinematic media frame mirror experiences from Notion and Linear launches, now sourced from backend-sanitized marketing tour steps so the story updates with real personas, media, and CTAs coming through the HomePage orchestrator.【F:gigvora-frontend-reactjs/src/pages/HomePage.jsx†L289-L347】【F:gigvora-backend-nodejs/src/services/siteManagementService.js†L1075-L1084】【F:gigvora-backend-nodejs/database/migrations/20241205130000-site-homepage-experience.cjs†L818-L989】
    - Highlights list, CTA cluster, and metrics tray create immediate clarity on impact for each role.
    - Persona lenses live above the fold so founders, operators, and executives instantly see themselves in the story.
    - Autoplay control, journey markers, and live telemetry badge inject premium polish expected from top-tier SaaS tours.
 2. Functionality.
-   - Persona toggles switch active highlights, reset steps, and emit analytics for segmentation.
+   - Persona toggles switch active highlights, reset steps, and emit analytics for segmentation; sanitized fragments validated by service and migration tests keep persona rosters and tour narratives production-grade so toggles never fall back to lorem data.【F:gigvora-frontend-reactjs/src/pages/HomePage.jsx†L304-L347】【F:gigvora-backend-nodejs/tests/siteManagementService.test.js†L37-L53】【F:gigvora-backend-nodejs/tests/migrations/group118Migrations.test.js†L244-L323】
    - Step navigation updates media, summary, metrics, and CTAs while firing `marketing_product_tour_step_changed` events.
    - Autoplay interval advances steps with pause/resume control respecting focus outlines and aria attributes.
    - Media renderer supports video/image payloads with fallbacks to keep the experience resilient.
@@ -2628,12 +2628,12 @@ Shared system upgrades:
    - Launch coordinates telemetry review, persona engagement analysis, and follow-up content sprints.
     - [x] 11.A.3. PricingTable.jsx
 1. Appraisal.
-   - Pricing hero couples premium gradient, billing toggle, and ROI storytelling to rival Intercom and Stripe pricing hubs.
+   - Pricing hero couples premium gradient, billing toggle, and ROI storytelling to rival Intercom and Stripe pricing hubs while rendering plan, feature, and metric copy piped from sanitized backend pricing fragments merged in HomePage so enterprise buyers always see real offers.【F:gigvora-frontend-reactjs/src/pages/HomePage.jsx†L333-L360】【F:gigvora-backend-nodejs/src/services/siteManagementService.js†L1062-L1084】【F:gigvora-backend-nodejs/database/migrations/20241205130000-site-homepage-experience.cjs†L871-L990】
    - Plan cards highlight name, headline, price, savings, and CTA cluster, communicating value at a glance.
    - Feature comparison table and metrics rail provide depth expected from enterprise buyers.
    - Analytics instrumentation assures marketing teams the funnel stays measurable.
 2. Functionality.
-   - Billing toggle switches monthly/annual cadences, recalculating plan pricing and firing `marketing_pricing_cycle_changed`.
+   - Billing toggle switches monthly/annual cadences, recalculating plan pricing and firing `marketing_pricing_cycle_changed`, with sanitized plan feeds verified by migration and service suites so callbacks always carry production-ready pricing tiers and metrics.【F:gigvora-frontend-reactjs/src/pages/HomePage.jsx†L350-L360】【F:gigvora-backend-nodejs/tests/siteManagementService.test.js†L37-L53】【F:gigvora-backend-nodejs/tests/migrations/group118Migrations.test.js†L244-L345】
    - Plan CTAs track `marketing_pricing_plan_selected` with plan id, billing cycle, and action while forwarding to parent callbacks.
    - Feature matrix resolver converts tier data into accessible table rows with badges, checkmarks, or dots.
    - Metrics rail normalises ROI stats with helper copy, ensuring consistent storytelling.
