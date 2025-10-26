@@ -40,4 +40,29 @@ describe('CallToActionBand', () => {
     expect(screen.getByText(/northwind digital/i)).toBeInTheDocument();
     expect(screen.getByText(/telemetry-backed confidence/i)).toBeInTheDocument();
   });
+
+  it('renders guarantees and testimonial spotlight when provided', () => {
+    render(
+      <MemoryRouter>
+        <CallToActionBand
+          title="Join the community"
+          primaryAction={{ label: 'Claim your seat', to: '/register' }}
+          stats={STATS}
+          guarantees={['Money-back promise', { label: 'SOC2 Ready' }]}
+          testimonial={{
+            quote: 'Gigvora accelerated our roadmap without sacrificing quality.',
+            name: 'Aria Lowe',
+            role: 'Head of Operations',
+            company: 'Atlas Labs',
+            avatar: { src: 'https://cdn.gigvora.com/assets/avatars/aria-lowe.png', alt: 'Portrait of Aria Lowe' },
+          }}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText(/money-back promise/i)).toBeInTheDocument();
+    expect(screen.getByText(/soc2 ready/i)).toBeInTheDocument();
+    expect(screen.getByText(/gigvora accelerated our roadmap/i)).toBeInTheDocument();
+    expect(screen.getByText(/aria lowe/i)).toBeInTheDocument();
+  });
 });

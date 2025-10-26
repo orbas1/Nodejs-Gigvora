@@ -1,14 +1,13 @@
 - [x] Main Category: 1. Landing & Hero Surfaces
   - [x] 1.B. Landing & Hero Surfaces
-    - [x] 1.B.3. TestimonialsCarousel.jsx
-      - Immersive carousel introduces memoised autoplay, accessible controls, and metric-rich framing so the landing hero mirrors the LinkedIn-class polish mandated for first-impression trust checks.【F:gigvora-frontend-reactjs/src/components/marketing/TestimonialsCarousel.jsx†L1-L338】【F:user_experience.md†L109-L148】
-      - Home section wrapper layers gradient halos, partner badges, and resilient fallbacks while piping enriched testimonial content to the carousel, ensuring operators see real voices instead of placeholders.【F:gigvora-frontend-reactjs/src/pages/home/TestimonialsSection.jsx†L1-L52】【F:gigvora-frontend-reactjs/src/content/home/testimonials.js†L1-L52】【F:user_experience.md†L125-L148】
-      - Platform migrations, services, and admin surfaces now normalise authorCompany, avatarAlt, highlight, and badge fields so marketing payloads stay consistent from database seed to landing render.【F:gigvora-backend-nodejs/database/migrations/20241022100000-admin-homepage-settings.cjs†L83-L463】【F:gigvora-backend-nodejs/src/services/platformSettingsService.js†L486-L560】【F:gigvora-frontend-reactjs/src/components/admin/homepage/HomepageTestimonialsForm.jsx†L1-L170】
-      - Vitest coverage locks autoplay cadence and pause behavior to guard against regressions across future hero experiments.【F:gigvora-frontend-reactjs/src/components/marketing/__tests__/TestimonialsCarousel.test.jsx†L1-L46】
-    - [x] 1.B.4. CallToActionBand.jsx
-      - Gradient CTA band packages enterprise stats, supporting points, and trust badges with flexible Link/anchor actions so conversion rails stay premium and roadmap-aligned across hero surfaces.【F:gigvora-frontend-reactjs/src/components/marketing/CallToActionBand.jsx†L1-L271】【F:user_experience.md†L109-L168】
-      - JoinCommunitySection now composes the band with membership metrics, global proof points, and dual actions to match the blueprint for high-impact landing closures.【F:gigvora-frontend-reactjs/src/pages/home/JoinCommunitySection.jsx†L1-L37】【F:user_experience.md†L125-L148】
-      - Component-level tests confirm CTA links, stats, and supporting copy render correctly within router context, keeping landing conversions reliable.【F:gigvora-frontend-reactjs/src/components/marketing/__tests__/CallToActionBand.test.jsx†L1-L42】
+    - ✓ 1.B.3. TestimonialsCarousel.jsx
+      - Configurable hero eyebrow, heading, description, and stat props now hydrate the carousel shell with sanitised, localisable storytelling that keeps enterprise polish without code rewrites.【F:gigvora-frontend-reactjs/src/components/marketing/TestimonialsCarousel.jsx†L165-L350】【F:user_experience.md†L109-L148】
+      - Autoplay cadence adds a progress halo, reduced-motion safeguards, and keyboard controls (arrows plus space) so accessibility, manual pause, and persona trust map to LinkedIn-class expectations.【F:gigvora-frontend-reactjs/src/components/marketing/TestimonialsCarousel.jsx†L214-L423】【F:gigvora-frontend-reactjs/src/components/marketing/TestimonialsCarousel.jsx†L271-L479】【F:user_experience.md†L125-L148】
+      - Focused vitest coverage exercises timers, hero stat overrides, and keyboard toggles to lock premium hero behaviour across future experiments.【F:gigvora-frontend-reactjs/src/components/marketing/__tests__/TestimonialsCarousel.test.jsx†L1-L83】
+    - ✓ 1.B.4. CallToActionBand.jsx
+      - CTA band now layers supporting points with guarantee badges and a testimonial spotlight, normalising payloads into a premium close-out rail ready for social-grade conversions.【F:gigvora-frontend-reactjs/src/components/marketing/CallToActionBand.jsx†L79-L356】【F:user_experience.md†L109-L168】
+      - JoinCommunitySection hydrates the band with telemetry stats, trust badges, and testimonial props so landing closures deliver the LinkedIn-style finale stakeholders expect.【F:gigvora-frontend-reactjs/src/pages/home/JoinCommunitySection.jsx†L1-L44】【F:user_experience.md†L125-L148】
+      - Router-aware vitest suites assert CTAs, guarantees, and testimonial rendering to protect conversion rails from regression.【F:gigvora-frontend-reactjs/src/components/marketing/__tests__/CallToActionBand.test.jsx†L1-L67】
 - ✓ 2.B. Onboarding Journeys
   - ✓ 2.B.1. OnboardingWizard.jsx
   - ✓ 2.B.2. PersonaSelection.jsx
