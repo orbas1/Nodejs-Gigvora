@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react';
 import DashboardAccessDenied from '../DashboardAccessDenied.jsx';
 import MembershipGate from '../MembershipGate.jsx';
 import ProtectedDashboardRoute from '../ProtectedDashboardRoute.jsx';
-import ProtectedRoute from '../ProtectedRoute.jsx';
+import ProtectedRoute from '../../routing/ProtectedRoute.jsx';
 import RequireDashboardAccess from '../RequireDashboardAccess.jsx';
 import RequireMembership from '../RequireMembership.jsx';
 import RoleProtectedRoute from '../RoleProtectedRoute.jsx';

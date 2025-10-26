@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import useAccessControl from '../../hooks/useAccessControl.js';
 
@@ -37,11 +38,19 @@ function DefaultAccessDenied({ missingMemberships = [] }) {
   );
 }
 
-export default function ProtectedRoute({ requiredMemberships = [], redirectTo = '/login', fallback = null }) {
+export default function ProtectedRoute({
+  requiredMemberships,
+  allowedMemberships,
+  redirectTo = '/login',
+  fallback = null,
+  children,
+}) {
   const location = useLocation();
+  const memberships = requiredMemberships ?? allowedMemberships ?? [];
+  const normalizedMemberships = Array.isArray(memberships) ? memberships : [memberships];
   const access = useAccessControl({
     requireAuth: true,
-    allowedMemberships: requiredMemberships,
+    allowedMemberships: normalizedMemberships,
     fallbackPath: redirectTo,
     preferDashboardRedirect: false,
   });
@@ -54,5 +63,31 @@ export default function ProtectedRoute({ requiredMemberships = [], redirectTo = 
     return fallback ?? <DefaultAccessDenied missingMemberships={access.missingMemberships} />;
   }
 
+  if (children) {
+    return <>{children}</>;
+  }
+
   return <Outlet />;
 }
+
+ProtectedRoute.propTypes = {
+  requiredMemberships: PropTypes.oneOfType([
+    PropTypes.arrayOf(PropTypes.string),
+    PropTypes.string,
+  ]),
+  allowedMemberships: PropTypes.oneOfType([
+    PropTypes.arrayOf(PropTypes.string),
+    PropTypes.string,
+  ]),
+  redirectTo: PropTypes.string,
+  fallback: PropTypes.node,
+  children: PropTypes.node,
+};
+
+ProtectedRoute.defaultProps = {
+  requiredMemberships: undefined,
+  allowedMemberships: undefined,
+  redirectTo: '/login',
+  fallback: null,
+  children: undefined,
+};
