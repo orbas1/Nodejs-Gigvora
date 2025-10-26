@@ -1,1 +1,6 @@
-export { normaliseWorkspaceHealth, computeAutomationCoverageLabel } from './workspace.js';
+export {
+  normaliseWorkspaceHealth,
+  computeAutomationCoverageLabel,
+  computeRankingTier,
+  computeFreshnessStatus,
+} from './workspace.js';

@@ -208,6 +208,11 @@ router.delete(
   ...requireActor,
   asyncHandler(freelancerCalendarController.deleteCalendarEvent),
 );
+router.get(
+  '/:freelancerId/calendar/events/:eventId/ics',
+  ...requireActor,
+  asyncHandler(freelancerCalendarController.downloadCalendarEventInvite),
+);
 
 router.get('/:freelancerId/networking/dashboard', ...requireNetwork, asyncHandler(freelancerNetworkingController.dashboard));
 router.post(

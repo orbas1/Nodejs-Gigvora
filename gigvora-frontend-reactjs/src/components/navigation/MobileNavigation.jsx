@@ -1,11 +1,11 @@
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment, useMemo } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { SparklesIcon } from '@heroicons/react/24/outline';
 import LanguageSelector from '../LanguageSelector.jsx';
 import RoleSwitcher from './RoleSwitcher.jsx';
-import { classNames } from '../../utils/classNames.js';
 import MobileMegaMenu from './MobileMegaMenu.jsx';
+import PrimaryNavItem from './PrimaryNavItem.jsx';
 
 export default function MobileNavigation({
   open,
@@ -67,24 +67,7 @@ export default function MobileNavigation({
                   ) : null}
                   <nav className="space-y-2">
                     {resolvedPrimaryNavigation.map((item) => (
-                      <NavLink
-                        key={item.id}
-                        to={item.to}
-                        onClick={onClose}
-                        className={({ isActive }) =>
-                          classNames(
-                            'flex items-center justify-between rounded-2xl border px-3 py-2 text-sm font-medium transition',
-                            isActive ? 'border-slate-900 bg-slate-900 text-white shadow-sm' : 'border-transparent text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-900',
-                          )
-                        }
-                      >
-                        <span>{item.label}</span>
-                        {item.badge ? (
-                          <span className="rounded-full bg-slate-900/90 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wider text-white">
-                            {item.badge}
-                          </span>
-                        ) : null}
-                      </NavLink>
+                      <PrimaryNavItem key={item.id} item={item} variant="mobile" onNavigate={onClose} />
                     ))}
                   </nav>
                   <div className="grid gap-2">

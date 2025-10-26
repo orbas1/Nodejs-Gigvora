@@ -2,32 +2,40 @@ import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const calendarMock = { useFreelancerCalendar: vi.fn() };
+const useFreelancerCalendarMock = vi.fn();
 
 const formSpy = vi.fn();
 const timelineSpy = vi.fn();
 const detailsSpy = vi.fn();
 
-const calendarModule = await import('../../../../../hooks/useFreelancerCalendar.js');
-vi.spyOn(calendarModule, 'default').mockImplementation(calendarMock.useFreelancerCalendar);
+vi.mock('../../../../../hooks/useFreelancerCalendar.js', () => ({
+  __esModule: true,
+  default: useFreelancerCalendarMock,
+}));
 
-const eventFormModule = await import('../../sections/planning/CalendarEventForm.jsx');
-vi.spyOn(eventFormModule, 'default').mockImplementation((props) => {
-  formSpy(props);
-  return props.open ? <div data-testid="planner-form" /> : null;
-});
+vi.mock('../../sections/planning/CalendarEventForm.jsx', () => ({
+  __esModule: true,
+  default: (props) => {
+    formSpy(props);
+    return props.open ? <div data-testid="planner-form" /> : null;
+  },
+}));
 
-const eventTimelineModule = await import('../../sections/planning/CalendarEventTimeline.jsx');
-vi.spyOn(eventTimelineModule, 'default').mockImplementation((props) => {
-  timelineSpy(props);
-  return <div data-testid="planner-timeline" />;
-});
+vi.mock('../../sections/planning/CalendarEventTimeline.jsx', () => ({
+  __esModule: true,
+  default: (props) => {
+    timelineSpy(props);
+    return <div data-testid="planner-timeline" />;
+  },
+}));
 
-const eventDetailsModule = await import('../../sections/planning/CalendarEventDetailsDrawer.jsx');
-vi.spyOn(eventDetailsModule, 'default').mockImplementation((props) => {
-  detailsSpy(props);
-  return props.open ? <div data-testid="planner-details" /> : null;
-});
+vi.mock('../../sections/planning/CalendarEventDetailsDrawer.jsx', () => ({
+  __esModule: true,
+  default: (props) => {
+    detailsSpy(props);
+    return props.open ? <div data-testid="planner-details" /> : null;
+  },
+}));
 
 const { default: PlannerWorkspace } = await import('../PlannerWorkspace.jsx');
 
@@ -36,9 +44,10 @@ function buildCalendarSnapshot() {
   const createEvent = vi.fn().mockResolvedValue({ id: 'evt-new' });
   const updateEvent = vi.fn().mockResolvedValue({});
   const deleteEvent = vi.fn().mockResolvedValue({});
+  const downloadEventInvite = vi.fn().mockResolvedValue('BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n');
   const setFilters = vi.fn();
 
-  calendarMock.useFreelancerCalendar.mockReturnValue({
+  useFreelancerCalendarMock.mockReturnValue({
     events: [
       {
         id: 'evt-1',
@@ -75,15 +84,16 @@ function buildCalendarSnapshot() {
     createEvent,
     updateEvent,
     deleteEvent,
+    downloadEventInvite,
     setFilters,
   });
 
-  return { refresh, createEvent, updateEvent, deleteEvent, setFilters };
+  return { refresh, createEvent, updateEvent, deleteEvent, downloadEventInvite, setFilters };
 }
 
 function renderWorkspace(overrides) {
   const snapshot = buildCalendarSnapshot();
-  const session = { id: 'freelancer-1', memberships: ['freelancer'], ...overrides };
+  const session = { id: 401, memberships: ['freelancer'], ...overrides };
   render(<PlannerWorkspace session={session} />);
   return snapshot;
 }
@@ -91,7 +101,7 @@ function renderWorkspace(overrides) {
 describe('PlannerWorkspace', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    calendarMock.useFreelancerCalendar.mockReset();
+    useFreelancerCalendarMock.mockReset();
     formSpy.mockReset();
     timelineSpy.mockReset();
     detailsSpy.mockReset();
@@ -100,7 +110,7 @@ describe('PlannerWorkspace', () => {
   it('renders summary cards and applies filters', async () => {
     const { refresh, setFilters } = renderWorkspace();
 
-    expect(calendarMock.useFreelancerCalendar).toHaveBeenCalled();
+    expect(useFreelancerCalendarMock).toHaveBeenCalled();
 
     expect(screen.getAllByText('Client kickoff')[0]).toBeInTheDocument();
     expect(screen.getByText(/Next/)).toBeInTheDocument();
@@ -122,7 +132,7 @@ describe('PlannerWorkspace', () => {
 
   it('supports creating and updating events through the form workflow', async () => {
     const { createEvent, updateEvent, refresh } = renderWorkspace();
-    expect(timelineSpy).toHaveBeenCalled();
+    await waitFor(() => expect(timelineSpy).toHaveBeenCalled());
     const timelineProps = timelineSpy.mock.calls.at(-1)?.[0];
     expect(timelineProps).toBeDefined();
 
@@ -134,7 +144,7 @@ describe('PlannerWorkspace', () => {
       await formProps.onSubmit({ title: 'Strategy sync' });
     });
 
-    expect(createEvent).toHaveBeenCalledWith({ title: 'Strategy sync' }, { actorId: 'freelancer-1' });
+    expect(createEvent).toHaveBeenCalledWith({ title: 'Strategy sync' }, { actorId: 401 });
     expect(refresh).toHaveBeenCalledTimes(1);
 
     act(() => {
@@ -147,14 +157,14 @@ describe('PlannerWorkspace', () => {
       await editCall.onSubmit({ title: 'Client kickoff updated' });
     });
 
-    expect(updateEvent).toHaveBeenCalledWith('evt-1', { title: 'Client kickoff updated' }, { actorId: 'freelancer-1' });
+    expect(updateEvent).toHaveBeenCalledWith('evt-1', { title: 'Client kickoff updated' }, { actorId: 401 });
     expect(refresh).toHaveBeenCalledTimes(2);
 
     await act(async () => {
       await timelineProps.onStatusChange({ id: 'evt-1' }, 'completed');
     });
 
-    expect(updateEvent).toHaveBeenCalledWith('evt-1', { status: 'completed' }, { actorId: 'freelancer-1' });
+    expect(updateEvent).toHaveBeenCalledWith('evt-1', { status: 'completed' }, { actorId: 401 });
     expect(refresh).toHaveBeenCalledTimes(3);
   });
 
@@ -174,5 +184,48 @@ describe('PlannerWorkspace', () => {
     expect(availabilityForm?.textContent).toMatch(/Updated/);
 
     vi.useRealTimers();
+  });
+
+  it('exports calendar events as ICS invites', async () => {
+    const { downloadEventInvite } = renderWorkspace();
+    await waitFor(() => expect(detailsSpy).toHaveBeenCalled());
+    const props = detailsSpy.mock.calls.at(-1)[0];
+    const originalCreate = URL.createObjectURL;
+    const originalRevoke = URL.revokeObjectURL;
+    if (!URL.createObjectURL) {
+      URL.createObjectURL = () => '';
+    }
+    if (!URL.revokeObjectURL) {
+      URL.revokeObjectURL = () => {};
+    }
+    const createObjectUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-ics');
+    const revokeObjectUrl = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const clickSpy = vi.fn();
+    const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
+      const element = document.createElementNS('http://www.w3.org/1999/xhtml', tagName);
+      if (tagName === 'a') {
+        Object.defineProperty(element, 'click', { value: clickSpy });
+      }
+      return element;
+    });
+
+    await act(async () => {
+      await props.onDownload({ id: 'evt-1', title: 'Client kickoff' });
+    });
+
+    expect(downloadEventInvite).toHaveBeenCalledWith('evt-1', { actorId: 401 });
+    expect(createObjectUrl).toHaveBeenCalled();
+    expect(clickSpy).toHaveBeenCalled();
+    expect(revokeObjectUrl).toHaveBeenCalled();
+
+    createObjectUrl.mockRestore();
+    revokeObjectUrl.mockRestore();
+    if (!originalCreate) {
+      delete URL.createObjectURL;
+    }
+    if (!originalRevoke) {
+      delete URL.revokeObjectURL;
+    }
+    createElementSpy.mockRestore();
   });
 });

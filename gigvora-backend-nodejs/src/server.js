@@ -1,4 +1,5 @@
 import http from 'node:http';
+import https from 'node:https';
 
 import { app } from './app.js';
 import { ensureEnvLoaded } from './config/envLoader.js';
@@ -20,6 +21,7 @@ import { syncCriticalDependencies } from './observability/dependencyHealth.js';
 import { getMetricsStatus } from './observability/metricsRegistry.js';
 import { configureTracing, shutdownTracing } from './observability/tracing.js';
 import { attachSocketServer, shutdownSocketServer } from './realtime/socketServer.js';
+import { bootstrapInternalRealtimeHub } from './realtime/internalHub.js';
 import {
   drainDatabaseConnections,
   warmDatabaseConnections,
@@ -30,6 +32,9 @@ import { recordRuntimeSecurityEvent } from './services/securityAuditService.js';
 import logger from './utils/logger.js';
 
 ensureEnvLoaded({ silent: process.env.NODE_ENV === 'test' });
+
+http.globalAgent = new http.Agent({ keepAlive: true, maxSockets: 100, keepAliveMsecs: 1_000 });
+https.globalAgent = new https.Agent({ keepAlive: true, maxSockets: 100, keepAliveMsecs: 1_000 });
 
 const DEFAULT_PORT = 4000;
 let httpServer = null;
@@ -82,6 +87,8 @@ export async function start({ port = DEFAULT_PORT } = {}) {
 
     httpServer = http.createServer(app);
 
+    await bootstrapInternalRealtimeHub({ logger: logger.child({ component: 'realtime-hub' }) });
+
     await attachSocketServer(httpServer, {
       logger: logger.child({ component: 'socket-server' }),
     });
@@ -100,7 +107,19 @@ export async function start({ port = DEFAULT_PORT } = {}) {
       httpServer.listen(listenPort, () => {
         httpServer.off('error', onError);
         markHttpServerReady({ port: listenPort });
-        logger.info({ port: listenPort }, 'Gigvora API running');
+        const startupContext = {
+          environment: runtimeConfig?.env ?? process.env.NODE_ENV ?? 'development',
+          port: listenPort,
+          realtimeEnabled: runtimeConfig?.realtime?.enabled !== false,
+          workers: {
+            autoStart: runtimeConfig?.workers?.autoStart !== false,
+            maintenance: runtimeConfig?.workers?.runtimeMaintenance?.enabled !== false,
+          },
+        };
+        logger.info(startupContext, 'Gigvora Professional Graph API ready');
+        if ((process.env.NODE_ENV ?? 'development') !== 'production') {
+          logger.info('Gigvora Professional Graph • Developer mode active');
+        }
         recordRuntimeSecurityEvent(
           {
             eventType: 'runtime.http.started',

@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import {
   CalendarDaysIcon,
@@ -9,6 +9,7 @@ import {
   LinkIcon,
   MapPinIcon,
   PencilIcon,
+  ArrowDownTrayIcon,
   TrashIcon,
   UserIcon,
 } from '@heroicons/react/24/outline';
@@ -116,18 +117,22 @@ function RelatedLink({ event }) {
 }
 
 export default function CalendarEventDetailsDrawer({
-  open,
-  event,
-  onClose,
-  onEdit,
-  onDelete,
-  onStatusChange,
-  canManage,
-  statusUpdating,
-  onDuplicate,
+  open = false,
+  event = null,
+  onClose = null,
+  onEdit = null,
+  onDelete = null,
+  onStatusChange = null,
+  onDownload = null,
+  canManage = false,
+  statusUpdating = false,
+  onDuplicate = null,
+  downloading = false,
+  downloadError = null,
 }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
+  const lastEventIdRef = useRef(event?.id ?? null);
 
   useEffect(() => {
     if (!open) {
@@ -137,8 +142,11 @@ export default function CalendarEventDetailsDrawer({
   }, [open]);
 
   useEffect(() => {
-    setConfirmingDelete(false);
-    setDeleteError(null);
+    if (lastEventIdRef.current !== event?.id) {
+      lastEventIdRef.current = event?.id ?? null;
+      setConfirmingDelete(false);
+      setDeleteError(null);
+    }
   }, [event?.id]);
 
   const typeMeta = useMemo(() => resolveTypeMeta(event?.eventType), [event?.eventType]);
@@ -353,6 +361,17 @@ export default function CalendarEventDetailsDrawer({
                             ))}
                           </select>
                           ) : null}
+                          {onDownload ? (
+                            <button
+                              type="button"
+                              onClick={() => onDownload(event)}
+                              className="inline-flex items-center gap-2 rounded-full border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-600 transition hover:border-blue-300 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                              disabled={downloading || statusUpdating}
+                            >
+                              <ArrowDownTrayIcon className="h-4 w-4" />
+                              {downloading ? 'Preparing…' : 'Download invite'}
+                            </button>
+                          ) : null}
                           {canManage ? (
                             <button
                               type="button"
@@ -401,6 +420,11 @@ export default function CalendarEventDetailsDrawer({
                           {deleteError}
                         </div>
                       ) : null}
+                      {downloadError ? (
+                        <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50/80 px-4 py-3 text-xs text-blue-700">
+                          {downloadError}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 </Dialog.Panel>
@@ -445,18 +469,10 @@ CalendarEventDetailsDrawer.propTypes = {
   onDelete: PropTypes.func,
   onStatusChange: PropTypes.func,
   onDuplicate: PropTypes.func,
+  onDownload: PropTypes.func,
   canManage: PropTypes.bool,
   statusUpdating: PropTypes.bool,
+  downloading: PropTypes.bool,
+  downloadError: PropTypes.oneOfType([PropTypes.string, PropTypes.node]),
 };
 
-CalendarEventDetailsDrawer.defaultProps = {
-  open: false,
-  event: null,
-  onClose: null,
-  onEdit: null,
-  onDelete: null,
-  onStatusChange: null,
-  onDuplicate: null,
-  canManage: false,
-  statusUpdating: false,
-};

@@ -16,6 +16,7 @@ import {
 } from '../models/constants/index.js';
 import { NotFoundError, ValidationError } from '../utils/errors.js';
 import { getCalendarProvider } from './calendarProviderRegistry.js';
+import { createIcsCalendar, createIcsEvent, escapeIcsText, suggestIcsFilename } from './utils/icsFormatter.js';
 
 const DEFAULT_SETTINGS = Object.freeze({
   timezone: 'UTC',
@@ -330,6 +331,8 @@ function sanitizeEvent(record) {
         : Number(event.syncedRevision),
     lastSyncedAt: event.lastSyncedAt ? new Date(event.lastSyncedAt).toISOString() : null,
     isFocusBlock: Boolean(event.isFocusBlock),
+    createdAt: event.createdAt ? new Date(event.createdAt).toISOString() : null,
+    updatedAt: event.updatedAt ? new Date(event.updatedAt).toISOString() : null,
   };
 }
 
@@ -671,6 +674,105 @@ export async function updateSettings(userId, payload) {
   return sanitizeSettings(record);
 }
 
+function buildEventDescription(event) {
+  const sections = [];
+  if (event.description) {
+    sections.push(event.description);
+  }
+  if (event.metadata?.agenda) {
+    sections.push(`Agenda:\n${event.metadata.agenda}`);
+  }
+  if (event.metadata?.briefing) {
+    sections.push(`Briefing:\n${event.metadata.briefing}`);
+  }
+  if (event.videoConferenceLink) {
+    sections.push(`Join link: ${event.videoConferenceLink}`);
+  }
+  if (event.metadata) {
+    const additional = Object.entries(event.metadata)
+      .filter(([key]) => !['agenda', 'briefing'].includes(key))
+      .filter(([, value]) => value != null && value !== '')
+      .map(([key, value]) => `${key}: ${typeof value === 'object' ? JSON.stringify(value) : value}`);
+    if (additional.length) {
+      sections.push(`Context:\n${additional.join('\n')}`);
+    }
+  }
+  return sections.join('\n\n');
+}
+
+function buildCalendarIcsEvent(event, { userId, timezone }) {
+  const categories = [event.eventType, event.visibility, event.focusMode]
+    .filter(Boolean)
+    .map((value) => `${value}`.toLowerCase());
+  return createIcsEvent({
+    uid: event.icsUid || `gigvora-user-${userId}-event-${event.id}@gigvora.app`,
+    title: event.title,
+    description: buildEventDescription(event),
+    location: event.location ?? null,
+    url: event.videoConferenceLink ?? null,
+    startsAt: event.startsAt,
+    endsAt: event.endsAt,
+    allDay: Boolean(event.isAllDay),
+    timezone: event.timezone ?? timezone ?? null,
+    status: event.status ?? 'CONFIRMED',
+    categories,
+    reminderMinutes: event.reminderMinutes ?? null,
+    createdAt: event.createdAt ?? null,
+    updatedAt: event.updatedAt ?? null,
+    metadata: {
+      relatedEntityType: event.relatedEntityType ?? null,
+      relatedEntityId: event.relatedEntityId != null ? String(event.relatedEntityId) : null,
+      source: event.source ?? null,
+    },
+    extraFields: [
+      event.syncStatus ? `X-GIGVORA-SYNC-STATUS:${escapeIcsText(event.syncStatus)}` : null,
+      event.externalProvider
+        ? `X-GIGVORA-EXTERNAL-PROVIDER:${escapeIcsText(event.externalProvider)}`
+        : null,
+    ],
+  });
+}
+
+export async function exportEventAsICalendar(userId, eventId) {
+  const record = await CandidateCalendarEvent.findOne({ where: { id: eventId, userId } });
+  if (!record) {
+    throw new NotFoundError('Calendar event not found.');
+  }
+  const event = sanitizeEvent(record);
+  const settings = await UserCalendarSetting.findOne({ where: { userId } });
+  const timezone = event.timezone ?? settings?.timezone ?? DEFAULT_SETTINGS.timezone;
+  const icsEvent = buildCalendarIcsEvent(event, { userId, timezone });
+  const calendar = createIcsCalendar({
+    events: [icsEvent],
+    name: 'Gigvora — Personal Schedule',
+    description: 'Enterprise-grade scheduling exported from Gigvora.',
+    customProperties: [
+      `X-GIGVORA-USER-ID:${userId}`,
+      event.syncStatus ? `X-GIGVORA-SYNC:${escapeIcsText(event.syncStatus)}` : null,
+    ],
+  });
+  const filename = suggestIcsFilename(event.title, { id: event.id, prefix: 'gigvora-event' });
+  return { ics: calendar, filename, event };
+}
+
+export async function exportEventsAsICalendar(userId, options = {}) {
+  const events = await listEvents(userId, options);
+  if (!events.length) {
+    throw new NotFoundError('No calendar events available to export.');
+  }
+  const settings = await UserCalendarSetting.findOne({ where: { userId } });
+  const timezone = settings?.timezone ?? DEFAULT_SETTINGS.timezone;
+  const eventEntries = events.map((event) => buildCalendarIcsEvent(event, { userId, timezone }));
+  const calendar = createIcsCalendar({
+    events: eventEntries,
+    name: 'Gigvora — Personal Schedule',
+    description: 'Enterprise-grade scheduling exported from Gigvora.',
+    customProperties: [`X-GIGVORA-USER-ID:${userId}`, `X-GIGVORA-EVENT-COUNT:${events.length}`],
+  });
+  const filename = suggestIcsFilename('gigvora-calendar', { id: userId, prefix: 'gigvora-calendar' });
+  return { ics: calendar, filename, count: events.length };
+}
+
 export default {
   getOverview,
   listEvents,
@@ -686,4 +788,6 @@ export default {
   recordAvailabilitySnapshot,
   listAvailabilitySnapshots,
   syncEventWithProvider,
+  exportEventAsICalendar,
+  exportEventsAsICalendar,
 };
