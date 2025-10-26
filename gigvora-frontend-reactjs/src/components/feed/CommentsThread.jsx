@@ -107,19 +107,33 @@ function normaliseCommentForDisplay(comment, postAuthorName) {
   if (!comment) {
     return comment;
   }
+  const metadata = comment.metadata && typeof comment.metadata === 'object' ? comment.metadata : null;
   const trimmedHeadline = comment.headline?.trim();
   const headline = trimmedHeadline?.length ? trimmedHeadline : 'Gigvora member';
   const isOfficial = Boolean(
     comment.isOfficial ||
+      metadata?.isOfficial ||
+      metadata?.official ||
       (postAuthorName && comment.author && comment.author.toLowerCase() === postAuthorName.toLowerCase()) ||
       headline.toLowerCase().includes('gigvora') ||
       headline.toLowerCase().includes('team'),
   );
+  const isPinned = Boolean(comment.isPinned ?? metadata?.isPinned ?? metadata?.pinned);
+  const insightTags = Array.isArray(comment.insightTags)
+    ? comment.insightTags
+    : Array.isArray(metadata?.insightTags)
+    ? metadata.insightTags
+    : [];
+  const guidance = typeof (comment.guidance ?? metadata?.guidance) === 'string'
+    ? (comment.guidance ?? metadata?.guidance)
+    : null;
   return {
     ...comment,
     headline,
     isOfficial,
-    isPinned: Boolean(comment.isPinned),
+    isPinned,
+    insightTags,
+    guidance,
   };
 }
 
@@ -188,6 +202,20 @@ function CommentReplies({ comment, onReply, translationState, onToggleTranslatio
       <p className="mt-3 whitespace-pre-line text-sm text-slate-700">
         {translationState?.enabled ? translationState.message : comment.message}
       </p>
+      {comment.guidance ? (
+        <p className="mt-2 rounded-2xl border border-indigo-100 bg-indigo-50 px-3 py-2 text-[0.65rem] text-indigo-700">
+          {comment.guidance}
+        </p>
+      ) : null}
+      {Array.isArray(comment.insightTags) && comment.insightTags.length ? (
+        <ul className="mt-2 flex flex-wrap gap-2 text-[0.6rem] font-semibold uppercase tracking-wide text-indigo-600">
+          {comment.insightTags.map((tag) => (
+            <li key={`${comment.id}-${tag}`} className="rounded-full bg-indigo-100 px-2 py-1">
+              {tag}
+            </li>
+          ))}
+        </ul>
+      ) : null}
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
         <button
           type="button"
@@ -235,6 +263,20 @@ function CommentReplies({ comment, onReply, translationState, onToggleTranslatio
                 <p className="mt-2 whitespace-pre-line text-sm text-slate-700">
                   {translated?.enabled ? translated.message : reply.message}
                 </p>
+                {reply.guidance ? (
+                  <p className="mt-2 rounded-2xl border border-indigo-100 bg-indigo-50 px-3 py-2 text-[0.65rem] text-indigo-700">
+                    {reply.guidance}
+                  </p>
+                ) : null}
+                {Array.isArray(reply.insightTags) && reply.insightTags.length ? (
+                  <ul className="mt-2 flex flex-wrap gap-2 text-[0.6rem] font-semibold uppercase tracking-wide text-indigo-600">
+                    {reply.insightTags.map((tag) => (
+                      <li key={`${reply.id}-${tag}`} className="rounded-full bg-indigo-100 px-2 py-1">
+                        {tag}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
                 {replyShowTranslate ? (
                   <button
                     type="button"
@@ -400,13 +442,15 @@ export default function CommentsThread({
         participants.add(prepared.author.toLowerCase());
       }
       replyCount += Array.isArray(comment.replies) ? comment.replies.length : 0;
-      languages.add(detectLanguage(comment.message));
+      const commentLanguage = prepared.language ?? detectLanguage(comment.message);
+      languages.add(commentLanguage);
       if (Array.isArray(comment.replies)) {
         comment.replies.forEach((reply) => {
           if (reply.author) {
             participants.add(reply.author.toLowerCase());
           }
-          languages.add(detectLanguage(reply.message));
+          const replyLanguage = reply.language ?? detectLanguage(reply.message);
+          languages.add(replyLanguage);
         });
       }
     });
@@ -422,6 +466,45 @@ export default function CommentsThread({
       languageDiversity: Math.max(languages.size, 1),
     };
   }, [comments, postAuthorName]);
+
+  const resolvedThreadInsights = useMemo(() => {
+    if (Array.isArray(threadInsights) && threadInsights.length) {
+      return threadInsights;
+    }
+    if (!comments.length) {
+      return [];
+    }
+    const insights = [];
+    if (threadMetrics.officialCount) {
+      insights.push({
+        id: 'official-voices',
+        title: `${threadMetrics.officialCount} official ${threadMetrics.officialCount === 1 ? 'voice' : 'voices'}`,
+        description: 'Founders or workspace owners are guiding this thread.',
+      });
+    }
+    if (threadMetrics.pinnedCount) {
+      insights.push({
+        id: 'pinned-guidance',
+        title: `${threadMetrics.pinnedCount} pinned insight${threadMetrics.pinnedCount === 1 ? '' : 's'}`,
+        description: 'Pinned responses summarise agreed actions and follow-ups.',
+      });
+    }
+    if (threadMetrics.participantCount) {
+      insights.push({
+        id: 'participant-breadth',
+        title: `${threadMetrics.participantCount} participant${threadMetrics.participantCount === 1 ? '' : 's'}`,
+        description: 'Mentors, founders, and partners are engaging in the thread.',
+      });
+    }
+    if (threadMetrics.languageDiversity > 1) {
+      insights.push({
+        id: 'language-coverage',
+        title: `${threadMetrics.languageDiversity} languages represented`,
+        description: 'Multilingual replies ensure global teams stay aligned.',
+      });
+    }
+    return insights;
+  }, [comments, threadInsights, threadMetrics]);
 
   const handleToggleTranslation = (commentId, replyId) => {
     setTranslationState((previous) => {
@@ -515,7 +598,7 @@ export default function CommentsThread({
 
       <Transition
         as={Fragment}
-        show={insightsOpen || (threadInsights?.length ?? 0) > 0}
+        show={insightsOpen || resolvedThreadInsights.length > 0}
         enter="transition ease-out duration-150"
         enterFrom="opacity-0 -translate-y-1"
         enterTo="opacity-100 translate-y-0"
@@ -531,9 +614,9 @@ export default function CommentsThread({
               <span>Languages {threadMetrics.languageDiversity}</span>
             </div>
           </div>
-          {threadInsights?.length ? (
+          {resolvedThreadInsights.length ? (
             <ul className="mt-3 grid gap-3 sm:grid-cols-2">
-              {threadInsights.slice(0, 4).map((insight) => (
+              {resolvedThreadInsights.slice(0, 4).map((insight) => (
                 <li key={insight.id} className="rounded-2xl bg-white/90 p-3 text-sm text-slate-700">
                   <p className="font-semibold text-slate-800">{insight.title}</p>
                   {insight.description ? (
