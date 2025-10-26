@@ -9,6 +9,8 @@ import {
   PaperAirplaneIcon,
   ShieldCheckIcon,
   SparklesIcon,
+  BookmarkSquareIcon,
+  InformationCircleIcon,
 } from '@heroicons/react/24/outline';
 import { Transition } from '@headlessui/react';
 import UserAvatar from '../UserAvatar.jsx';
@@ -117,17 +119,40 @@ function normaliseCommentForDisplay(comment, postAuthorName) {
     ...comment,
     headline,
     isOfficial,
+    isPinned: Boolean(comment.isPinned),
   };
 }
 
 function buildSortedComments(comments, sortMode, postAuthorName) {
   const prepared = comments.map((comment) => normaliseCommentForDisplay(comment, postAuthorName));
   if (sortMode === 'recent') {
-    return prepared.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    return prepared
+      .slice()
+      .sort((a, b) => {
+        if (a.isPinned && !b.isPinned) {
+          return -1;
+        }
+        if (!a.isPinned && b.isPinned) {
+          return 1;
+        }
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      });
   }
   return prepared
     .slice()
-    .sort((a, b) => scoreComment(b) - scoreComment(a) || new Date(b.createdAt) - new Date(a.createdAt));
+    .sort((a, b) => {
+      if (a.isPinned && !b.isPinned) {
+        return -1;
+      }
+      if (!a.isPinned && b.isPinned) {
+        return 1;
+      }
+      const scoreDifference = scoreComment(b) - scoreComment(a);
+      if (scoreDifference !== 0) {
+        return scoreDifference;
+      }
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
 }
 
 function CommentReplies({ comment, onReply, translationState, onToggleTranslation }) {
@@ -155,6 +180,11 @@ function CommentReplies({ comment, onReply, translationState, onToggleTranslatio
         <span>{formatRelativeTime(comment.createdAt)}</span>
       </div>
       <p className="mt-1 text-[0.7rem] font-semibold uppercase tracking-wide text-slate-400">{comment.headline}</p>
+      {comment.isPinned ? (
+        <span className="mt-2 inline-flex items-center gap-2 rounded-full bg-accentSoft px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-accent">
+          <BookmarkSquareIcon className="h-4 w-4" /> Pinned insight
+        </span>
+      ) : null}
       <p className="mt-3 whitespace-pre-line text-sm text-slate-700">
         {translationState?.enabled ? translationState.message : comment.message}
       </p>
@@ -307,10 +337,12 @@ export default function CommentsThread({
   viewer,
   postId,
   postAuthorName,
+  threadInsights,
 }) {
   const [sortMode, setSortMode] = useState('relevance');
   const [translationState, setTranslationState] = useState({});
   const [showComposerTips, setShowComposerTips] = useState(false);
+  const [insightsOpen, setInsightsOpen] = useState(false);
 
   const findCommentMessage = (commentId) => {
     const comment = comments.find((entry) => entry.id === commentId);
@@ -339,6 +371,57 @@ export default function CommentsThread({
       ),
     [comments],
   );
+
+  const threadMetrics = useMemo(() => {
+    if (!Array.isArray(comments) || !comments.length) {
+      return {
+        officialCount: 0,
+        pinnedCount: 0,
+        participantCount: 0,
+        averageReplyDepth: 0,
+        languageDiversity: 1,
+      };
+    }
+    let officialCount = 0;
+    let pinnedCount = 0;
+    let replyCount = 0;
+    const participants = new Set();
+    const languages = new Set();
+
+    comments.forEach((comment) => {
+      const prepared = normaliseCommentForDisplay(comment, postAuthorName);
+      if (prepared.isOfficial) {
+        officialCount += 1;
+      }
+      if (prepared.isPinned) {
+        pinnedCount += 1;
+      }
+      if (prepared.author) {
+        participants.add(prepared.author.toLowerCase());
+      }
+      replyCount += Array.isArray(comment.replies) ? comment.replies.length : 0;
+      languages.add(detectLanguage(comment.message));
+      if (Array.isArray(comment.replies)) {
+        comment.replies.forEach((reply) => {
+          if (reply.author) {
+            participants.add(reply.author.toLowerCase());
+          }
+          languages.add(detectLanguage(reply.message));
+        });
+      }
+    });
+
+    const participantCount = participants.size;
+    const averageReplyDepth = participantCount ? Math.round((replyCount / comments.length) * 10) / 10 : 0;
+
+    return {
+      officialCount,
+      pinnedCount,
+      participantCount,
+      averageReplyDepth,
+      languageDiversity: Math.max(languages.size, 1),
+    };
+  }, [comments, postAuthorName]);
 
   const handleToggleTranslation = (commentId, replyId) => {
     setTranslationState((previous) => {
@@ -389,6 +472,32 @@ export default function CommentsThread({
         <div>
           <p className="text-sm font-semibold text-slate-900">Join the conversation</p>
           <p className="text-xs text-slate-500">{totalReplies} contributions from the community</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[0.65rem] uppercase tracking-wide text-slate-400">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-slate-500">
+              <ShieldCheckIcon className="h-4 w-4 text-emerald-500" /> Official voices {threadMetrics.officialCount}
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-slate-500">
+              <BookmarkSquareIcon className="h-4 w-4 text-accent" /> Pinned threads {threadMetrics.pinnedCount}
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-slate-500">
+              <ChatBubbleOvalLeftIcon className="h-4 w-4 text-indigo-500" /> Participants {threadMetrics.participantCount}
+            </span>
+            <button
+              type="button"
+              onClick={() => setInsightsOpen((previous) => {
+                const next = !previous;
+                analytics.track('web_feed_comment_insights_toggle', { postId, open: next }, { source: 'web_app' });
+                return next;
+              })}
+              className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 font-semibold transition ${
+                insightsOpen
+                  ? 'border-accent text-accent'
+                  : 'border-slate-200 text-slate-500 hover:border-accent/60 hover:text-accent'
+              }`}
+            >
+              <InformationCircleIcon className="h-4 w-4" /> Insights
+            </button>
+          </div>
         </div>
         <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-500">
           <SparklesIcon className="h-4 w-4 text-accent" />
@@ -403,6 +512,43 @@ export default function CommentsThread({
           </button>
         </div>
       </header>
+
+      <Transition
+        as={Fragment}
+        show={insightsOpen || (threadInsights?.length ?? 0) > 0}
+        enter="transition ease-out duration-150"
+        enterFrom="opacity-0 -translate-y-1"
+        enterTo="opacity-100 translate-y-0"
+        leave="transition ease-in duration-100"
+        leaveFrom="opacity-100 translate-y-0"
+        leaveTo="opacity-0 -translate-y-1"
+      >
+        <aside className="rounded-3xl border border-slate-200 bg-slate-50/80 p-4 text-[0.7rem] text-slate-600">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Thread insights</p>
+            <div className="flex flex-wrap items-center gap-2 text-[0.65rem] text-slate-500">
+              <span>Avg replies {threadMetrics.averageReplyDepth}</span>
+              <span>Languages {threadMetrics.languageDiversity}</span>
+            </div>
+          </div>
+          {threadInsights?.length ? (
+            <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+              {threadInsights.slice(0, 4).map((insight) => (
+                <li key={insight.id} className="rounded-2xl bg-white/90 p-3 text-sm text-slate-700">
+                  <p className="font-semibold text-slate-800">{insight.title}</p>
+                  {insight.description ? (
+                    <p className="mt-1 text-[0.75rem] text-slate-500">{insight.description}</p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3 text-[0.7rem] text-slate-500">
+              Insights synthesise momentum across official voices, mentors, and founders to guide your next reply.
+            </p>
+          )}
+        </aside>
+      </Transition>
 
       <form onSubmit={handleSubmit} className="rounded-3xl border border-slate-200 bg-slate-50/80 p-4">
         <div className="flex items-start gap-3">
@@ -529,6 +675,13 @@ CommentsThread.propTypes = {
   }),
   postId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   postAuthorName: PropTypes.string,
+  threadInsights: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      title: PropTypes.string.isRequired,
+      description: PropTypes.string,
+    }),
+  ),
 };
 
 CommentsThread.defaultProps = {
@@ -544,4 +697,5 @@ CommentsThread.defaultProps = {
   viewer: null,
   postId: undefined,
   postAuthorName: undefined,
+  threadInsights: [],
 };

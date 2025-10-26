@@ -3655,6 +3655,9 @@ export const FeedShare = sequelize.define(
     message: { type: DataTypes.TEXT, allowNull: false },
     link: { type: DataTypes.STRING(2048), allowNull: true },
     metadata: { type: jsonType, allowNull: true },
+    scheduledFor: { type: DataTypes.DATE, allowNull: true },
+    notifyList: { type: jsonType, allowNull: true },
+    complianceAcknowledged: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
   },
   {
     tableName: 'feed_shares',
