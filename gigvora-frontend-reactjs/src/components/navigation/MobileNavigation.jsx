@@ -1,11 +1,13 @@
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import PropTypes from 'prop-types';
 import { SparklesIcon } from '@heroicons/react/24/outline';
 import LanguageSelector from '../LanguageSelector.jsx';
 import RoleSwitcher from './RoleSwitcher.jsx';
 import MobileMegaMenu from './MobileMegaMenu.jsx';
 import PrimaryNavItem from './PrimaryNavItem.jsx';
+import { resolveInitials } from '../../utils/user.js';
 
 export default function MobileNavigation({
   open,
@@ -18,8 +20,13 @@ export default function MobileNavigation({
   roleOptions,
   currentRoleKey,
   onMarketingSearch,
+  session,
 }) {
   const resolvedPrimaryNavigation = useMemo(() => primaryNavigation ?? [], [primaryNavigation]);
+  const resolvedMarketingMenus = useMemo(() => marketingNavigation ?? [], [marketingNavigation]);
+  const memberships = useMemo(() => (Array.isArray(session?.memberships) ? session.memberships : []), [session]);
+  const primaryDashboard = resolvedPrimaryNavigation[0]?.to ?? '/dashboard';
+  const initials = resolveInitials(session?.name ?? session?.email ?? 'GV');
 
   return (
     <Transition show={open} as={Fragment}>
@@ -62,6 +69,34 @@ export default function MobileNavigation({
             <div className="flex-1 overflow-y-auto pb-8">
               {isAuthenticated ? (
                 <div className="space-y-4">
+                  <div className="rounded-3xl border border-slate-200/80 bg-white/80 p-4 shadow-sm backdrop-blur">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-base font-semibold uppercase text-white">
+                        {initials}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-slate-900">{session?.name ?? 'Member'}</p>
+                        <p className="truncate text-xs text-slate-500">{memberships.join(' • ') || 'Gigvora network'}</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                      <Link
+                        to={primaryDashboard}
+                        onClick={onClose}
+                        className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200/80 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-white hover:text-slate-900"
+                      >
+                        <SparklesIcon className="h-4 w-4 text-accent" />
+                        Dashboard overview
+                      </Link>
+                      <Link
+                        to="/profile"
+                        onClick={onClose}
+                        className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200/80 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-white hover:text-slate-900"
+                      >
+                        View profile
+                      </Link>
+                    </div>
+                  </div>
                   {roleOptions?.length ? (
                     <RoleSwitcher options={roleOptions} currentKey={currentRoleKey} onSelect={onClose} />
                   ) : null}
@@ -70,6 +105,20 @@ export default function MobileNavigation({
                       <PrimaryNavItem key={item.id} item={item} variant="mobile" onNavigate={onClose} />
                     ))}
                   </nav>
+                  {resolvedMarketingMenus.length ? (
+                    <div className="space-y-3 rounded-3xl border border-slate-200/80 bg-white/80 p-4 shadow-sm backdrop-blur">
+                      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Explore Gigvora</p>
+                      <MobileMegaMenu
+                        menus={resolvedMarketingMenus}
+                        search={marketingSearch}
+                        onNavigate={onClose}
+                        onSearch={(value) => {
+                          onClose();
+                          onMarketingSearch?.(value);
+                        }}
+                      />
+                    </div>
+                  ) : null}
                   <div className="grid gap-2">
                     <Link
                       to="/dashboard/user/creation-studio"
@@ -122,7 +171,7 @@ export default function MobileNavigation({
             </div>
 
             <div className="mt-auto border-t border-slate-200/70 pt-4">
-              <LanguageSelector variant="mobile" />
+              <LanguageSelector variant="mobile" className="w-full" />
             </div>
           </Dialog.Panel>
         </Transition.Child>
@@ -130,3 +179,32 @@ export default function MobileNavigation({
     </Transition>
   );
 }
+
+MobileNavigation.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  isAuthenticated: PropTypes.bool.isRequired,
+  primaryNavigation: PropTypes.array,
+  marketingNavigation: PropTypes.array,
+  marketingSearch: PropTypes.object,
+  onLogout: PropTypes.func,
+  roleOptions: PropTypes.array,
+  currentRoleKey: PropTypes.string,
+  onMarketingSearch: PropTypes.func,
+  session: PropTypes.shape({
+    name: PropTypes.string,
+    email: PropTypes.string,
+    memberships: PropTypes.arrayOf(PropTypes.string),
+  }),
+};
+
+MobileNavigation.defaultProps = {
+  primaryNavigation: [],
+  marketingNavigation: [],
+  marketingSearch: null,
+  onLogout: undefined,
+  roleOptions: [],
+  currentRoleKey: 'user',
+  onMarketingSearch: undefined,
+  session: null,
+};

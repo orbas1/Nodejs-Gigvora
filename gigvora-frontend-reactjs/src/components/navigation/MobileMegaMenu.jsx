@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { ChevronDownIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 
 import { classNames } from '../../utils/classNames.js';
+import analytics from '../../services/analytics.js';
 
 export default function MobileMegaMenu({ menus, search, onNavigate, onSearch }) {
   const [query, setQuery] = useState('');
@@ -15,6 +16,10 @@ export default function MobileMegaMenu({ menus, search, onNavigate, onSearch }) 
     if (!trimmed) {
       return;
     }
+    analytics.track('web_navigation_mobile_search', {
+      query: trimmed,
+      surface: search?.id ?? 'mobile-mega-menu',
+    });
     onSearch?.(trimmed);
     setQuery('');
   };
@@ -56,6 +61,13 @@ export default function MobileMegaMenu({ menus, search, onNavigate, onSearch }) 
                 <Disclosure.Button
                   className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-semibold text-slate-800"
                   aria-expanded={open}
+                  onClick={() => {
+                    analytics.track('web_navigation_mobile_megamenu_section_toggled', {
+                      menuId: menu.id,
+                      menuLabel: menu.label,
+                      open: !open,
+                    });
+                  }}
                 >
                   <span>{menu.label}</span>
                   <ChevronDownIcon
@@ -75,6 +87,21 @@ export default function MobileMegaMenu({ menus, search, onNavigate, onSearch }) 
                               to={item.to}
                               onClick={() => onNavigate?.()}
                               className="block rounded-2xl px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
+                              onFocusCapture={() => {
+                                analytics.track('web_navigation_mobile_megamenu_highlighted', {
+                                  menuId: menu.id,
+                                  section: section.title,
+                                  destination: item.to,
+                                });
+                              }}
+                              onClickCapture={() => {
+                                analytics.track('web_navigation_mobile_megamenu_link_clicked', {
+                                  menuId: menu.id,
+                                  section: section.title,
+                                  destination: item.to,
+                                  label: item.name,
+                                });
+                              }}
                             >
                               <div className="flex items-center gap-2">
                                 <item.icon className="h-5 w-5 text-accent" aria-hidden="true" />
