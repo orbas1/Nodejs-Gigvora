@@ -130,7 +130,13 @@ export const appleLoginSchema = z
 
 export const linkedinLoginSchema = z
   .object({
-    accessToken: requiredTrimmedString({ max: 4096 }),
+    accessToken: optionalTrimmedString({ max: 4096 }),
+    authorizationCode: optionalTrimmedString({ max: 4096 }),
+    redirectUri: optionalTrimmedString({ max: 2048 }),
+  })
+  .refine((value) => Boolean(value.accessToken) || Boolean(value.authorizationCode), {
+    message: 'Either accessToken or authorizationCode must be provided.',
+    path: ['accessToken'],
   })
   .strip();
 

@@ -16,10 +16,12 @@ import registerVoiceNamespace from './voiceNamespace.js';
 import registerEventsNamespace from './eventsNamespace.js';
 import registerModerationNamespace from './moderationNamespace.js';
 import { AuthenticationError } from '../utils/errors.js';
+import { getInternalRealtimeHub } from './internalHub.js';
 
 let ioInstance = null;
 let redisClients = [];
 let connectionRegistry = null;
+const hubListeners = [];
 
 function resolveCorsOrigins(runtimeConfig, env = process.env) {
   const realtimeOrigins = runtimeConfig?.realtime?.cors?.allowedOrigins ?? [];
@@ -161,6 +163,12 @@ export async function attachSocketServer(httpServer, { logger = baseLogger } = {
   registerModerationNamespace(io, { logger });
 
   ioInstance = io;
+  const realtimeHub = getInternalRealtimeHub();
+  const maintenanceListener = (payload) => {
+    io.emit('operations:maintenance:update', payload);
+  };
+  realtimeHub.on('maintenance:update', maintenanceListener);
+  hubListeners.push({ event: 'maintenance:update', handler: maintenanceListener });
   logger.info('Realtime socket server attached.');
   return ioInstance;
 }
@@ -169,6 +177,10 @@ export async function shutdownSocketServer() {
   if (!ioInstance) {
     return;
   }
+  const realtimeHub = getInternalRealtimeHub();
+  hubListeners.splice(0).forEach(({ event, handler }) => {
+    realtimeHub.off(event, handler);
+  });
   await new Promise((resolve) => {
     ioInstance.close(() => resolve());
   });

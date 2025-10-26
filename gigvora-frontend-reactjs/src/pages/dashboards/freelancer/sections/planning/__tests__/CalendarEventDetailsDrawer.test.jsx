@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import CalendarEventDetailsDrawer from '../CalendarEventDetailsDrawer.jsx';
@@ -21,6 +21,7 @@ describe('CalendarEventDetailsDrawer', () => {
     const handleEdit = vi.fn();
     const handleDuplicate = vi.fn();
     const handleDelete = vi.fn().mockResolvedValue();
+    const handleDownload = vi.fn();
     const user = userEvent.setup();
 
     render(
@@ -32,24 +33,40 @@ describe('CalendarEventDetailsDrawer', () => {
         onEdit={handleEdit}
         onDuplicate={handleDuplicate}
         onDelete={handleDelete}
+        onDownload={handleDownload}
       />,
     );
 
     expect(screen.getByText('Kickoff')).toBeInTheDocument();
 
-    await user.selectOptions(screen.getByRole('combobox'), ['completed']);
+    await act(async () => {
+      await user.selectOptions(screen.getByRole('combobox'), ['completed']);
+    });
     expect(handleStatusChange).toHaveBeenCalledWith(expect.objectContaining({ id: 'event-1' }), 'completed');
 
-    await user.click(screen.getByRole('button', { name: /edit/i }));
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /edit/i }));
+    });
     expect(handleEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 'event-1' }));
 
-    await user.click(screen.getByRole('button', { name: /duplicate/i }));
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /duplicate/i }));
+    });
     expect(handleDuplicate).toHaveBeenCalledWith(expect.objectContaining({ id: 'event-1' }));
 
-    await user.click(screen.getByRole('button', { name: /delete/i }));
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /download invite/i }));
+    });
+    expect(handleDownload).toHaveBeenCalledWith(expect.objectContaining({ id: 'event-1' }));
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /delete/i }));
+    });
     expect(screen.getByText(/deleting removes the event/i)).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /confirm delete/i }));
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /confirm delete/i }));
+    });
     await waitFor(() => expect(handleDelete).toHaveBeenCalledTimes(1));
   });
 
@@ -61,10 +78,27 @@ describe('CalendarEventDetailsDrawer', () => {
       <CalendarEventDetailsDrawer open event={BASE_EVENT} canManage onDelete={handleDelete} />,
     );
 
-    await user.click(screen.getByRole('button', { name: /delete/i }));
-    await user.click(screen.getByRole('button', { name: /confirm delete/i }));
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /delete/i }));
+    });
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /confirm delete/i }));
+    });
 
     await waitFor(() => expect(screen.getByText(/network error/i)).toBeInTheDocument());
+  });
+
+  it('surfaces download errors when provided', () => {
+    render(
+      <CalendarEventDetailsDrawer
+        open
+        event={BASE_EVENT}
+        onDownload={() => {}}
+        downloadError="Unable to export"
+      />,
+    );
+
+    expect(screen.getByText(/unable to export/i)).toBeInTheDocument();
   });
 
   it('prevents status changes while updates are in progress', () => {

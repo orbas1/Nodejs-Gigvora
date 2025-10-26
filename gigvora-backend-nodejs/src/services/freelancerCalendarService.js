@@ -6,6 +6,7 @@ import {
   FREELANCER_CALENDAR_RELATED_TYPES,
 } from '../models/index.js';
 import { ValidationError, NotFoundError, AuthorizationError } from '../utils/errors.js';
+import { createIcsCalendar, createIcsEvent, escapeIcsText, suggestIcsFilename } from './utils/icsFormatter.js';
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_LOOKBACK_DAYS = 14;
@@ -187,6 +188,60 @@ function ensureEventType(value, { allowNull = false } = {}) {
     throw new ValidationError(`eventType must be one of: ${FREELANCER_CALENDAR_EVENT_TYPES.join(', ')}`);
   }
   return normalized;
+}
+
+function buildFreelancerEventDescription(event) {
+  const sections = [];
+  if (event.notes) {
+    sections.push(event.notes);
+  }
+  if (event.description) {
+    sections.push(event.description);
+  }
+  if (event.meetingUrl) {
+    sections.push(`Join link: ${event.meetingUrl}`);
+  }
+  if (event.metadata && typeof event.metadata === 'object' && !Array.isArray(event.metadata)) {
+    const metaLines = Object.entries(event.metadata)
+      .filter(([, value]) => value != null && value !== '')
+      .map(([key, value]) => `${key}: ${typeof value === 'object' ? JSON.stringify(value) : value}`);
+    if (metaLines.length) {
+      sections.push(`Context:\n${metaLines.join('\n')}`);
+    }
+  }
+  return sections.join('\n\n');
+}
+
+function buildFreelancerIcsEvent(event, { freelancerId }) {
+  const categories = [event.eventType, event.status, 'freelancer']
+    .filter(Boolean)
+    .map((value) => `${value}`.toLowerCase());
+  return createIcsEvent({
+    uid: event.icsUid || `gigvora-freelancer-${freelancerId}-event-${event.id}@gigvora.app`,
+    title: event.title,
+    description: buildFreelancerEventDescription(event),
+    location: event.location ?? null,
+    url: event.meetingUrl ?? null,
+    startsAt: event.startsAt,
+    endsAt: event.endsAt,
+    allDay: Boolean(event.isAllDay),
+    status: (event.status ?? 'confirmed').toUpperCase(),
+    categories,
+    reminderMinutes: event.reminderMinutesBefore ?? null,
+    createdAt: event.createdAt ?? null,
+    updatedAt: event.updatedAt ?? null,
+    metadata: {
+      relatedEntityType: event.relatedEntityType ?? null,
+      relatedEntityId: event.relatedEntityId ?? null,
+      source: event.source ?? 'freelancer',
+    },
+    extraFields: [
+      event.color ? `X-GIGVORA-COLOR:${escapeIcsText(event.color)}` : null,
+      event.relatedEntityName
+        ? `X-GIGVORA-RELATED-NAME:${escapeIcsText(event.relatedEntityName)}`
+        : null,
+    ],
+  });
 }
 
 function ensureStatus(value, { allowNull = false } = {}) {
@@ -544,9 +599,43 @@ export async function deleteFreelancerCalendarEvent(eventId, { freelancerId, act
   return true;
 }
 
+export async function exportFreelancerCalendarEventInvite(eventId, { freelancerId, actorId } = {}) {
+  const resolvedEventId = parseEventId(eventId);
+  const resolvedFreelancerId = normalizeFreelancerId(freelancerId);
+  const parsedActorId = parseActorId(actorId ?? resolvedFreelancerId);
+  ensureActorAccess(resolvedFreelancerId, parsedActorId);
+
+  const record = await FreelancerCalendarEvent.findOne({
+    where: { id: resolvedEventId, freelancerId: resolvedFreelancerId },
+  });
+
+  if (!record) {
+    throw new NotFoundError('Calendar event not found.');
+  }
+
+  const event = record.toPublicObject();
+  const icsEvent = buildFreelancerIcsEvent(event, { freelancerId: resolvedFreelancerId });
+  const calendar = createIcsCalendar({
+    events: [icsEvent],
+    name: 'Gigvora — Freelancer Planner',
+    description: 'High-impact client and mentor sessions exported from Gigvora.',
+    customProperties: [
+      `X-GIGVORA-FREELANCER-ID:${resolvedFreelancerId}`,
+      event.status ? `X-GIGVORA-STATUS:${escapeIcsText(event.status)}` : null,
+    ],
+  });
+  const filename = suggestIcsFilename(event.title, {
+    id: event.id ?? resolvedEventId,
+    prefix: 'gigvora-freelancer-event',
+  });
+
+  return { ics: calendar, filename, event };
+}
+
 export default {
   listFreelancerCalendarEvents,
   createFreelancerCalendarEvent,
   updateFreelancerCalendarEvent,
   deleteFreelancerCalendarEvent,
+  exportFreelancerCalendarEventInvite,
 };

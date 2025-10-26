@@ -46,12 +46,22 @@ function normaliseListPayload(payload) {
     meta.total ??
     (typeof source.count === 'number' ? source.count : items.length ?? 0);
 
+  const suggestions =
+    source.suggestions ??
+    source.recommendations ??
+    source.meta?.suggestions ??
+    source.data?.suggestions ??
+    null;
+
+  const signals = source.liveMoments ?? source.signals ?? null;
+
   return {
     items,
     nextCursor: nextCursor ?? null,
     nextPage: nextPage ?? null,
     hasMore,
     total,
+    suggestions: suggestions ?? (signals ? { liveMoments: signals } : null),
   };
 }
 
