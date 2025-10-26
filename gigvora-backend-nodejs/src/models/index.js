@@ -9,6 +9,7 @@ import {
   PLATFORM_SETTINGS_WATCHER_CHANNELS,
   PLATFORM_SETTINGS_WATCHER_DIGEST_FREQUENCIES,
 } from './platformSettingsWatcher.js';
+import { SchemaMigrationAudit, SeedExecutionAudit } from './schemaGovernanceModels.js';
 import { SiteSetting, SitePage, SiteNavigationLink, SITE_PAGE_STATUSES } from './siteManagementModels.js';
 import { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
 import {
@@ -20,6 +21,7 @@ import {
 } from '../utils/modelNormalizers.js';
 export { AdminTreasuryPolicy, AdminFeeRule, AdminPayoutSchedule, AdminEscrowAdjustment } from './adminFinanceModels.js';
 export { RouteRegistryEntry } from './routeRegistryModels.js';
+export { SchemaMigrationAudit, SeedExecutionAudit } from './schemaGovernanceModels.js';
 import './agencyWorkforceModels.js';
 import { RbacPolicyAuditEvent } from './rbacPolicyAuditEvent.js';
 import { RuntimeAnnouncement } from './runtimeAnnouncement.js';
@@ -24908,6 +24910,8 @@ export default {
   PlatformSetting,
   PlatformSettingsAuditEvent,
   PlatformSettingsWatcher,
+  SchemaMigrationAudit,
+  SeedExecutionAudit,
   RuntimeSecurityAuditEvent,
   RbacPolicyAuditEvent,
   RuntimeAnnouncement,
@@ -25127,6 +25131,8 @@ domainRegistry.registerContext({
     'PlatformSetting',
     'PlatformSettingsAuditEvent',
     'PlatformSettingsWatcher',
+    'SchemaMigrationAudit',
+    'SeedExecutionAudit',
     'RuntimeSecurityAuditEvent',
     'RuntimeAnnouncement',
     'AdminCalendarAccount',
@@ -25148,6 +25154,13 @@ if (unassignedModels.length) {
     models: unassignedModels,
   });
 }
+
+export {
+  SCHEMA_MIGRATION_DIRECTIONS,
+  SCHEMA_MIGRATION_STATUSES,
+  SEED_EXECUTION_DIRECTIONS,
+  SEED_EXECUTION_STATUSES,
+} from './schemaGovernanceModels.js';
 
 export { domainRegistry };
 
