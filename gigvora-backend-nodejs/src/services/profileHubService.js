@@ -10,7 +10,10 @@ import {
 } from '../models/index.js';
 import profileService, { updateProfile, updateProfileAvatar } from './profileService.js';
 import { upsertProfileFollower, recalculateProfileEngagementNow } from './profileEngagementService.js';
+import freelancerTimelineService from './freelancerTimelineService.js';
+import freelancerPortfolioService from './freelancerPortfolioService.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
+import logger from '../utils/logger.js';
 
 function normalizeUserId(value, label = 'userId') {
   const numeric = Number(value);
@@ -63,6 +66,453 @@ function sanitizeVisibility(value) {
   return PROFILE_NETWORK_VISIBILITY_OPTIONS.includes(normalized)
     ? normalized
     : PROFILE_NETWORK_VISIBILITY_OPTIONS[0];
+}
+
+function formatMetricValue(value) {
+  if (value == null) {
+    return null;
+  }
+  const numeric = Number(value);
+  if (Number.isFinite(numeric)) {
+    if (Math.abs(numeric) >= 1000) {
+      return new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(numeric);
+    }
+    return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(numeric);
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  return `${value}`;
+}
+
+function uniqueTags(...sources) {
+  const set = new Set();
+  sources
+    .flat()
+    .filter(Boolean)
+    .forEach((tag) => {
+      const label = `${tag}`.trim();
+      if (label) {
+        set.add(label);
+      }
+    });
+  return Array.from(set);
+}
+
+function deriveEntryAchievements(metadata = {}) {
+  if (!metadata) {
+    return [];
+  }
+  if (Array.isArray(metadata.achievements)) {
+    return metadata.achievements.filter(Boolean);
+  }
+  if (Array.isArray(metadata.highlights)) {
+    return metadata.highlights.filter(Boolean);
+  }
+  if (Array.isArray(metadata.outcomes)) {
+    return metadata.outcomes.filter(Boolean);
+  }
+  if (typeof metadata.achievement === 'string') {
+    return [metadata.achievement];
+  }
+  return [];
+}
+
+function deriveEntryMetrics(entry, linkedPost) {
+  const metrics = [];
+  const metadataMetrics = Array.isArray(entry.metadata?.metrics) ? entry.metadata.metrics : null;
+  if (metadataMetrics) {
+    metadataMetrics.forEach((metric) => {
+      if (!metric) return;
+      const label = metric.label ?? metric.name ?? null;
+      const value = metric.value ?? metric.metric ?? null;
+      if (label && value != null) {
+        metrics.push({ label, value: formatMetricValue(value) ?? value });
+      }
+    });
+  }
+
+  const totals = linkedPost?.metrics?.totals ?? null;
+  if (totals) {
+    const impressions = totals.impressions ?? totals.views ?? null;
+    if (impressions) {
+      metrics.push({ label: 'Impressions', value: formatMetricValue(impressions) ?? impressions });
+    }
+    const engagement =
+      (totals.clicks ?? 0) +
+      (totals.comments ?? 0) +
+      (totals.reactions ?? 0) +
+      (totals.shares ?? 0) +
+      (totals.saves ?? 0);
+    if (engagement > 0) {
+      metrics.push({ label: 'Engagements', value: formatMetricValue(engagement) ?? engagement });
+    }
+    if (totals.leads) {
+      metrics.push({ label: 'Leads', value: formatMetricValue(totals.leads) ?? totals.leads });
+    }
+  }
+
+  const deduped = new Map();
+  metrics.forEach((metric) => {
+    if (!metric || !metric.label) {
+      return;
+    }
+    const key = metric.label.toLowerCase();
+    if (!deduped.has(key)) {
+      deduped.set(key, metric);
+    }
+  });
+  return Array.from(deduped.values());
+}
+
+function buildTimelineMedia(entry, linkedPost) {
+  const media = entry.metadata?.media ?? {};
+  const attachments = Array.isArray(linkedPost?.attachments) ? linkedPost.attachments : [];
+  const firstAttachment = attachments.find((attachment) => attachment?.url);
+  return {
+    imageUrl: media.imageUrl ?? media.coverImage ?? linkedPost?.heroImageUrl ?? null,
+    videoUrl: media.videoUrl ?? media.video ?? linkedPost?.callToAction?.url ?? null,
+    link:
+      media.link ??
+      media.url ??
+      linkedPost?.callToAction?.url ??
+      linkedPost?.campaignLink ??
+      firstAttachment?.url ??
+      null,
+  };
+}
+
+function buildTimelineItem(entry, postsById) {
+  if (!entry) {
+    return null;
+  }
+  const linkedPost = entry.linkedPostId ? postsById.get(entry.linkedPostId) ?? null : null;
+  const tags = uniqueTags(entry.tags ?? [], linkedPost?.tags ?? []);
+  const achievements = deriveEntryAchievements(entry.metadata);
+  const metrics = deriveEntryMetrics(entry, linkedPost);
+  const media = buildTimelineMedia(entry, linkedPost);
+  const summary = entry.description ?? linkedPost?.summary ?? linkedPost?.content ?? null;
+  const organization =
+    entry.metadata?.organization ??
+    entry.metadata?.client ??
+    entry.channel ??
+    entry.owner ??
+    linkedPost?.campaign ??
+    '';
+
+  return {
+    id: `entry-${entry.id}`,
+    entryId: entry.id,
+    role: entry.title,
+    organization,
+    location: entry.location ?? null,
+    startDate: entry.startAt ?? null,
+    endDate: entry.endAt ?? null,
+    summary,
+    achievements,
+    metrics,
+    media,
+    tags,
+    spotlight: Boolean(entry.status === 'completed' || entry.metadata?.spotlight || linkedPost?.status === 'published'),
+    attachments: Array.isArray(linkedPost?.attachments) ? linkedPost.attachments : [],
+    linkedPost: linkedPost
+      ? {
+          id: linkedPost.id,
+          title: linkedPost.title,
+          publishedAt: linkedPost.publishedAt ?? null,
+          visibility: linkedPost.visibility,
+          callToAction: linkedPost.callToAction ?? null,
+        }
+      : null,
+  };
+}
+
+function buildPostOnlyItem(post) {
+  if (!post) {
+    return null;
+  }
+  const metrics = deriveEntryMetrics({ metadata: {}, linkedPostId: post.id }, post);
+  return {
+    id: `post-${post.id}`,
+    role: post.title,
+    organization: post.campaign ?? 'Campaign',
+    startDate: post.publishedAt ?? post.updatedAt ?? null,
+    endDate: post.publishedAt ?? null,
+    summary: post.summary ?? post.content ?? null,
+    achievements: [],
+    metrics,
+    media: {
+      imageUrl: post.heroImageUrl ?? null,
+      videoUrl: post.callToAction?.url ?? null,
+      link: post.callToAction?.url ?? null,
+    },
+    tags: Array.isArray(post.tags) ? post.tags : [],
+    spotlight: post.status === 'published',
+    attachments: Array.isArray(post.attachments) ? post.attachments : [],
+    linkedPost: {
+      id: post.id,
+      title: post.title,
+      publishedAt: post.publishedAt ?? null,
+      visibility: post.visibility,
+      callToAction: post.callToAction ?? null,
+    },
+  };
+}
+
+function buildExperienceTimelineSnapshot(snapshot) {
+  if (!snapshot) {
+    return {
+      items: [],
+      filters: ['all'],
+      defaultFilter: 'all',
+      defaultView: 'timeline',
+      analytics: null,
+      workspace: null,
+      spotlight: null,
+    };
+  }
+
+  const { timelineEntries = [], posts = [], analytics = {}, workspace = null } = snapshot;
+  const postsById = new Map(posts.map((post) => [post.id, post]));
+  const items = [];
+
+  timelineEntries.forEach((entry) => {
+    const item = buildTimelineItem(entry, postsById);
+    if (item) {
+      items.push(item);
+    }
+  });
+
+  posts
+    .filter((post) => !timelineEntries.some((entry) => entry.linkedPostId === post.id))
+    .forEach((post) => {
+      const item = buildPostOnlyItem(post);
+      if (item) {
+        items.push(item);
+      }
+    });
+
+  items.sort((a, b) => {
+    const aDate = new Date(a.endDate ?? a.startDate ?? 0).getTime();
+    const bDate = new Date(b.endDate ?? b.startDate ?? 0).getTime();
+    return bDate - aDate;
+  });
+
+  const tagSet = new Set();
+  items.forEach((item) => {
+    (item.tags ?? []).forEach((tag) => {
+      const label = `${tag}`.trim();
+      if (label) {
+        tagSet.add(label);
+      }
+    });
+  });
+
+  const filters = ['all', ...tagSet];
+  const spotlightItem = items.find((item) => item.spotlight) ?? items[0] ?? null;
+  const defaultFilter = spotlightItem?.tags?.find((tag) => filters.includes(tag)) ?? 'all';
+
+  return {
+    items,
+    filters,
+    defaultFilter,
+    defaultView: 'timeline',
+    analytics,
+    workspace,
+    spotlight: spotlightItem
+      ? {
+          id: spotlightItem.id,
+          label: spotlightItem.role,
+          highlights: spotlightItem.achievements ?? [],
+          metrics: spotlightItem.metrics ?? [],
+        }
+      : null,
+  };
+}
+
+function normalisePortfolioItem(item, index) {
+  if (!item) {
+    return null;
+  }
+  const tags = Array.isArray(item.tags) ? item.tags.filter(Boolean) : [];
+  const metrics = Array.isArray(item.impactMetrics)
+    ? item.impactMetrics
+        .filter((metric) => metric && metric.label && metric.value != null)
+        .map((metric) => ({ label: metric.label, value: formatMetricValue(metric.value) ?? metric.value }))
+    : [];
+  return {
+    id: item.id ?? item.slug ?? `portfolio-${index}`,
+    slug: item.slug ?? null,
+    title: item.title ?? item.name ?? 'Portfolio item',
+    summary: item.summary ?? item.tagline ?? item.outcomeSummary ?? '',
+    tags,
+    metrics,
+    imageUrl: item.heroImageUrl ?? null,
+    videoUrl: item.heroVideoUrl ?? null,
+    link: item.liveUrl ?? item.callToActionUrl ?? item.previewUrl ?? null,
+    featured: Boolean(item.isFeatured),
+    spotlight: item.callToActionLabel
+      ? {
+          label: item.callToActionLabel,
+          url: item.callToActionUrl ?? null,
+        }
+      : null,
+    attachments: Array.isArray(item.assets) ? item.assets : [],
+    lastUpdated: item.updatedAt ?? item.publishedAt ?? null,
+    startDate: item.startDate ?? null,
+    endDate: item.endDate ?? null,
+  };
+}
+
+function buildPortfolioGallerySnapshot(snapshot) {
+  if (!snapshot) {
+    return {
+      items: [],
+      categories: ['all'],
+      defaultCategory: 'all',
+      loading: false,
+      summary: null,
+      settings: null,
+      hero: null,
+    };
+  }
+
+  const items = (snapshot.items ?? [])
+    .map((item, index) => normalisePortfolioItem(item, index))
+    .filter(Boolean);
+  const categories = new Set();
+  items.forEach((item) => {
+    (item.tags ?? []).forEach((tag) => {
+      if (tag) {
+        categories.add(tag);
+      }
+    });
+  });
+
+  const featured = items.find((item) => item.featured) ?? items[0] ?? null;
+  const defaultCategory = featured?.tags?.[0] ?? null;
+
+  return {
+    items,
+    categories: ['all', ...categories],
+    defaultCategory: defaultCategory && categories.has(defaultCategory) ? defaultCategory : 'all',
+    loading: false,
+    summary: snapshot.summary ?? null,
+    settings: snapshot.settings ?? null,
+    hero: featured,
+  };
+}
+
+function extractMutualConnections(connections = []) {
+  return connections
+    .map((connection) => connection.counterpart)
+    .filter((counterpart) => counterpart && counterpart.name)
+    .slice(0, 6);
+}
+
+function deriveTrustBadges({ followerStats, timeline, portfolio }) {
+  const badges = [];
+  if ((followerStats?.total ?? 0) > 0) {
+    badges.push({
+      id: 'network-signal',
+      label: 'Trusted network',
+      description: `${formatMetricValue(followerStats.total)} engaged followers`,
+    });
+  }
+  const publishedPosts = timeline?.analytics?.totals?.published ?? 0;
+  if (publishedPosts > 0) {
+    badges.push({
+      id: 'spotlight-consistency',
+      label: 'Consistent spotlight',
+      description: `${formatMetricValue(publishedPosts)} published timeline stories`,
+    });
+  }
+  const featuredCases = portfolio?.summary?.featured ?? 0;
+  if (featuredCases > 0) {
+    badges.push({
+      id: 'featured-case',
+      label: 'Featured case studies',
+      description: `${formatMetricValue(featuredCases)} hero narratives front-and-centre`,
+    });
+  }
+  return badges.slice(0, 4);
+}
+
+function buildHighlightReel(timelineItems = [], portfolioItems = []) {
+  const highlights = [];
+  timelineItems.slice(0, 3).forEach((item) => {
+    highlights.push({
+      id: `timeline-${item.id}`,
+      label: item.role,
+      metric: item.metrics?.[0]?.value ?? null,
+      description: item.summary ?? null,
+    });
+  });
+
+  const portfolioHighlight = portfolioItems.find((item) => item.featured) ?? portfolioItems[0] ?? null;
+  if (portfolioHighlight) {
+    highlights.push({
+      id: `portfolio-${portfolioHighlight.id}`,
+      label: portfolioHighlight.title,
+      metric: portfolioHighlight.metrics?.[0]?.value ?? null,
+      description: portfolioHighlight.summary ?? null,
+    });
+  }
+
+  const deduped = [];
+  const seen = new Set();
+  highlights.forEach((highlight) => {
+    if (!highlight.label) {
+      return;
+    }
+    const key = highlight.label.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      deduped.push(highlight);
+    }
+  });
+  return deduped.slice(0, 6);
+}
+
+function buildWorkspaceSummary({ profileOverview, followerStats, connections, timeline, portfolio }) {
+  const totals = timeline?.analytics?.totals ?? {};
+  const portfolioSummary = portfolio?.summary ?? {};
+  const metrics = {
+    followers: followerStats?.total ?? 0,
+    activeFollowers: followerStats?.active ?? 0,
+    connections: connections?.total ?? 0,
+    favouriteConnections: connections?.favourites ?? 0,
+    timelinePublished: totals.published ?? 0,
+    timelineDrafts: totals.drafts ?? 0,
+    portfolioPublished: portfolioSummary.published ?? 0,
+    portfolioFeatured: portfolioSummary.featured ?? 0,
+    engagementRate: totals.engagementRate ? `${Math.round(totals.engagementRate * 100)}%` : null,
+  };
+
+  const highlights = [
+    `${formatMetricValue(metrics.followers)} followers tuning into updates`,
+    `${formatMetricValue(metrics.timelinePublished)} published timeline spotlights`,
+    `${formatMetricValue(metrics.portfolioPublished)} portfolio artefacts ready to share`,
+  ];
+
+  const actions = [];
+  if ((metrics.timelineDrafts ?? 0) > 0) {
+    actions.push('Review and schedule pending timeline drafts.');
+  }
+  if ((portfolioSummary.drafts ?? 0) > 0) {
+    actions.push('Polish draft case studies to unlock new leads.');
+  }
+
+  return {
+    metrics,
+    highlights,
+    actions,
+    cadenceGoal: timeline?.workspace?.cadenceGoal ?? null,
+    timezone: timeline?.workspace?.timezone ?? profileOverview?.timezone ?? null,
+    pinnedCampaigns: timeline?.workspace?.pinnedCampaigns ?? [],
+    timeline,
+    portfolio,
+  };
 }
 
 function formatUserSummary(user) {
@@ -221,6 +671,51 @@ export async function getProfileHub(userId, { viewerId, bypassCache = false, pro
 
   const favouriteConnections = acceptedConnections.filter((connection) => connection.favourite).length;
 
+  const [timelineSnapshot, portfolioSnapshot] = await Promise.all([
+    freelancerTimelineService
+      .getFreelancerTimelineWorkspace({ freelancerId: normalizedUserId })
+      .catch((error) => {
+        logger.warn(
+          { err: error, userId: normalizedUserId, viewerId },
+          'Failed to load freelancer timeline workspace for profile hub.',
+        );
+        return null;
+      }),
+    freelancerPortfolioService
+      .getPortfolio(normalizedUserId, { bypassCache })
+      .catch((error) => {
+        logger.warn({ err: error, userId: normalizedUserId, viewerId }, 'Failed to load portfolio gallery for profile hub.');
+        return null;
+      }),
+  ]);
+
+  const experienceTimeline = buildExperienceTimelineSnapshot(timelineSnapshot);
+  const portfolioGallery = buildPortfolioGallerySnapshot(portfolioSnapshot);
+  const mutualConnections = extractMutualConnections(acceptedConnections);
+  const trustBadges = deriveTrustBadges({ followerStats, timeline: experienceTimeline, portfolio: portfolioGallery });
+  const highlightReel = buildHighlightReel(experienceTimeline.items, portfolioGallery.items);
+  const workspace = buildWorkspaceSummary({
+    profileOverview,
+    followerStats,
+    connections: { total: acceptedConnections.length, favourites: favouriteConnections },
+    timeline: experienceTimeline,
+    portfolio: {
+      summary: portfolioGallery.summary,
+      settings: portfolioGallery.settings,
+      hero: portfolioGallery.hero,
+    },
+  });
+
+  const viewerPersona = (experienceTimeline.analytics?.totals?.leads ?? 0) > 0 ? 'investor' : 'recruiter';
+  const documents = {
+    published: portfolioGallery.summary?.published ?? portfolioGallery.items.length,
+    drafts: portfolioGallery.summary?.drafts ?? 0,
+  };
+  const collaborations = {
+    active: acceptedConnections.length,
+    favourites: favouriteConnections,
+  };
+
   return {
     profile: profileOverview,
     followers: {
@@ -239,6 +734,21 @@ export async function getProfileHub(userId, { viewerId, bypassCache = false, pro
       followersVisibility: profileOverview.followersVisibility,
       socialLinks: profileOverview.socialLinks ?? [],
     },
+    experienceTimeline,
+    timeline: {
+      analytics: experienceTimeline.analytics,
+      workspace: experienceTimeline.workspace,
+      spotlight: experienceTimeline.spotlight,
+    },
+    portfolioGallery,
+    portfolio: portfolioGallery,
+    highlightReel,
+    trustBadges,
+    mutualConnections,
+    workspace,
+    viewerPersona,
+    documents,
+    collaborations,
   };
 }
 
