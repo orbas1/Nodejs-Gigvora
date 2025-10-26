@@ -837,6 +837,15 @@ export default function SearchPage() {
       const mentions = topic.mentionCount ?? metrics.mentions ?? metrics.conversations ?? null;
       const sentiment = metrics.sentimentLabel ?? (topic.sentimentScore != null ? `${Number(topic.sentimentScore).toFixed(1)}/5 sentiment` : null);
       const geo = metrics.geoFocus ?? metrics.geo ?? null;
+      const industries = Array.isArray(topic.industries)
+        ? topic.industries
+        : Array.isArray(metrics.industries)
+          ? metrics.industries
+          : [];
+      const audience = topic.audience ?? metrics.audience ?? metrics.memberPersona ?? null;
+      const momentum = topic.momentum ?? metrics.momentum ?? metrics.momentumScore ?? null;
+      const confidence = topic.confidence ?? metrics.confidence ?? metrics.confidenceLabel ?? null;
+      const isNew = Boolean(topic.isNew ?? metrics.isNew);
       const following = topicFollows.has(key) ? topicFollows.get(key) : Boolean(topic.following);
       return {
         id: topic.id,
@@ -848,7 +857,13 @@ export default function SearchPage() {
         mentions,
         sentiment,
         geo,
+        industries,
+        audience,
+        momentum,
+        confidence,
+        isNew,
         following,
+        rank: topic.rank ?? null,
         highlighted: (topic.rank ?? 0) <= 3,
         href: topic.metadata?.href ?? topic.href ?? null,
         shareUrl: topic.metadata?.shareUrl ?? topic.shareUrl ?? topic.href ?? null,
