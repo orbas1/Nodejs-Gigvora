@@ -486,6 +486,9 @@ import {
   SUPPORT_PLAYBOOK_CHANNELS,
   SUPPORT_PLAYBOOK_PERSONAS,
   SUPPORT_PLAYBOOK_STAGES,
+  SYSTEM_STATUS_LEVELS,
+  SYSTEM_STATUS_SERVICE_STATES,
+  FEEDBACK_HIGHLIGHT_SENTIMENTS,
   TALENT_CANDIDATE_STATUSES,
   TALENT_CANDIDATE_TYPES,
   TALENT_INTERVIEW_STATUSES,
@@ -15791,6 +15794,265 @@ export const AnalyticsDailyRollup = sequelize.define(
   },
 );
 
+export const SystemStatusIncident = sequelize.define(
+  'SystemStatusIncident',
+  {
+    reference: { type: DataTypes.STRING(80), allowNull: true, unique: true },
+    status: {
+      type: DataTypes.ENUM(...SYSTEM_STATUS_LEVELS),
+      allowNull: false,
+      defaultValue: 'operational',
+    },
+    headline: { type: DataTypes.STRING(200), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    maintenanceSummary: { type: DataTypes.STRING(200), allowNull: true },
+    maintenanceStartsAt: { type: DataTypes.DATE, allowNull: true },
+    maintenanceEndsAt: { type: DataTypes.DATE, allowNull: true },
+    maintenanceTimezone: { type: DataTypes.STRING(64), allowNull: true },
+    statusPageUrl: { type: DataTypes.STRING(500), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'system_status_incidents',
+    indexes: [
+      { fields: ['status'] },
+      { fields: ['updatedAt'] },
+      {
+        unique: true,
+        fields: ['reference'],
+        where: { reference: { [Op.ne]: null } },
+      },
+    ],
+  },
+);
+
+SystemStatusIncident.prototype.toPublicObject = function toPublicObject({ includeServices = true } = {}) {
+  const plain = this.get({ plain: true });
+  const services = includeServices
+    ? (this.services ?? plain.services ?? []).map((service) =>
+        typeof service?.toPublicObject === 'function'
+          ? service.toPublicObject({ includeIncident: false })
+          : service,
+      )
+    : undefined;
+
+  return {
+    id: plain.id,
+    reference: plain.reference ?? null,
+    status: plain.status,
+    headline: plain.headline,
+    description: plain.description,
+    maintenanceSummary: plain.maintenanceSummary ?? null,
+    maintenanceStartsAt: plain.maintenanceStartsAt ?? null,
+    maintenanceEndsAt: plain.maintenanceEndsAt ?? null,
+    maintenanceTimezone: plain.maintenanceTimezone ?? null,
+    statusPageUrl: plain.statusPageUrl ?? null,
+    metadata: plain.metadata && typeof plain.metadata === 'object' ? plain.metadata : null,
+    services,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const SystemStatusService = sequelize.define(
+  'SystemStatusService',
+  {
+    incidentId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...SYSTEM_STATUS_SERVICE_STATES),
+      allowNull: false,
+      defaultValue: 'investigating',
+    },
+    impact: { type: DataTypes.TEXT, allowNull: true },
+    eta: { type: DataTypes.DATE, allowNull: true },
+    confidence: { type: DataTypes.DECIMAL(3, 2), allowNull: true },
+    sortOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  {
+    tableName: 'system_status_services',
+    indexes: [{ fields: ['incidentId', 'sortOrder'] }],
+  },
+);
+
+SystemStatusService.prototype.toPublicObject = function toPublicObject({ includeIncident = true } = {}) {
+  const plain = this.get({ plain: true });
+  const confidence =
+    plain.confidence == null || Number.isNaN(Number(plain.confidence))
+      ? null
+      : Number.parseFloat(plain.confidence);
+
+  return {
+    id: plain.id,
+    incidentId: plain.incidentId,
+    name: plain.name,
+    status: plain.status,
+    impact: plain.impact ?? null,
+    eta: plain.eta ?? null,
+    confidence,
+    sortOrder: plain.sortOrder ?? 0,
+    incident:
+      includeIncident && this.incident && typeof this.incident.toPublicObject === 'function'
+        ? this.incident.toPublicObject({ includeServices: false })
+        : undefined,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const FeedbackPulseSnapshot = sequelize.define(
+  'FeedbackPulseSnapshot',
+  {
+    reference: { type: DataTypes.STRING(80), allowNull: true, unique: true },
+    timeframe: { type: DataTypes.STRING(16), allowNull: false },
+    overallScore: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    scoreChange: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    responseRate: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    responseDelta: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    sampleSize: { type: DataTypes.INTEGER, allowNull: true },
+    lastUpdated: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    alertsUnresolved: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    alertsCritical: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    alertsAcknowledged: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    systemStatusIncidentId: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  {
+    tableName: 'feedback_pulse_snapshots',
+    indexes: [
+      { fields: ['timeframe'] },
+      { fields: ['lastUpdated'] },
+      {
+        unique: true,
+        fields: ['reference'],
+        where: { reference: { [Op.ne]: null } },
+      },
+    ],
+  },
+);
+
+FeedbackPulseSnapshot.prototype.toPublicObject = function toPublicObject({ includeAssociations = true } = {}) {
+  const plain = this.get({ plain: true });
+  const toNumber = (value) => (value == null ? null : Number.parseFloat(value));
+  const themes = includeAssociations
+    ? (this.themes ?? plain.themes ?? []).map((theme) =>
+        typeof theme?.toPublicObject === 'function' ? theme.toPublicObject({ includeSnapshot: false }) : theme,
+      )
+    : undefined;
+  const highlights = includeAssociations
+    ? (this.highlights ?? plain.highlights ?? []).map((highlight) =>
+        typeof highlight?.toPublicObject === 'function'
+          ? highlight.toPublicObject({ includeSnapshot: false })
+          : highlight,
+      )
+    : undefined;
+
+  const incident = includeAssociations && this.systemStatusIncident
+    ? this.systemStatusIncident.toPublicObject()
+    : undefined;
+
+  return {
+    id: plain.id,
+    reference: plain.reference ?? null,
+    timeframe: plain.timeframe,
+    overallScore: toNumber(plain.overallScore) ?? 0,
+    scoreChange: toNumber(plain.scoreChange) ?? 0,
+    responseRate: toNumber(plain.responseRate) ?? 0,
+    responseDelta: toNumber(plain.responseDelta) ?? 0,
+    sampleSize: plain.sampleSize == null ? null : Number.parseInt(plain.sampleSize, 10),
+    lastUpdated: plain.lastUpdated,
+    alerts: {
+      unresolved: plain.alertsUnresolved ?? 0,
+      critical: plain.alertsCritical ?? 0,
+      acknowledged: plain.alertsAcknowledged ?? 0,
+    },
+    systemStatusIncidentId: plain.systemStatusIncidentId ?? null,
+    systemStatusIncident: incident,
+    themes,
+    highlights,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const FeedbackPulseTheme = sequelize.define(
+  'FeedbackPulseTheme',
+  {
+    snapshotId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(160), allowNull: false },
+    score: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    change: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    position: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  },
+  {
+    tableName: 'feedback_pulse_themes',
+    indexes: [{ fields: ['snapshotId', 'position'] }],
+  },
+);
+
+FeedbackPulseTheme.prototype.toPublicObject = function toPublicObject({ includeSnapshot = true } = {}) {
+  const plain = this.get({ plain: true });
+  const toNumber = (value) => (value == null ? null : Number.parseFloat(value));
+
+  return {
+    id: plain.id,
+    snapshotId: plain.snapshotId,
+    name: plain.name,
+    score: toNumber(plain.score),
+    change: toNumber(plain.change),
+    position: plain.position ?? 0,
+    snapshot:
+      includeSnapshot && this.snapshot && typeof this.snapshot.toPublicObject === 'function'
+        ? this.snapshot.toPublicObject({ includeAssociations: false })
+        : undefined,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const FeedbackPulseHighlight = sequelize.define(
+  'FeedbackPulseHighlight',
+  {
+    snapshotId: { type: DataTypes.INTEGER, allowNull: false },
+    quote: { type: DataTypes.TEXT, allowNull: false },
+    persona: { type: DataTypes.STRING(160), allowNull: true },
+    team: { type: DataTypes.STRING(160), allowNull: true },
+    channel: { type: DataTypes.STRING(120), allowNull: true },
+    sentiment: {
+      type: DataTypes.ENUM(...FEEDBACK_HIGHLIGHT_SENTIMENTS),
+      allowNull: false,
+      defaultValue: 'neutral',
+    },
+    driver: { type: DataTypes.STRING(160), allowNull: true },
+    submittedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'feedback_pulse_highlights',
+    indexes: [{ fields: ['snapshotId', 'submittedAt'] }],
+  },
+);
+
+FeedbackPulseHighlight.prototype.toPublicObject = function toPublicObject({ includeSnapshot = true } = {}) {
+  const plain = this.get({ plain: true });
+
+  return {
+    id: plain.id,
+    snapshotId: plain.snapshotId,
+    quote: plain.quote,
+    persona: plain.persona ?? null,
+    team: plain.team ?? null,
+    channel: plain.channel ?? null,
+    sentiment: plain.sentiment ?? 'neutral',
+    driver: plain.driver ?? null,
+    submittedAt: plain.submittedAt ?? null,
+    snapshot:
+      includeSnapshot && this.snapshot && typeof this.snapshot.toPublicObject === 'function'
+        ? this.snapshot.toPublicObject({ includeAssociations: false })
+        : undefined,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 export const ProviderWorkspace = sequelize.define(
   'ProviderWorkspace',
   {
@@ -24015,6 +24277,58 @@ User.hasMany(SearchSubscription, { foreignKey: 'userId', as: 'searchSubscription
 SearchSubscription.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 AnalyticsEvent.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+SystemStatusIncident.hasMany(SystemStatusService, {
+  foreignKey: 'incidentId',
+  as: 'services',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE',
+});
+SystemStatusService.belongsTo(SystemStatusIncident, {
+  foreignKey: 'incidentId',
+  as: 'incident',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE',
+});
+
+SystemStatusIncident.hasMany(FeedbackPulseSnapshot, {
+  foreignKey: 'systemStatusIncidentId',
+  as: 'feedbackSnapshots',
+  onDelete: 'SET NULL',
+  onUpdate: 'CASCADE',
+});
+FeedbackPulseSnapshot.belongsTo(SystemStatusIncident, {
+  foreignKey: 'systemStatusIncidentId',
+  as: 'systemStatusIncident',
+  onDelete: 'SET NULL',
+  onUpdate: 'CASCADE',
+});
+
+FeedbackPulseSnapshot.hasMany(FeedbackPulseTheme, {
+  foreignKey: 'snapshotId',
+  as: 'themes',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE',
+});
+FeedbackPulseTheme.belongsTo(FeedbackPulseSnapshot, {
+  foreignKey: 'snapshotId',
+  as: 'snapshot',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE',
+});
+
+FeedbackPulseSnapshot.hasMany(FeedbackPulseHighlight, {
+  foreignKey: 'snapshotId',
+  as: 'highlights',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE',
+});
+FeedbackPulseHighlight.belongsTo(FeedbackPulseSnapshot, {
+  foreignKey: 'snapshotId',
+  as: 'snapshot',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE',
+});
 
 export const TalentCandidate = sequelize.define(
   'TalentCandidate',

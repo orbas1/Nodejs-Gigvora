@@ -33,7 +33,6 @@ vi.mock('../../../services/analytics.js', () => ({
 
 describe('FeedbackPulse', () => {
   beforeEach(() => {
-    vi.useFakeTimers();
     vi.clearAllMocks();
     fetchResource.mockReset();
     subscribe.mockReset();
@@ -41,18 +40,17 @@ describe('FeedbackPulse', () => {
     buildKey.mockImplementation((method, path, params = {}) => `${method}:${path}:${params.timeframe ?? ''}`);
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
   it('fetches and renders feedback insights', async () => {
     subscribe.mockReturnValue(() => {});
     fetchResource.mockResolvedValueOnce({
+      timeframe: '7d',
+      requestedTimeframe: '7d',
+      availableTimeframes: ['7d', '30d'],
       overallScore: 88,
       scoreChange: 4.2,
       responseRate: 62,
       responseDelta: 3.1,
-      topThemes: [
+      themes: [
         { id: 'onboarding', name: 'Onboarding clarity', score: 92, change: 2.1 },
         { id: 'support', name: 'Support satisfaction', score: 84 },
       ],
@@ -68,7 +66,7 @@ describe('FeedbackPulse', () => {
       ],
       alerts: { unresolved: 2, critical: 1, acknowledged: 5 },
       systemStatus: { status: 'operational' },
-      updatedAt: '2024-05-01T09:00:00Z',
+      lastUpdated: '2024-05-01T09:00:00Z',
     });
 
     render(<FeedbackPulse resource="/analytics/feedback/pulse" />);
@@ -89,17 +87,24 @@ describe('FeedbackPulse', () => {
   it('surfaces system status updates as a toast', async () => {
     subscribe.mockReturnValue(() => {});
     fetchResource.mockResolvedValueOnce({
+      timeframe: '7d',
       overallScore: 72,
       scoreChange: -3.5,
       responseRate: 48,
       responseDelta: -2.1,
-      topThemes: [],
-      highlights: ['We need clearer onboarding steps.'],
+      themes: [],
+      highlights: [
+        {
+          id: 'quote-2',
+          quote: 'We need clearer onboarding steps.',
+          sentiment: 'negative',
+        },
+      ],
       alerts: { unresolved: 4, critical: 2, acknowledged: 1 },
       systemStatus: {
         status: 'degraded',
         headline: 'Realtime analytics latency',
-        impactedServices: [{ name: 'Insights API', status: 'degraded' }],
+        services: [{ name: 'Insights API', status: 'degraded' }],
         updatedAt: '2024-05-01T10:00:00Z',
       },
     });
@@ -114,13 +119,13 @@ describe('FeedbackPulse', () => {
 
   it('triggers manual refresh when the refresh button is pressed', async () => {
     subscribe.mockReturnValue(() => {});
-    fetchResource.mockResolvedValueOnce({ overallScore: 80, topThemes: [], highlights: [], alerts: {} });
+    fetchResource.mockResolvedValueOnce({ timeframe: '7d', overallScore: 80, themes: [], highlights: [], alerts: {} });
     render(<FeedbackPulse resource="/analytics/feedback/pulse" />);
 
     await waitFor(() => expect(fetchResource).toHaveBeenCalledTimes(1));
-    fetchResource.mockResolvedValueOnce({ overallScore: 82, topThemes: [], highlights: [], alerts: {} });
+    fetchResource.mockResolvedValueOnce({ timeframe: '7d', overallScore: 82, themes: [], highlights: [], alerts: {} });
 
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /Refresh/i }));
 
     await waitFor(() => expect(fetchResource).toHaveBeenCalledTimes(2));

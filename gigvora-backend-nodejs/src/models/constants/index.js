@@ -6,6 +6,17 @@ export const PROFILE_VISIBILITY_OPTIONS = Object.freeze(['public', 'members', 'p
 export const PROFILE_NETWORK_VISIBILITY_OPTIONS = Object.freeze(['public', 'connections', 'private']);
 export const PROFILE_FOLLOWERS_VISIBILITY_OPTIONS = Object.freeze(['public', 'connections', 'private']);
 
+export const SYSTEM_STATUS_LEVELS = Object.freeze(['operational', 'degraded', 'outage', 'maintenance']);
+export const SYSTEM_STATUS_SERVICE_STATES = Object.freeze([
+  'operational',
+  'degraded',
+  'outage',
+  'maintenance',
+  'investigating',
+  'recovering',
+]);
+export const FEEDBACK_HIGHLIGHT_SENTIMENTS = Object.freeze(['positive', 'neutral', 'negative']);
+
 export const GROUP_VISIBILITIES = Object.freeze(['public', 'private', 'secret']);
 export const GROUP_MEMBER_POLICIES = Object.freeze(['open', 'request', 'invite']);
 export const GROUP_MEMBERSHIP_STATUSES = Object.freeze(['pending', 'active', 'invited', 'suspended']);

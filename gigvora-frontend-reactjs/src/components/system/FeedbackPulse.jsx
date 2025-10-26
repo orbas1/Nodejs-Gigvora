@@ -19,18 +19,33 @@ const DEFAULT_TIMEFRAMES = [
   { value: '90d', label: 'Quarter' },
 ];
 
+const TIMEFRAME_LABELS = new Map(DEFAULT_TIMEFRAMES.map((option) => [option.value, option.label]));
+
+function buildTimeframeOption(value) {
+  if (!value) {
+    return null;
+  }
+  const trimmed = value.trim();
+  const label =
+    TIMEFRAME_LABELS.get(trimmed) ??
+    (trimmed.endsWith('d') ? `Last ${trimmed.replace(/d$/, ' days')}` : trimmed);
+  return { value: trimmed, label };
+}
+
+function deriveTimeframeOptions(values = [], fallback = DEFAULT_TIMEFRAMES) {
+  const seen = new Set();
+  const derived = values
+    .map((value) => (typeof value === 'string' ? value.trim() : null))
+    .filter((value) => value && !seen.has(value) && seen.add(value))
+    .map((value) => buildTimeframeOption(value))
+    .filter(Boolean);
+  return derived.length ? derived : fallback;
+}
+
 const SENTIMENT_COLORS = {
   positive: 'text-emerald-600 bg-emerald-50 ring-emerald-100',
   neutral: 'text-slate-600 bg-slate-100 ring-slate-200',
   negative: 'text-rose-600 bg-rose-50 ring-rose-100',
-};
-
-const HIGHLIGHT_PLACEHOLDER = {
-  quote: 'We finally feel seen. The onboarding journey clarifies value within minutes.',
-  persona: 'Founder · Growth Collective',
-  submittedAt: new Date().toISOString(),
-  channel: 'Pulse Survey',
-  sentiment: 'positive',
 };
 
 function clampNumber(value, min, max, fallback = min) {
@@ -80,7 +95,16 @@ function normaliseHighlight(highlight, index) {
     return null;
   }
   if (typeof highlight === 'string') {
-    return { ...HIGHLIGHT_PLACEHOLDER, id: `highlight-${index}`, quote: highlight };
+    return {
+      id: `highlight-${index}`,
+      quote: highlight,
+      persona: null,
+      team: null,
+      submittedAt: null,
+      channel: null,
+      sentiment: 'neutral',
+      driver: null,
+    };
   }
   if (typeof highlight === 'object') {
     const id = highlight.id || highlight.reference || `highlight-${index}`;
@@ -91,11 +115,11 @@ function normaliseHighlight(highlight, index) {
     return {
       id,
       quote,
-      persona: highlight.persona || highlight.role || highlight.account || 'Member feedback',
+      persona: highlight.persona || highlight.role || highlight.account || null,
       team: highlight.team || highlight.segment || null,
       submittedAt:
-        highlight.submittedAt || highlight.recordedAt || highlight.createdAt || new Date().toISOString(),
-      channel: highlight.channel || highlight.source || 'Survey',
+        highlight.submittedAt || highlight.recordedAt || highlight.createdAt || null,
+      channel: highlight.channel || highlight.source || null,
       sentiment: (highlight.sentiment || highlight.tone || 'neutral').toLowerCase(),
       driver: highlight.driver || highlight.theme || null,
     };
@@ -119,13 +143,49 @@ function normaliseSystemStatus(payload) {
     return null;
   }
   const status = (payload.status || payload.state || 'operational').toLowerCase();
+  const services = toArray(payload.services || payload.impactedServices)
+    .map((service, index) => {
+      if (!service) {
+        return null;
+      }
+      if (typeof service === 'string') {
+        return { id: `service-${index}`, name: service, status: 'investigating' };
+      }
+      if (typeof service === 'object') {
+        const id = service.id || service.slug || `service-${index}`;
+        const name = service.name || service.service || service.label || null;
+        if (!name) {
+          return null;
+        }
+        const serviceStatus = (service.status || service.state || 'investigating').toLowerCase();
+        return {
+          id,
+          name,
+          status: serviceStatus,
+          impact: service.impact || service.description || null,
+          eta: service.eta || service.expectedRecovery || null,
+          confidence: typeof service.confidence === 'number' ? clampNumber(service.confidence, 0, 1, null) : null,
+        };
+      }
+      return null;
+    })
+    .filter(Boolean);
   return {
     id: payload.id,
     status,
     headline: payload.headline || payload.title,
     description: payload.description || payload.summary,
-    impactedServices: payload.impactedServices || payload.services || [],
-    maintenanceWindow: payload.maintenanceWindow || null,
+    impactedServices: services,
+    maintenanceWindow:
+      payload.maintenanceWindow ||
+      (payload.maintenanceSummary || payload.maintenanceStartsAt || payload.maintenanceEndsAt
+        ? {
+            summary: payload.maintenanceSummary || null,
+            startsAt: payload.maintenanceStartsAt || null,
+            endsAt: payload.maintenanceEndsAt || null,
+            timezone: payload.maintenanceTimezone || null,
+          }
+        : null),
     updatedAt: payload.updatedAt || payload.timestamp || new Date().toISOString(),
     statusPageUrl: payload.statusPageUrl || payload.url || null,
     analyticsContext: payload.analyticsContext || null,
@@ -136,26 +196,50 @@ function normalisePulse(payload) {
   if (!payload || typeof payload !== 'object') {
     return null;
   }
-  const themes = toArray(payload.topThemes || payload.themes || payload.focusAreas)
+  const snapshot =
+    payload.snapshot && typeof payload.snapshot === 'object' ? payload.snapshot : payload;
+  const themes = toArray(snapshot.themes || snapshot.topThemes || payload.focusAreas)
     .map((item, index) => normaliseTheme(item, index))
     .filter(Boolean);
-  const highlights = toArray(payload.highlights || payload.quotes || payload.latestFeedback)
+  const highlights = toArray(snapshot.highlights || snapshot.quotes || snapshot.latestFeedback)
     .map((item, index) => normaliseHighlight(item, index))
     .filter(Boolean);
-  const alerts = normaliseAlerts(payload.alerts);
-  const systemStatus = normaliseSystemStatus(payload.systemStatus);
+  const alerts = normaliseAlerts(snapshot.alerts);
+  const systemStatus = normaliseSystemStatus(snapshot.systemStatus);
+
+  const availableTimeframes = Array.isArray(payload.availableTimeframes)
+    ? payload.availableTimeframes
+        .map((value) => (typeof value === 'string' ? value.trim() : null))
+        .filter((value) => value)
+    : undefined;
 
   return {
-    overallScore: clampNumber(payload.overallScore ?? payload.nps ?? payload.csat ?? 0, 0, 100, 0),
-    scoreChange: typeof payload.scoreChange === 'number' ? payload.scoreChange : payload.delta ?? 0,
-    responseRate: clampNumber(payload.responseRate ?? payload.participationRate ?? 0, 0, 100, 0),
-    responseDelta: typeof payload.responseDelta === 'number' ? payload.responseDelta : payload.participationDelta ?? 0,
-    sampleSize: payload.sampleSize ?? payload.responses ?? null,
-    lastUpdated: payload.updatedAt || payload.lastUpdatedAt || new Date().toISOString(),
+    timeframe: snapshot.timeframe || payload.timeframe || null,
+    requestedTimeframe: payload.requestedTimeframe || null,
+    availableTimeframes,
+    overallScore: clampNumber(snapshot.overallScore ?? payload.overallScore ?? payload.nps ?? payload.csat ?? 0, 0, 100, 0),
+    scoreChange:
+      typeof snapshot.scoreChange === 'number'
+        ? snapshot.scoreChange
+        : typeof payload.scoreChange === 'number'
+        ? payload.scoreChange
+        : snapshot.delta ?? payload.delta ?? 0,
+    responseRate: clampNumber(snapshot.responseRate ?? payload.responseRate ?? payload.participationRate ?? 0, 0, 100, 0),
+    responseDelta:
+      typeof snapshot.responseDelta === 'number'
+        ? snapshot.responseDelta
+        : typeof payload.responseDelta === 'number'
+        ? payload.responseDelta
+        : snapshot.participationDelta ?? payload.participationDelta ?? 0,
+    sampleSize: snapshot.sampleSize ?? payload.sampleSize ?? snapshot.responses ?? payload.responses ?? null,
+    lastUpdated:
+      snapshot.lastUpdated || snapshot.updatedAt || payload.lastUpdated || payload.updatedAt || new Date().toISOString(),
     themes,
-    highlights: highlights.length > 0 ? highlights : [HIGHLIGHT_PLACEHOLDER],
+    highlights,
     alerts,
     systemStatus,
+    createdAt: snapshot.createdAt || null,
+    updatedAt: snapshot.updatedAt || null,
   };
 }
 
@@ -188,6 +272,9 @@ export function FeedbackPulse({
     return { status: 'idle', data: null, error: null };
   });
   const [currentTimeframe, setCurrentTimeframe] = useState(timeframe);
+  const [timeframeOptions, setTimeframeOptions] = useState(() =>
+    Array.isArray(timeframes) && timeframes.length ? timeframes : DEFAULT_TIMEFRAMES,
+  );
   const lastStatusSignature = useRef(null);
 
   useEffect(() => {
@@ -210,6 +297,12 @@ export function FeedbackPulse({
       return previous;
     });
   }, [dataProp, loadingProp, errorProp]);
+
+  useEffect(() => {
+    if (Array.isArray(timeframes) && timeframes.length) {
+      setTimeframeOptions(timeframes);
+    }
+  }, [timeframes]);
 
   const shouldFetch = !dataProp && Boolean(resource);
   const cacheKey = useMemo(
@@ -293,6 +386,23 @@ export function FeedbackPulse({
     );
   }, [analyticsContext, pushToast, state.data?.systemStatus]);
 
+  useEffect(() => {
+    if (!state.data) {
+      return;
+    }
+    if (Array.isArray(state.data.availableTimeframes)) {
+      setTimeframeOptions((previous) =>
+        deriveTimeframeOptions(
+          state.data.availableTimeframes,
+          previous && previous.length ? previous : DEFAULT_TIMEFRAMES,
+        ),
+      );
+    }
+    if (!dataProp && state.data.timeframe && state.data.timeframe !== currentTimeframe) {
+      setCurrentTimeframe(state.data.timeframe);
+    }
+  }, [currentTimeframe, dataProp, state.data]);
+
   const handleTimeframeChange = (value) => {
     if (value === currentTimeframe) {
       return;
@@ -333,6 +443,8 @@ export function FeedbackPulse({
   const loading = state.status === 'loading';
   const error = state.error;
   const data = state.data;
+  const resolvedTimeframeOptions =
+    timeframeOptions && timeframeOptions.length ? timeframeOptions : DEFAULT_TIMEFRAMES;
 
   return (
     <div
@@ -354,7 +466,7 @@ export function FeedbackPulse({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {timeframes.map((option) => (
+          {resolvedTimeframeOptions.map((option) => (
             <button
               key={option.value}
               type="button"
@@ -598,17 +710,31 @@ function HighlightPanel({ highlight, loading, onViewFeedback }) {
           <div className="h-3 w-28 rounded-full bg-slate-200/60" />
           <div className="h-16 rounded-2xl bg-slate-200/50" />
         </div>
-      ) : (
+      ) : highlight ? (
         <div className="space-y-4">
           <div className={clsx('inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ring-1', sentimentClass)}>
             {highlight?.sentiment ? highlight.sentiment.charAt(0).toUpperCase() + highlight.sentiment.slice(1) : 'Sentiment'}
           </div>
-          <p className="text-base font-medium text-slate-900">“{highlight?.quote}”</p>
+          <p className="text-base font-medium text-slate-900">“{highlight.quote}”</p>
           <div className="text-xs text-slate-500">
-            <p>{highlight?.persona}</p>
-            <p className="mt-1">{highlight?.channel}</p>
-            <p className="mt-1">{formatRelativeTime(highlight?.submittedAt)}</p>
+            {highlight.persona ? <p>{highlight.persona}</p> : null}
+            {highlight.channel ? <p className="mt-1">{highlight.channel}</p> : null}
+            {highlight.submittedAt ? (
+              <p className="mt-1">{formatRelativeTime(highlight.submittedAt)}</p>
+            ) : null}
           </div>
+          <button
+            type="button"
+            onClick={onViewFeedback}
+            className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 transition hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2"
+          >
+            View all feedback
+            <ChevronRightIcon className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-4 text-sm text-slate-600">
+          <p>No curated highlight is available for this timeframe yet.</p>
           <button
             type="button"
             onClick={onViewFeedback}

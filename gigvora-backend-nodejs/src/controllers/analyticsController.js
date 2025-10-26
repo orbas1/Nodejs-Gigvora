@@ -1,4 +1,5 @@
 import { trackEvent, listEvents } from '../services/analyticsService.js';
+import { getFeedbackPulseSnapshot } from '../services/feedbackPulseService.js';
 
 function normaliseNumber(value) {
   if (value == null) {
@@ -126,7 +127,39 @@ export async function getEvents(req, res) {
   res.json(result);
 }
 
+export async function getFeedbackPulse(req, res) {
+  const { timeframe } = req.query ?? {};
+  const snapshotResult = await getFeedbackPulseSnapshot({ timeframe });
+
+  if (!snapshotResult.snapshot) {
+    res.status(404).json({ message: 'Feedback pulse snapshot not found.' });
+    return;
+  }
+
+  const { snapshot, timeframe: resolvedTimeframe, requestedTimeframe, availableTimeframes } = snapshotResult;
+
+  res.json({
+    timeframe: resolvedTimeframe,
+    requestedTimeframe,
+    availableTimeframes,
+    reference: snapshot.reference,
+    overallScore: snapshot.overallScore,
+    scoreChange: snapshot.scoreChange,
+    responseRate: snapshot.responseRate,
+    responseDelta: snapshot.responseDelta,
+    sampleSize: snapshot.sampleSize,
+    lastUpdated: snapshot.lastUpdated,
+    alerts: snapshot.alerts,
+    themes: snapshot.themes,
+    highlights: snapshot.highlights,
+    systemStatus: snapshot.systemStatus,
+    createdAt: snapshot.createdAt,
+    updatedAt: snapshot.updatedAt,
+  });
+}
+
 export default {
   recordEvent,
   getEvents,
+  getFeedbackPulse,
 };
