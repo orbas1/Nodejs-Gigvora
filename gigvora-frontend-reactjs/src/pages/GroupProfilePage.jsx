@@ -1,12 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Switch } from '@headlessui/react';
 import {
-  ArrowLeftIcon,
-  ArrowTopRightOnSquareIcon,
   CalendarIcon,
   SparklesIcon,
-  BookmarkIcon,
   ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
 import useSession from '../hooks/useSession.js';
@@ -16,39 +13,18 @@ import { resolveActorId } from '../utils/session.js';
 import { GigvoraAdBanner, GigvoraAdGrid } from '../components/marketing/GigvoraAds.jsx';
 import { GIGVORA_GROUPS_ADS, GIGVORA_GROUPS_BANNER } from '../constants/marketing.js';
 import { classNames } from '../utils/classNames.js';
+import GroupLanding from '../components/groups/GroupLanding.jsx';
+import GroupDiscussionBoard from '../components/groups/GroupDiscussionBoard.jsx';
+import ResourceLibrary from '../components/groups/ResourceLibrary.jsx';
+import {
+  formatGroupDate,
+  formatGroupPercent,
+  formatGroupTimelineDate,
+} from '../utils/groupFormatting.js';
 
-export function formatPercent(value) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) {
-    return '—';
-  }
-  return `${Math.round(numeric * 100)}%`;
-}
-
-export function formatDate(value) {
-  if (!value) {
-    return 'Date TBC';
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return date.toLocaleString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-export function formatTimelineDate(value) {
-  const date = value ? new Date(value) : null;
-  if (!date || Number.isNaN(date.getTime())) {
-    return value ?? 'Upcoming';
-  }
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
+export const formatPercent = formatGroupPercent;
+export const formatDate = formatGroupDate;
+export const formatTimelineDate = formatGroupTimelineDate;
 
 function PreferenceToggle({ label, description, checked, onChange, disabled }) {
   return (
@@ -75,21 +51,6 @@ function PreferenceToggle({ label, description, checked, onChange, disabled }) {
         />
       </Switch>
     </Switch.Group>
-  );
-}
-
-function ResourceCard({ resource }) {
-  return (
-    <a
-      href={resource.url}
-      target="_blank"
-      rel="noreferrer"
-      className="flex flex-col gap-1 rounded-2xl border border-slate-200 bg-white/80 p-4 text-left text-sm text-slate-600 transition hover:border-accent hover:text-slate-900"
-    >
-      <BookmarkIcon className="h-4 w-4 text-accent" />
-      <p className="text-sm font-semibold text-slate-900">{resource.title}</p>
-      <p className="text-xs uppercase tracking-wide text-slate-500">{resource.type}</p>
-    </a>
   );
 }
 
@@ -176,12 +137,75 @@ export default function GroupProfilePage() {
   };
 
   const leadership = group?.leadership ?? [];
-  const resources = group?.resources ?? [];
+  const legacyResources = (group?.resources ?? []).map((resource, index) => ({
+    id: resource.id ?? `legacy-${index}`,
+    ...resource,
+  }));
   const guidelines = group?.guidelines ?? [];
   const events = group?.upcomingEvents ?? [];
   const timeline = group?.timeline ?? [];
+  const discussionBoard = group?.discussionBoard ?? null;
+  const resourceLibrary = group?.resourceLibrary ??
+    (legacyResources.length
+      ? {
+          items: legacyResources,
+          featured: legacyResources.slice(0, 2),
+        }
+      : null);
+  const featuredResource = resourceLibrary?.featured?.[0] ?? resourceLibrary?.items?.[0] ?? null;
+  const membershipBreakdown = group?.membershipBreakdown ?? [];
 
-  const showJoinButton = membership.status !== 'member';
+  const boardLoading = loading && !discussionBoard;
+
+  const handleCreateThread = useCallback(() => {
+    if (membership.status !== 'member') {
+      setFeedback({ type: 'error', message: 'Join the community to start a discussion thread.' });
+      return;
+    }
+    setFeedback({
+      type: 'success',
+      message: 'Thread composer is in beta. Moderators will reach out to enable posting access shortly.',
+    });
+  }, [membership.status]);
+
+  const handleSelectThread = useCallback(
+    (thread) => {
+      if (thread?.url && typeof window !== 'undefined') {
+        window.open(thread.url, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      setFeedback({
+        type: 'neutral',
+        message: thread?.title ? `${thread.title} preview coming soon.` : 'Thread preview coming soon.',
+      });
+    },
+    [],
+  );
+
+  const handleOpenResource = useCallback((resource) => {
+    if (resource?.url && typeof window !== 'undefined') {
+      window.open(resource.url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    setFeedback({
+      type: 'neutral',
+      message: resource?.title ? `${resource.title} preview coming soon.` : 'Resource preview coming soon.',
+    });
+  }, []);
+
+  const handleSaveResource = useCallback(
+    (resource) => {
+      if (membership.status !== 'member') {
+        setFeedback({ type: 'error', message: 'Join the community to save resources for quick access.' });
+        return;
+      }
+      setFeedback({
+        type: 'success',
+        message: resource?.title ? `${resource.title} saved to your library.` : 'Resource saved to your library.',
+      });
+    },
+    [membership.status],
+  );
 
   if (loading && !group) {
     return (
@@ -212,110 +236,25 @@ export default function GroupProfilePage() {
     return null;
   }
 
-  const accentGradient = `linear-gradient(135deg, ${accentColor} 0%, rgba(37,99,235,0.65) 45%, rgba(15,23,42,0.85) 100%)`;
-
   return (
-    <section className="relative overflow-hidden">
-      <div className="absolute inset-0 bg-slate-900" aria-hidden="true" />
-      <div
-        className="absolute inset-0 opacity-80"
-        aria-hidden="true"
-        style={{ background: accentGradient }}
+    <section className="relative">
+      <GroupLanding
+        group={group}
+        membership={membership}
+        onJoin={handleJoin}
+        onLeave={handleLeave}
+        joining={pendingAction === 'join'}
+        leaving={pendingAction === 'leave'}
+        feedback={feedback}
+        accentColor={accentColor}
+        lastUpdated={lastUpdated}
+        fromCache={fromCache}
+        discussionStats={discussionBoard?.stats}
+        featuredResource={featuredResource}
       />
-      <div className="relative">
-        <div className="mx-auto max-w-5xl px-6 py-16 text-white">
-          <div className="flex items-center gap-4 text-sm text-white/70">
-            <Link to="/groups" className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-2 transition hover:border-white/40 hover:text-white">
-              <ArrowLeftIcon className="h-4 w-4" /> All groups
-            </Link>
-            {fromCache ? <span className="rounded-full border border-white/30 px-3 py-1 text-xs">Cached</span> : null}
-            {lastUpdated ? (
-              <span className="text-xs">Updated {new Date(lastUpdated).toLocaleTimeString()}</span>
-            ) : null}
-          </div>
-          <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,3fr),minmax(240px,1fr)] lg:items-start">
-            <div>
-              <p className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white/80">
-                {group.focusAreas?.join(' • ') || 'Community'}
-              </p>
-              <h1 className="mt-4 text-3xl font-semibold">{group.name}</h1>
-              <p className="mt-4 max-w-2xl text-sm text-white/80">{group.summary}</p>
-              <div className="mt-6 grid gap-4 text-sm sm:grid-cols-3">
-                <div className="rounded-3xl border border-white/20 bg-white/10 p-4">
-                  <p className="text-xs uppercase tracking-wide text-white/70">Members</p>
-                  <p className="mt-1 text-2xl font-semibold">{group.stats?.memberCount ?? '—'}</p>
-                </div>
-                <div className="rounded-3xl border border-white/20 bg-white/10 p-4">
-                  <p className="text-xs uppercase tracking-wide text-white/70">Weekly active</p>
-                  <p className="mt-1 text-2xl font-semibold">{group.stats?.weeklyActiveMembers ?? '—'}</p>
-                </div>
-                <div className="rounded-3xl border border-white/20 bg-white/10 p-4">
-                  <p className="text-xs uppercase tracking-wide text-white/70">Retention</p>
-                  <p className="mt-1 text-2xl font-semibold">{formatPercent(group.stats?.retentionRate)}</p>
-                </div>
-              </div>
-              {feedback ? (
-                <div
-                  className={classNames(
-                    'mt-6 inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold',
-                    feedback.type === 'success'
-                      ? 'bg-emerald-500/20 text-emerald-100'
-                      : feedback.type === 'error'
-                      ? 'bg-rose-500/20 text-rose-100'
-                      : 'bg-white/20 text-white',
-                  )}
-                >
-                  {feedback.message}
-                </div>
-              ) : null}
-            </div>
-            <div className="flex flex-col gap-3">
-              {showJoinButton ? (
-                <button
-                  type="button"
-                  onClick={handleJoin}
-                  disabled={pendingAction === 'join'}
-                  className={classNames(
-                    'inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-slate-900 transition',
-                    pendingAction === 'join' ? 'bg-white/60' : 'bg-white hover:bg-slate-100',
-                  )}
-                >
-                  {group.joinPolicy === 'invite_only' ? 'Request invite' : pendingAction === 'join' ? 'Joining…' : 'Join community'}
-                </button>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  <button
-                    type="button"
-                    onClick={handleLeave}
-                    disabled={pendingAction === 'leave'}
-                    className={classNames(
-                      'inline-flex items-center justify-center gap-2 rounded-full border border-white/40 px-6 py-3 text-sm font-semibold text-white transition hover:border-white/70',
-                      pendingAction === 'leave' ? 'opacity-50' : '',
-                    )}
-                  >
-                    Leave group
-                  </button>
-                  <Link
-                    to="/groups"
-                    className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 px-6 py-3 text-sm font-semibold text-white/80 transition hover:border-white/40 hover:text-white"
-                  >
-                    Explore other groups
-                    <ArrowTopRightOnSquareIcon className="h-4 w-4" />
-                  </Link>
-                </div>
-              )}
-              <div className="rounded-3xl border border-white/20 bg-white/10 p-4 text-xs text-white/80">
-                <p className="font-semibold uppercase tracking-wide">Access policy</p>
-                <p className="mt-2">Join policy: {group.joinPolicy === 'invite_only' ? 'Invite only' : 'Community approval'}</p>
-                <p className="mt-1">Eligible roles: {group.allowedUserTypes?.join(', ') ?? 'Gigvora members'}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <div className="relative bg-slate-50 pb-24 pt-16">
-        <div className="mx-auto max-w-5xl space-y-12 px-6">
+        <div className="mx-auto max-w-6xl space-y-12 px-6">
           <GigvoraAdBanner {...GIGVORA_GROUPS_BANNER} />
 
           {membership.status === 'member' ? (
@@ -347,16 +286,38 @@ export default function GroupProfilePage() {
             </div>
           ) : null}
 
-          <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1.7fr),minmax(0,1fr)]">
+          <div className="grid gap-8 xl:grid-cols-[minmax(0,2fr),minmax(0,1fr)]">
+            <GroupDiscussionBoard
+              board={discussionBoard}
+              loading={boardLoading}
+              onRefresh={() => refresh({ force: true })}
+              onCreateThread={handleCreateThread}
+              onSelectThread={handleSelectThread}
+            />
+
             <div className="space-y-6">
               <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
-                <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <SparklesIcon className="h-4 w-4" /> Live signals
+                <div className="flex items-center justify-between gap-3">
+                  <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <SparklesIcon className="h-4 w-4" /> Live community signals
+                  </div>
+                  {Number.isFinite(group.stats?.opportunitiesSharedThisWeek) ? (
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                      {group.stats.opportunitiesSharedThisWeek} intros unlocked this week
+                    </span>
+                  ) : null}
                 </div>
                 <ul className="mt-4 space-y-3 text-sm text-slate-600">
                   {(group.insights?.trendingTopics ?? []).map((topic) => (
-                    <li key={topic} className="rounded-2xl border border-slate-200 px-4 py-3">{topic}</li>
+                    <li key={topic} className="rounded-2xl border border-slate-200 px-4 py-3">
+                      {topic}
+                    </li>
                   ))}
+                  {(group.insights?.trendingTopics ?? []).length === 0 ? (
+                    <li className="rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-center text-xs text-slate-500">
+                      Signals loading – check back after members share updates.
+                    </li>
+                  ) : null}
                 </ul>
               </div>
 
@@ -369,7 +330,9 @@ export default function GroupProfilePage() {
                     {events.map((event) => (
                       <li key={event.id} className="rounded-2xl border border-slate-200 px-4 py-3">
                         <p className="text-sm font-semibold text-slate-900">{event.title}</p>
-                        <p className="mt-1 text-xs text-slate-500">{formatDate(event.startAt)} · {event.format ?? 'Session'}</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {formatGroupDate(event.startAt)} · {event.format ?? 'Session'}
+                        </p>
                         {event.host?.name ? (
                           <p className="mt-1 text-xs text-slate-400">Hosted by {event.host.name}</p>
                         ) : null}
@@ -377,7 +340,9 @@ export default function GroupProfilePage() {
                     ))}
                   </ul>
                 ) : (
-                  <p className="mt-4 text-sm text-slate-500">Programming calendar is loading. Check back soon for new sessions.</p>
+                  <p className="mt-4 text-sm text-slate-500">
+                    Programming calendar is loading. Check back soon for new sessions.
+                  </p>
                 )}
               </div>
 
@@ -392,56 +357,72 @@ export default function GroupProfilePage() {
                       <span>{line}</span>
                     </li>
                   ))}
+                  {guidelines.length === 0 ? (
+                    <li className="rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-center text-xs text-slate-500">
+                      Community guidelines are being refreshed by moderators.
+                    </li>
+                  ) : null}
                 </ul>
               </div>
             </div>
+          </div>
 
-            <div className="space-y-6">
-              {leadership.length ? (
-                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Leadership circle</p>
-                  <ul className="mt-4 space-y-3 text-sm text-slate-600">
-                    {leadership.map((leader) => (
-                      <li key={leader.name} className="rounded-2xl border border-slate-200 px-4 py-3">
-                        <p className="text-sm font-semibold text-slate-900">{leader.name}</p>
-                        <p className="text-xs text-slate-500">{leader.title}</p>
-                        <p className="mt-1 text-xs text-slate-400">{leader.role}</p>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
+          {resourceLibrary ? (
+            <ResourceLibrary
+              library={resourceLibrary}
+              onOpenResource={handleOpenResource}
+              onSaveResource={handleSaveResource}
+            />
+          ) : null}
 
-              {resources.length ? (
-                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Resource library</p>
-                  <div className="mt-4 grid gap-3">
-                    {resources.map((resource) => (
-                      <ResourceCard key={resource.id ?? resource.title} resource={resource} />
-                    ))}
-                  </div>
-                </div>
-              ) : null}
+          <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
+            {leadership.length ? (
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Leadership circle</p>
+                <ul className="mt-4 space-y-3 text-sm text-slate-600">
+                  {leadership.map((leader) => (
+                    <li key={leader.name} className="rounded-2xl border border-slate-200 px-4 py-3">
+                      <p className="text-sm font-semibold text-slate-900">{leader.name}</p>
+                      <p className="text-xs text-slate-500">{leader.title}</p>
+                      <p className="mt-1 text-xs text-slate-400">{leader.role}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
 
-              {timeline.length ? (
-                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Community timeline</p>
-                  <ul className="mt-4 space-y-3">
-                    {timeline.map((event) => (
-                      <li key={event.label} className="flex gap-4 text-sm text-slate-600">
-                        <span className="mt-0.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                          {formatTimelineDate(event.occursAt)}
-                        </span>
-                        <div>
-                          <p className="font-semibold text-slate-900">{event.label}</p>
-                          <p className="text-xs text-slate-500">{event.description}</p>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-            </div>
+            {timeline.length ? (
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Community timeline</p>
+                <ul className="mt-4 space-y-3">
+                  {timeline.map((item) => (
+                    <li key={item.label} className="flex gap-4 text-sm text-slate-600">
+                      <span className="mt-0.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        {formatGroupTimelineDate(item.occursAt)}
+                      </span>
+                      <div>
+                        <p className="font-semibold text-slate-900">{item.label}</p>
+                        <p className="text-xs text-slate-500">{item.description}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {membershipBreakdown.length ? (
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Member roles</p>
+                <ul className="mt-4 space-y-3 text-sm text-slate-600">
+                  {membershipBreakdown.map((entry) => (
+                    <li key={entry.role} className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3">
+                      <span className="font-semibold text-slate-900">{entry.role}</span>
+                      <span className="text-xs text-slate-500">{entry.count} members</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </div>
 
           <GigvoraAdGrid ads={GIGVORA_GROUPS_ADS} />

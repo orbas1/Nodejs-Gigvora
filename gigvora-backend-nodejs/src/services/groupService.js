@@ -176,6 +176,164 @@ const GROUP_BLUEPRINTS = [
         description: 'Community vote on opening two sub-circles for talent leads and product ops.',
       },
     ],
+    discussionBoard: {
+      stats: { activeContributors: 182, unresolvedCount: 6, newThreads: 14 },
+      tags: ['Announcements', 'Product ops', 'Marketplace design', 'AI'],
+      pinned: [
+        {
+          id: 'fowc-manifesto',
+          title: 'Community manifesto refresh',
+          category: 'Announcement',
+          excerpt: 'We are revisiting our collaboration principles ahead of the upcoming cohort expansion.',
+          author: { name: 'Leila Odum' },
+          replies: 42,
+          participants: 31,
+          upvotes: 88,
+          tags: ['Announcement', 'Governance'],
+          lastActivityAt: () => minutesFromNow(-6 * 60),
+          isAnswered: true,
+          url: 'https://community.gigvora.com/future-of-work-collective/manifesto',
+        },
+        {
+          id: 'fowc-trend-report',
+          title: 'Signal digest · Week 42',
+          category: 'Digest',
+          excerpt: 'Highlights on compensation systems and async onboarding pilots shared by members.',
+          author: { name: 'Mateo Ruiz' },
+          replies: 27,
+          participants: 24,
+          upvotes: 65,
+          tags: ['Insights', 'Playbook'],
+          lastActivityAt: () => minutesFromNow(-12 * 60),
+          isAnswered: true,
+          url: 'https://signals.gigvora.com/fowc-weekly',
+        },
+      ],
+      threads: [
+        {
+          id: 'fowc-ai-sprints',
+          title: 'Deploying AI copilots inside enterprise sprints',
+          category: 'Case study',
+          excerpt: 'Which guardrails are you putting in place before letting copilots draft deliverables for clients?',
+          author: { name: 'Mateo Ruiz' },
+          replies: 18,
+          participants: 16,
+          upvotes: 64,
+          tags: ['AI', 'Delivery ops'],
+          lastActivityAt: () => minutesFromNow(-90),
+          lastReplyAt: () => minutesFromNow(-40),
+          isUnresolved: true,
+          unread: true,
+          url: 'https://community.gigvora.com/future-of-work-collective/ai-copilots',
+        },
+        {
+          id: 'fowc-governance-models',
+          title: 'Governance models for distributed pods',
+          category: 'Framework',
+          excerpt: 'Sharing the decision matrix we use to allocate product pods across three timezones.',
+          author: { name: 'Sophie Mayer' },
+          replies: 23,
+          participants: 19,
+          upvotes: 53,
+          tags: ['Governance', 'Marketplace design'],
+          lastActivityAt: () => minutesFromNow(-4 * 60),
+          lastReplyAt: () => minutesFromNow(-2 * 60),
+          isAnswered: true,
+          url: 'https://community.gigvora.com/future-of-work-collective/governance-models',
+        },
+        {
+          id: 'fowc-talent-cadence',
+          title: 'Talent acquisition cadence for remote-first teams',
+          category: 'People ops',
+          excerpt: 'Looking for benchmarks on how you structure async interviews and onboarding scorecards.',
+          author: { name: 'Dario Fernández' },
+          replies: 11,
+          participants: 14,
+          upvotes: 36,
+          tags: ['People ops', 'Hiring'],
+          lastActivityAt: () => minutesFromNow(-8 * 60),
+          lastReplyAt: () => minutesFromNow(-6 * 60),
+          isUnresolved: false,
+          url: 'https://community.gigvora.com/future-of-work-collective/talent-cadence',
+        },
+      ],
+      moderators: [
+        { name: 'Leila Odum', title: 'Community Chair · Northwind Ventures', focus: 'Governance & rituals' },
+        { name: 'Mateo Ruiz', title: 'Program Curator · Aurora Labs', focus: 'Product & delivery' },
+      ],
+      health: { responseTime: '3h', participation: '74%' },
+    },
+    resourceLibrary: {
+      stats: { totalItems: 36, downloads24h: 124, savedCount: 892 },
+      filters: {
+        tags: ['Marketplace design', 'AI', 'People ops', 'Governance'],
+        formats: ['Playbook', 'Template', 'Recording', 'Digest'],
+      },
+      featured: [
+        {
+          id: 'fowc-masterclass',
+          title: 'Masterclass: Designing partner pods',
+          summary: 'Recording and frameworks from the latest salon on orchestrating partner pods across markets.',
+          type: 'Recording',
+          format: 'Recording',
+          tags: ['Marketplace design', 'Operations'],
+          url: 'https://community.gigvora.com/fowc/masterclass-partner-pods',
+          updatedAt: () => minutesFromNow(-11 * 60),
+          duration: '32 min watch',
+          metrics: { saves: 312, downloads24h: 58, durationMinutes: 32 },
+        },
+      ],
+      items: [
+        {
+          id: 'fowc-playbook',
+          title: 'Distributed Team Activation Playbook',
+          summary: 'Step-by-step frameworks for spinning up distributed pods with accountability rituals.',
+          type: 'Playbook',
+          format: 'Playbook',
+          tags: ['Operations', 'Playbook'],
+          url: 'https://guides.gigvora.com/future-of-work-playbook',
+          updatedAt: () => minutesFromNow(-3 * 24 * 60),
+          readingTime: '18 min read',
+          metrics: { saves: 204, downloads24h: 32, durationMinutes: 18 },
+        },
+        {
+          id: 'fowc-signal-digest',
+          title: 'Signal digest · Week 42',
+          summary: 'Weekly trend rundown curated by moderators with actionable prompts for the community.',
+          type: 'Digest',
+          format: 'Digest',
+          tags: ['Insights', 'Signals'],
+          url: 'https://signals.gigvora.com/fowc-weekly',
+          updatedAt: () => minutesFromNow(-7 * 24 * 60),
+          readingTime: '6 min read',
+          metrics: { saves: 168, downloads24h: 21, durationMinutes: 6 },
+        },
+        {
+          id: 'fowc-template',
+          title: 'Async Stand-up Template (Notion)',
+          summary: 'Customisable async stand-up template used by the collective for cross-timezone pods.',
+          type: 'Template',
+          format: 'Template',
+          tags: ['Template', 'Async'],
+          url: 'https://templates.gigvora.com/fowc-async-standup',
+          updatedAt: () => minutesFromNow(-5 * 24 * 60),
+          readingTime: '5 min setup',
+          metrics: { saves: 221, downloads24h: 39, durationMinutes: 5 },
+        },
+        {
+          id: 'fowc-ops-kit',
+          title: 'Marketplace Ops Metrics Toolkit',
+          summary: 'Live dashboards and spreadsheet templates for tracking marketplace liquidity and retention.',
+          type: 'Toolkit',
+          format: 'Toolkit',
+          tags: ['Marketplace design', 'Analytics'],
+          url: 'https://guides.gigvora.com/fowc-ops-metrics',
+          updatedAt: () => minutesFromNow(-2 * 24 * 60 - 120),
+          readingTime: '20 min implementation',
+          metrics: { saves: 189, downloads24h: 28, durationMinutes: 20 },
+        },
+      ],
+    },
   },
   {
     key: 'launchpad-alumni-guild',
@@ -254,6 +412,123 @@ const GROUP_BLUEPRINTS = [
         description: 'Rolled out structured mentor loops with 92% satisfaction.',
       },
     ],
+    discussionBoard: {
+      stats: { activeContributors: 128, unresolvedCount: 4, newThreads: 9 },
+      tags: ['Mentorship', 'Growth loops', 'Referrals', 'Playbooks'],
+      pinned: [
+        {
+          id: 'launchpad-mastermind',
+          title: 'Mastermind replay + action plan',
+          category: 'Replay',
+          excerpt: 'Catch the highlights from our monetisation mastermind and download the companion worksheets.',
+          author: { name: 'Ava Chen' },
+          replies: 19,
+          participants: 17,
+          upvotes: 48,
+          tags: ['Monetisation', 'Replay'],
+          lastActivityAt: () => minutesFromNow(-5 * 60),
+          isAnswered: true,
+          url: 'https://community.gigvora.com/launchpad/mastermind-replay',
+        },
+      ],
+      threads: [
+        {
+          id: 'launchpad-referrals',
+          title: 'Structuring partner referral loops post-cohort',
+          category: 'Growth',
+          excerpt: 'Looking for templates to keep referral loops alive after the programme wraps.',
+          author: { name: 'Nikhil Shah' },
+          replies: 15,
+          participants: 12,
+          upvotes: 41,
+          tags: ['Referrals', 'Growth loops'],
+          lastActivityAt: () => minutesFromNow(-7 * 60),
+          lastReplyAt: () => minutesFromNow(-3 * 60),
+          isUnresolved: true,
+          unread: true,
+          url: 'https://community.gigvora.com/launchpad/referral-loops',
+        },
+        {
+          id: 'launchpad-coaching',
+          title: 'Mentor office hours expectations',
+          category: 'Mentorship',
+          excerpt: 'How do you prepare founders for the first office hour so sessions stay actionable?',
+          author: { name: 'Ava Chen' },
+          replies: 9,
+          participants: 10,
+          upvotes: 28,
+          tags: ['Mentorship', 'Office hours'],
+          lastActivityAt: () => minutesFromNow(-180),
+          lastReplyAt: () => minutesFromNow(-140),
+          isAnswered: true,
+          url: 'https://community.gigvora.com/launchpad/mentor-office-hours',
+        },
+      ],
+      moderators: [
+        { name: 'Ava Chen', title: 'Product Marketing Lead · Nova Labs', focus: 'Monetisation & positioning' },
+        { name: 'Nikhil Shah', title: 'Director of Ecosystem · Atlas Studio', focus: 'Partnerships & growth' },
+      ],
+      health: { responseTime: '5h', participation: '68%' },
+    },
+    resourceLibrary: {
+      stats: { totalItems: 24, downloads24h: 76, savedCount: 604 },
+      filters: {
+        tags: ['Mentorship', 'Referrals', 'Product marketing', 'Templates'],
+        formats: ['Checklist', 'Tracker', 'Recording', 'Worksheet'],
+      },
+      featured: [
+        {
+          id: 'launchpad-monetisation',
+          title: 'Monetisation sprint retro pack',
+          summary: 'Slides, templates, and scoring models from the monetisation masterclass.',
+          type: 'Worksheet',
+          format: 'Worksheet',
+          tags: ['Monetisation', 'Templates'],
+          url: 'https://guides.gigvora.com/launchpad-monetisation-retro',
+          updatedAt: () => minutesFromNow(-18 * 60),
+          duration: '45 min workshop',
+          metrics: { saves: 174, downloads24h: 34, durationMinutes: 45 },
+        },
+      ],
+      items: [
+        {
+          id: 'launchpad-checklist',
+          title: 'Post-cohort transition checklist',
+          summary: 'Ensure alumni graduate with clarity on monetisation, partner handovers, and goal setting.',
+          type: 'Checklist',
+          format: 'Checklist',
+          tags: ['Operations', 'Alumni'],
+          url: 'https://guides.gigvora.com/launchpad-transition',
+          updatedAt: () => minutesFromNow(-9 * 24 * 60),
+          readingTime: '10 min read',
+          metrics: { saves: 142, downloads24h: 18, durationMinutes: 10 },
+        },
+        {
+          id: 'launchpad-intros',
+          title: 'Partner intro tracker',
+          summary: 'Shared tracker for logging partner intros, feedback loops, and follow-up cadences.',
+          type: 'Tracker',
+          format: 'Tracker',
+          tags: ['Referrals', 'Operations'],
+          url: 'https://workspace.gigvora.com/launchpad-intros',
+          updatedAt: () => minutesFromNow(-4 * 24 * 60),
+          readingTime: '7 min setup',
+          metrics: { saves: 133, downloads24h: 22, durationMinutes: 7 },
+        },
+        {
+          id: 'launchpad-office-hours',
+          title: 'Mentor office hour agenda template',
+          summary: 'Agenda and prep checklist mentors use to keep sessions focused and accountable.',
+          type: 'Template',
+          format: 'Template',
+          tags: ['Mentorship', 'Templates'],
+          url: 'https://templates.gigvora.com/launchpad-office-hours',
+          updatedAt: () => minutesFromNow(-6 * 24 * 60),
+          readingTime: '5 min setup',
+          metrics: { saves: 116, downloads24h: 17, durationMinutes: 5 },
+        },
+      ],
+    },
   },
   {
     key: 'purpose-lab',
@@ -344,6 +619,122 @@ const GROUP_BLUEPRINTS = [
         description: 'Publishing the first shared impact measurement dashboard.',
       },
     ],
+    discussionBoard: {
+      stats: { activeContributors: 94, unresolvedCount: 5, newThreads: 11 },
+      tags: ['Volunteer ops', 'Impact measurement', 'Field updates', 'Partnerships'],
+      pinned: [
+        {
+          id: 'purpose-briefing',
+          title: 'Circular retail pilots briefing pack',
+          category: 'Briefing',
+          excerpt: 'Download the partner briefing, asset checklist, and safety protocols before the next sprint.',
+          author: { name: 'Gigvora Impact Office' },
+          replies: 14,
+          participants: 21,
+          upvotes: 39,
+          tags: ['Briefing', 'Safety'],
+          lastActivityAt: () => minutesFromNow(-3 * 60),
+          isAnswered: true,
+          url: 'https://impact.gigvora.com/sprint-kit',
+        },
+      ],
+      threads: [
+        {
+          id: 'purpose-safety',
+          title: 'On-site safety escalation flow',
+          category: 'Operations',
+          excerpt: 'Clarifying who to contact for rapid escalation during field deployments.',
+          author: { name: 'Leila Odum' },
+          replies: 12,
+          participants: 15,
+          upvotes: 33,
+          tags: ['Safety', 'Volunteer ops'],
+          lastActivityAt: () => minutesFromNow(-160),
+          lastReplyAt: () => minutesFromNow(-120),
+          isUnresolved: false,
+          url: 'https://community.gigvora.com/purpose-lab/safety-escalation',
+        },
+        {
+          id: 'purpose-impact-metrics',
+          title: 'Capturing impact metrics in low-connectivity areas',
+          category: 'Impact measurement',
+          excerpt: 'Seeking lightweight data capture ideas when teams operate offline.',
+          author: { name: 'Impact Programmes Team' },
+          replies: 17,
+          participants: 14,
+          upvotes: 41,
+          tags: ['Impact measurement', 'Field ops'],
+          lastActivityAt: () => minutesFromNow(-9 * 60),
+          lastReplyAt: () => minutesFromNow(-4 * 60),
+          isUnresolved: true,
+          unread: true,
+          url: 'https://community.gigvora.com/purpose-lab/impact-metrics',
+        },
+      ],
+      moderators: [
+        { name: 'Gigvora Impact Office', title: 'Programme Managers', focus: 'Volunteer enablement' },
+      ],
+      health: { responseTime: '6h', participation: '61%' },
+    },
+    resourceLibrary: {
+      stats: { totalItems: 28, downloads24h: 54, savedCount: 478 },
+      filters: {
+        tags: ['Sustainability', 'Volunteer ops', 'Safety', 'Impact measurement'],
+        formats: ['Kit', 'Intelligence', 'Checklist', 'Report'],
+      },
+      featured: [
+        {
+          id: 'purpose-impact-dashboard',
+          title: 'Impact measurement dashboard walkthrough',
+          summary: 'Video walkthrough and template pack for the upcoming impact measurement release.',
+          type: 'Recording',
+          format: 'Recording',
+          tags: ['Impact measurement', 'Analytics'],
+          url: 'https://impact.gigvora.com/measurement-dashboard',
+          updatedAt: () => minutesFromNow(-15 * 60),
+          duration: '24 min watch',
+          metrics: { saves: 142, downloads24h: 19, durationMinutes: 24 },
+        },
+      ],
+      items: [
+        {
+          id: 'purpose-sprint-kit',
+          title: 'Impact sprint facilitation kit',
+          summary: 'End-to-end facilitation guidance, agendas, and templates for impact sprints.',
+          type: 'Kit',
+          format: 'Kit',
+          tags: ['Volunteer ops', 'Templates'],
+          url: 'https://impact.gigvora.com/sprint-kit',
+          updatedAt: () => minutesFromNow(-8 * 24 * 60),
+          readingTime: '30 min workshop',
+          metrics: { saves: 168, downloads24h: 23, durationMinutes: 30 },
+        },
+        {
+          id: 'purpose-insights',
+          title: 'Climate venture partner map',
+          summary: 'Interactive map of climate-positive ventures and contact notes sourced by volunteers.',
+          type: 'Intelligence',
+          format: 'Report',
+          tags: ['Partnerships', 'Insights'],
+          url: 'https://impact.gigvora.com/partner-map',
+          updatedAt: () => minutesFromNow(-6 * 24 * 60),
+          readingTime: '12 min read',
+          metrics: { saves: 137, downloads24h: 16, durationMinutes: 12 },
+        },
+        {
+          id: 'purpose-safety-checklist',
+          title: 'Field safety escalation checklist',
+          summary: 'Step-by-step escalation plan, emergency contacts, and response templates.',
+          type: 'Checklist',
+          format: 'Checklist',
+          tags: ['Safety', 'Volunteer ops'],
+          url: 'https://impact.gigvora.com/safety-checklist',
+          updatedAt: () => minutesFromNow(-3 * 24 * 60),
+          readingTime: '8 min read',
+          metrics: { saves: 122, downloads24h: 15, durationMinutes: 8 },
+        },
+      ],
+    },
   },
 ];
 
@@ -488,6 +879,144 @@ function computeEngagementScore({ memberCount, metrics }) {
   return Number(Math.max(base, ratio).toFixed(2));
 }
 
+function normalizeTemporalValue(value) {
+  if (!value) {
+    return null;
+  }
+  if (typeof value === 'function') {
+    return value();
+  }
+  return value;
+}
+
+function normalizeThread(thread, index) {
+  if (!thread) {
+    return null;
+  }
+  const normalized = {
+    id: thread.id ?? `thread-${index}`,
+    title: thread.title ?? 'Community thread',
+    excerpt: thread.excerpt ?? '',
+    category: thread.category ?? thread.type ?? 'Discussion',
+    author: thread.author ?? null,
+    replies: toNumber(thread.replies, 0),
+    participants: toNumber(thread.participants, 0),
+    upvotes: toNumber(thread.upvotes, 0),
+    tags: Array.isArray(thread.tags) ? thread.tags : [],
+    lastActivityAt: normalizeTemporalValue(thread.lastActivityAt ?? thread.lastReplyAt),
+    lastReplyAt: normalizeTemporalValue(thread.lastReplyAt),
+    isAnswered: Boolean(thread.isAnswered),
+    isUnresolved: thread.isUnresolved ?? !thread.isAnswered,
+    unread: Boolean(thread.unread),
+    pinned: Boolean(thread.pinned),
+    url: thread.url ?? null,
+  };
+  return normalized;
+}
+
+function normalizeDiscussionBoard(blueprint = {}) {
+  const pinned = (blueprint.pinned ?? [])
+    .map((thread, index) => normalizeThread({ ...thread, pinned: true }, index))
+    .filter(Boolean);
+  const threads = (blueprint.threads ?? [])
+    .map((thread, index) => normalizeThread(thread, index))
+    .filter(Boolean);
+
+  const tags = Array.from(
+    new Set(
+      (blueprint.tags ?? [])
+        .concat(blueprint.trendingTags ?? [])
+        .map((value) => (value ? value.toString().trim() : null))
+        .filter(Boolean),
+    ),
+  );
+
+  return {
+    stats: {
+      activeContributors: toNumber(blueprint.stats?.activeContributors, 0),
+      unresolvedCount: toNumber(blueprint.stats?.unresolvedCount, 0),
+      newThreads: toNumber(blueprint.stats?.newThreads, 0),
+    },
+    moderators: Array.isArray(blueprint.moderators) ? blueprint.moderators : [],
+    tags,
+    trendingTags: Array.isArray(blueprint.trendingTags) && blueprint.trendingTags.length ? blueprint.trendingTags : tags,
+    pinned,
+    threads,
+    health: {
+      responseTime: blueprint.health?.responseTime ?? '4h',
+      participation: blueprint.health?.participation ?? '65%',
+    },
+  };
+}
+
+function normalizeResource(resource, index) {
+  if (!resource) {
+    return null;
+  }
+  return {
+    id: resource.id ?? `resource-${index}`,
+    title: resource.title ?? 'Untitled resource',
+    summary: resource.summary ?? resource.description ?? '',
+    description: resource.description ?? '',
+    type: resource.type ?? resource.format ?? 'Resource',
+    format: resource.format ?? resource.type ?? 'Guide',
+    tags: Array.isArray(resource.tags) ? resource.tags : [],
+    url: resource.url ?? null,
+    duration: resource.duration ?? resource.readingTime ?? null,
+    readingTime: resource.readingTime ?? resource.duration ?? null,
+    updatedAt: normalizeTemporalValue(resource.updatedAt ?? resource.publishedAt),
+    publishedAt: normalizeTemporalValue(resource.publishedAt),
+    metrics: resource.metrics ?? {},
+  };
+}
+
+function normalizeResourceLibrary(blueprint = {}, fallbackItems = []) {
+  const normalizedItems = (blueprint.items ?? fallbackItems)
+    .map((item, index) => normalizeResource(item, index))
+    .filter(Boolean);
+  const normalizedFeatured = (blueprint.featured ?? [])
+    .map((item, index) => normalizeResource(item, index))
+    .filter(Boolean);
+
+  const items = normalizedItems;
+  const featured = normalizedFeatured.length ? normalizedFeatured : items.slice(0, 2);
+
+  const tags = Array.from(
+    new Set(
+      (blueprint.filters?.tags ?? [])
+        .concat(items.flatMap((item) => item.tags ?? []))
+        .map((value) => (value ? value.toString().trim() : null))
+        .filter(Boolean),
+    ),
+  );
+  const formats = Array.from(
+    new Set(
+      (blueprint.filters?.formats ?? [])
+        .concat(items.map((item) => item.format ?? item.type))
+        .map((value) => (value ? value.toString().trim() : null))
+        .filter(Boolean),
+    ),
+  );
+
+  const savedCount = blueprint.stats?.savedCount ?? items.reduce((total, item) => total + toNumber(item.metrics?.saves, 0), 0);
+  const downloads24h =
+    blueprint.stats?.downloads24h ?? items.reduce((total, item) => total + toNumber(item.metrics?.downloads24h, 0), 0);
+
+  return {
+    items,
+    featured,
+    stats: {
+      totalItems: blueprint.stats?.totalItems ?? items.length,
+      savedCount,
+      downloads24h,
+    },
+    filters: {
+      tags,
+      formats,
+    },
+  };
+}
+
 function mapGroupRecord(group, { memberCount, membership, blueprint }) {
   const summary = blueprint.summary || group.description || 'A Gigvora community group.';
   const joinPolicy = blueprint.joinPolicy || DEFAULT_JOIN_POLICY;
@@ -502,6 +1031,17 @@ function mapGroupRecord(group, { memberCount, membership, blueprint }) {
     ...entry,
     occursAt: typeof entry.occursAt === 'function' ? entry.occursAt() : entry.occursAt,
   }));
+  const discussionBoard = normalizeDiscussionBoard(blueprint.discussionBoard);
+  const resourceLibrary = normalizeResourceLibrary(blueprint.resourceLibrary, blueprint.resources || []);
+
+  const legacyResources = Array.isArray(blueprint.resources) && blueprint.resources.length
+    ? blueprint.resources
+    : resourceLibrary.items.map((item) => ({
+        id: item.id,
+        title: item.title,
+        type: item.type ?? item.format,
+        url: item.url,
+      }));
 
   const effectiveMemberCount = memberCount ?? blueprint.baselineMembers ?? 0;
   const engagementScore = computeEngagementScore({
@@ -533,12 +1073,14 @@ function mapGroupRecord(group, { memberCount, membership, blueprint }) {
     },
     upcomingEvents: events,
     leadership: blueprint.leadership || [],
-    resources: blueprint.resources || [],
+    resources: legacyResources,
     guidelines: blueprint.guidelines || [],
     timeline,
     metadata: {
       baselineMembers: blueprint.baselineMembers ?? 0,
     },
+    discussionBoard,
+    resourceLibrary,
   };
 }
 
