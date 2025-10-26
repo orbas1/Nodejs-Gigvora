@@ -105,6 +105,11 @@ function resolveMarketingContent(homeData) {
         pricingBaseline.metrics ?? [],
       ),
     },
+    testimonials: pickList(
+      marketingSource.testimonials,
+      pageMarketing.testimonials ?? pageContent.testimonials,
+      marketingBaseline.testimonials ?? [],
+    ),
   };
 }
 
@@ -372,6 +377,11 @@ export default function HomePage() {
     return metrics.length ? metrics : undefined;
   }, [marketingContent.pricing?.metrics]);
 
+  const marketingTestimonials = useMemo(() => {
+    const items = ensureArray(marketingContent.testimonials);
+    return items.length ? items : undefined;
+  }, [marketingContent.testimonials]);
+
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/feed', { replace: true });
@@ -504,7 +514,11 @@ export default function HomePage() {
         />
         <CommunitySpotlightsSection loading={homeLoading} error={homeError} />
         <ExplorerShowcaseSection loading={homeLoading} error={homeError} creations={homeData?.creations} />
-        <TestimonialsSection loading={homeLoading} error={homeError} />
+        <TestimonialsSection
+          loading={homeLoading}
+          error={homeError}
+          testimonials={marketingTestimonials}
+        />
         <MarketplaceLaunchesSection
           loading={homeLoading}
           error={homeError}

@@ -22,6 +22,14 @@ import {
 export { AdminTreasuryPolicy, AdminFeeRule, AdminPayoutSchedule, AdminEscrowAdjustment } from './adminFinanceModels.js';
 export { RouteRegistryEntry } from './routeRegistryModels.js';
 export { SchemaMigrationAudit, SeedExecutionAudit } from './schemaGovernanceModels.js';
+export {
+  OnboardingPersona,
+  OnboardingJourney,
+  OnboardingJourneyInvite,
+  ONBOARDING_PERSONA_STATUSES,
+  ONBOARDING_JOURNEY_STATUSES,
+  ONBOARDING_INVITE_STATUSES,
+} from './onboardingModels.js';
 import './agencyWorkforceModels.js';
 import { RbacPolicyAuditEvent } from './rbacPolicyAuditEvent.js';
 import { RuntimeAnnouncement } from './runtimeAnnouncement.js';
@@ -699,6 +707,10 @@ export const User = sequelize.define(
     appleId: { type: DataTypes.STRING(255), allowNull: true },
     linkedinId: { type: DataTypes.STRING(255), allowNull: true },
     memberships: { type: jsonType, allowNull: false, defaultValue: [] },
+    preferredRoles: { type: jsonType, allowNull: false, defaultValue: [] },
+    marketingOptIn: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    marketingOptInAt: { type: DataTypes.DATE, allowNull: true },
+    signupChannel: { type: DataTypes.STRING(120), allowNull: true },
     primaryDashboard: { type: DataTypes.STRING(60), allowNull: true },
   },
   {

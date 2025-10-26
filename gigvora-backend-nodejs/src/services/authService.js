@@ -559,9 +559,42 @@ async function register(data) {
   }
   ensurePasswordStrength(data.password);
 
-  const sanitizedUser = await authDomainService.registerUser(data);
+  const preferredRoles = Array.isArray(data.preferredRoles) ? data.preferredRoles : [];
+  const memberships = Array.isArray(data.memberships) ? data.memberships : [];
+  const membershipSet = new Set(memberships);
+  preferredRoles.forEach((role) => membershipSet.add(role));
+  membershipSet.add(data.userType ?? 'user');
+  membershipSet.add('user');
+
+  const marketingOptIn = data.marketingOptIn !== false;
+  let marketingOptInAt = null;
+  if (marketingOptIn) {
+    if (data.marketingOptInAt) {
+      const candidate = new Date(data.marketingOptInAt);
+      if (!Number.isNaN(candidate.getTime())) {
+        marketingOptInAt = candidate.toISOString();
+      }
+    }
+    if (!marketingOptInAt) {
+      marketingOptInAt = new Date().toISOString();
+    }
+  }
+
+  const signupChannel =
+    typeof data.signupChannel === 'string' && data.signupChannel.trim()
+      ? data.signupChannel.trim()
+      : 'web_app';
+
+  const sanitizedUser = await authDomainService.registerUser({
+    ...data,
+    preferredRoles,
+    memberships: Array.from(membershipSet),
+    marketingOptIn,
+    marketingOptInAt,
+    signupChannel,
+  });
   const featureFlags = await featureFlagService.evaluateForUser(sanitizedUser, {
-    traits: { signupChannel: data.signupChannel || 'api', persona: sanitizedUser.userType },
+    traits: { signupChannel, persona: sanitizedUser.userType },
   });
   return { ...sanitizedUser, featureFlags };
 }

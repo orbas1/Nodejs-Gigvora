@@ -137,8 +137,27 @@ describe('20241022100000-admin-homepage-settings.cjs', () => {
                 },
               ],
               testimonials: [
-                { id: 'northwind', quote: '  Gigvora delivered.  ', highlight: 'yes', authorName: 'Leah Patel', authorRole: 'VP', avatarUrl: 'https://cdn.gigvora.com/avatar/northwind.png' },
-                { id: 'new-testimonial', quote: 'Incredible experience', authorName: 'Jordan Lee', authorRole: 'Director', avatarUrl: '/avatars/jordan.png', highlight: true },
+                {
+                  id: 'northwind',
+                  quote: '  Gigvora delivered.  ',
+                  highlight: '  70% faster launches  ',
+                  authorName: 'Leah Patel  ',
+                  authorRole: 'VP',
+                  authorCompany: '  Northwind Labs  ',
+                  avatarUrl: 'https://cdn.gigvora.com/avatar/northwind.png',
+                  avatarAlt: '  Portrait of Leah  ',
+                  badge: '  Enterprise   ',
+                },
+                {
+                  id: 'new-testimonial',
+                  quote: 'Incredible experience',
+                  authorName: 'Jordan Lee',
+                  authorRole: 'Director',
+                  authorCompany: 'Summit Ops',
+                  avatarUrl: '/avatars/jordan.png',
+                  highlight: ' Peak reliability delivered ',
+                  badge: 'Innovation partner',
+                },
               ],
               faqs: [
                 { id: 'pricing-models', question: 'Pricing?', answer: '' },
@@ -189,8 +208,15 @@ describe('20241022100000-admin-homepage-settings.cjs', () => {
       parsed.homepage.featureSections.find((item) => item.id === 'workspace')?.bullets.find((bullet) => bullet.id === 'new-bullet'),
     ).toBeDefined();
 
-    expect(parsed.homepage.testimonials.find((item) => item.id === 'northwind')?.highlight).toBe(true);
-    expect(parsed.homepage.testimonials.some((item) => item.id === 'new-testimonial')).toBe(true);
+    const northwindTestimonial = parsed.homepage.testimonials.find((item) => item.id === 'northwind');
+    expect(northwindTestimonial?.highlight).toBe('70% faster launches');
+    expect(northwindTestimonial?.badge).toBe('Enterprise');
+    expect(northwindTestimonial?.authorCompany).toBe('Northwind Labs');
+    expect(northwindTestimonial?.avatarAlt).toBe('Portrait of Leah');
+
+    const newTestimonial = parsed.homepage.testimonials.find((item) => item.id === 'new-testimonial');
+    expect(newTestimonial?.badge).toBe('Innovation partner');
+    expect(newTestimonial?.highlight).toBe('Peak reliability delivered');
 
     expect(parsed.homepage.faqs.find((item) => item.id === 'pricing-models')?.answer).toBe(HOMEPAGE_DEFAULT.faqs[1].answer);
     expect(parsed.homepage.faqs.some((item) => item.id === 'security')).toBe(true);

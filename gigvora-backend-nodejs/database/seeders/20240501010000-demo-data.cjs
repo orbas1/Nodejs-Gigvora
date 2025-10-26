@@ -2,6 +2,8 @@
 
 const { QueryTypes, Op } = require('sequelize');
 
+const marketingConsentBaseline = new Date('2024-05-01T00:00:00.000Z');
+
 const baseUsers = [
   {
     firstName: 'Ava',
@@ -12,6 +14,11 @@ const baseUsers = [
     age: 32,
     userType: 'admin',
     googleId: 'demo-google-ava-founder',
+    memberships: ['admin', 'user'],
+    preferredRoles: ['admin'],
+    marketingOptIn: true,
+    marketingOptInAt: marketingConsentBaseline,
+    signupChannel: 'seed:foundational',
   },
   {
     firstName: 'Leo',
@@ -22,6 +29,11 @@ const baseUsers = [
     age: 27,
     userType: 'freelancer',
     linkedinId: 'demo-linkedin-leo-freelancer',
+    memberships: ['freelancer', 'user'],
+    preferredRoles: ['freelancer'],
+    marketingOptIn: true,
+    marketingOptInAt: marketingConsentBaseline,
+    signupChannel: 'seed:foundational',
   },
   {
     firstName: 'Mia',
@@ -32,6 +44,11 @@ const baseUsers = [
     age: 35,
     userType: 'company',
     appleId: 'demo-apple-mia-operations',
+    memberships: ['company', 'user'],
+    preferredRoles: ['company'],
+    marketingOptIn: true,
+    marketingOptInAt: marketingConsentBaseline,
+    signupChannel: 'seed:foundational',
   },
   {
     firstName: 'Noah',
@@ -41,6 +58,11 @@ const baseUsers = [
     address: '25 Collaboration Square, Agency City',
     age: 38,
     userType: 'agency',
+    memberships: ['agency', 'user'],
+    preferredRoles: ['agency'],
+    marketingOptIn: true,
+    marketingOptInAt: marketingConsentBaseline,
+    signupChannel: 'seed:foundational',
   },
   {
     firstName: 'Avery',
@@ -50,6 +72,11 @@ const baseUsers = [
     address: '101 Coaching Lane, Lisbon',
     age: 41,
     userType: 'user',
+    memberships: ['mentor', 'user'],
+    preferredRoles: ['mentor'],
+    marketingOptIn: true,
+    marketingOptInAt: marketingConsentBaseline,
+    signupChannel: 'seed:foundational',
   },
   {
     firstName: 'Riley',
@@ -59,6 +86,11 @@ const baseUsers = [
     address: '88 Hiring Avenue, Austin',
     age: 36,
     userType: 'user',
+    memberships: ['headhunter', 'user'],
+    preferredRoles: ['headhunter'],
+    marketingOptIn: true,
+    marketingOptInAt: marketingConsentBaseline,
+    signupChannel: 'seed:foundational',
   },
 ];
 
@@ -433,11 +465,38 @@ async function ensureUsers(queryInterface, transaction) {
   const existingByEmail = new Map(existingUsers.map((row) => [row.email, row.id]));
   const toInsert = baseUsers
     .filter((user) => !existingByEmail.has(user.email))
-    .map((user) => ({
-      ...user,
-      createdAt: now,
-      updatedAt: now,
-    }));
+    .map((user) => {
+      const membershipSet = new Set(Array.isArray(user.memberships) ? user.memberships : []);
+      if (Array.isArray(user.preferredRoles)) {
+        user.preferredRoles.forEach((role) => membershipSet.add(role));
+      }
+      if (user.userType) {
+        membershipSet.add(user.userType);
+      }
+      membershipSet.add('user');
+      const preferredRoles = Array.isArray(user.preferredRoles)
+        ? Array.from(new Set(user.preferredRoles))
+        : [];
+      const marketingOptIn = user.marketingOptIn !== false;
+      const marketingOptInAt = marketingOptIn
+        ? user.marketingOptInAt instanceof Date
+          ? user.marketingOptInAt
+          : user.marketingOptInAt
+            ? new Date(user.marketingOptInAt)
+            : now
+        : null;
+
+      return {
+        ...user,
+        memberships: Array.from(membershipSet),
+        preferredRoles,
+        marketingOptIn,
+        marketingOptInAt,
+        signupChannel: user.signupChannel ?? 'seed:foundational',
+        createdAt: now,
+        updatedAt: now,
+      };
+    });
 
   if (toInsert.length) {
     await queryInterface.bulkInsert('users', toInsert, { transaction });

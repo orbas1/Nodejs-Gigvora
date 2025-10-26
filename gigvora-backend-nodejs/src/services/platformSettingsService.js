@@ -489,13 +489,63 @@ function normalizeHomepageTestimonial(testimonial = {}, fallback = {}, index = 0
   if (!quote && !authorName) {
     return null;
   }
+
+  const coerceHighlight = () => {
+    if (typeof testimonial.highlight === 'string') {
+      return coerceOptionalString(testimonial.highlight, fallback.highlight ?? '');
+    }
+    if (typeof testimonial.highlight === 'boolean') {
+      return testimonial.highlight ? fallback.highlight ?? '' : '';
+    }
+    if (typeof testimonial.highlightSummary === 'string') {
+      return coerceOptionalString(testimonial.highlightSummary, fallback.highlight ?? '');
+    }
+    if (typeof fallback.highlight === 'string') {
+      return fallback.highlight;
+    }
+    return '';
+  };
+
+  const coerceBadge = () => {
+    if (typeof testimonial.badge === 'string') {
+      return coerceOptionalString(testimonial.badge, fallback.badge ?? '');
+    }
+    if (typeof testimonial.tag === 'string') {
+      return coerceOptionalString(testimonial.tag, fallback.badge ?? '');
+    }
+    if (typeof fallback.badge === 'string') {
+      return fallback.badge;
+    }
+    return '';
+  };
+
+  const coerceCompany = () => {
+    const companyCandidate =
+      testimonial.authorCompany ?? testimonial.company ?? testimonial.organisation ?? testimonial.organization;
+    return coerceOptionalString(companyCandidate, fallback.authorCompany ?? '');
+  };
+
+  const coerceAvatarAlt = () => {
+    const altCandidate = testimonial.avatarAlt ?? testimonial.avatarAltText ?? fallback.avatarAlt;
+    if (altCandidate) {
+      return coerceOptionalString(altCandidate, fallback.avatarAlt ?? '');
+    }
+    if (authorName) {
+      return `${authorName} portrait`;
+    }
+    return fallback.avatarAlt ?? '';
+  };
+
   return {
     id: ensureIdentifier('homepage-testimonial', testimonial.id, fallback.id, index),
     quote,
     authorName,
     authorRole: coerceOptionalString(testimonial.authorRole, fallback.authorRole ?? ''),
+    authorCompany: coerceCompany(),
     avatarUrl: coerceOptionalString(testimonial.avatarUrl, fallback.avatarUrl ?? ''),
-    highlight: coerceBoolean(testimonial.highlight, fallback.highlight ?? false),
+    avatarAlt: coerceAvatarAlt(),
+    highlight: coerceHighlight(),
+    badge: coerceBadge(),
   };
 }
 
