@@ -226,42 +226,55 @@ const DEFAULT_FRAGMENT = {
         description: 'Coach multiple cohorts with shared agendas, analytics, and follow-up workflows.',
       },
     ],
-    testimonials: [
-      {
-        id: 'northwind',
-        quote:
-          'Gigvora unlocked a vetted product pod in 48 hours—finance, compliance, and delivery were already aligned.',
-        authorName: 'Leah Patel',
-        authorRole: 'VP Operations',
-        authorCompany: 'Northwind Labs',
-        avatarUrl: 'https://cdn.gigvora.com/assets/avatars/leah-patel.png',
-        avatarAlt: 'Portrait of Leah Patel smiling',
-        highlight: 'Scaled seven markets without adding ops headcount.',
-        badge: 'Enterprise rollout',
+    testimonials: {
+      hero: {
+        eyebrow: 'Social proof',
+        heading: 'Trusted by operators shipping the future',
+        description:
+          'From venture studios to enterprise programmes, the teams building on Gigvora speak to velocity, trust, and polish that rivals the largest professional networks.',
+        stats: [
+          { value: '68', label: 'NPS', helper: 'Rolling 90-day sentiment' },
+          { value: '4,200+', label: 'Crews', helper: 'Programmes delivered globally' },
+          { value: '92%', label: 'Renewals', helper: 'Expansions inside 60 days' },
+        ],
       },
-      {
-        id: 'forma-studio',
-        quote: 'We replaced scattered contractors with a dedicated Gigvora crew—quality soared while admin vanished.',
-        authorName: 'Ivy Chen',
-        authorRole: 'Founder',
-        authorCompany: 'Forma Studio',
-        avatarUrl: 'https://cdn.gigvora.com/assets/avatars/ivy-chen.png',
-        avatarAlt: 'Portrait of Ivy Chen wearing a blazer',
-        highlight: 'Closed enterprise launches with on-demand specialists.',
-        badge: 'Venture studio',
-      },
-      {
-        id: 'aurora',
-        quote: 'Our accelerator pairs mentors and founders instantly. The shared telemetry keeps every stakeholder aligned.',
-        authorName: 'Diego Martínez',
-        authorRole: 'Programme Director',
-        authorCompany: 'Aurora Collective',
-        avatarUrl: 'https://cdn.gigvora.com/assets/avatars/diego-martinez.png',
-        avatarAlt: 'Portrait of Diego Martínez laughing',
-        highlight: 'Raised cohort satisfaction to 96% in two seasons.',
-        badge: 'Global accelerator',
-      },
-    ],
+      items: [
+        {
+          id: 'northwind',
+          quote:
+            'Gigvora unlocked a vetted product pod in 48 hours—finance, compliance, and delivery were already aligned.',
+          authorName: 'Leah Patel',
+          authorRole: 'VP Operations',
+          authorCompany: 'Northwind Labs',
+          avatarUrl: 'https://cdn.gigvora.com/assets/avatars/leah-patel.png',
+          avatarAlt: 'Portrait of Leah Patel smiling',
+          highlight: 'Scaled seven markets without adding ops headcount.',
+          badge: 'Enterprise rollout',
+        },
+        {
+          id: 'forma-studio',
+          quote: 'We replaced scattered contractors with a dedicated Gigvora crew—quality soared while admin vanished.',
+          authorName: 'Ivy Chen',
+          authorRole: 'Founder',
+          authorCompany: 'Forma Studio',
+          avatarUrl: 'https://cdn.gigvora.com/assets/avatars/ivy-chen.png',
+          avatarAlt: 'Portrait of Ivy Chen wearing a blazer',
+          highlight: 'Closed enterprise launches with on-demand specialists.',
+          badge: 'Venture studio',
+        },
+        {
+          id: 'aurora',
+          quote: 'Our accelerator pairs mentors and founders instantly. The shared telemetry keeps every stakeholder aligned.',
+          authorName: 'Diego Martínez',
+          authorRole: 'Programme Director',
+          authorCompany: 'Aurora Collective',
+          avatarUrl: 'https://cdn.gigvora.com/assets/avatars/diego-martinez.png',
+          avatarAlt: 'Portrait of Diego Martínez laughing',
+          highlight: 'Raised cohort satisfaction to 96% in two seasons.',
+          badge: 'Global accelerator',
+        },
+      ],
+    },
     productTour: {
       steps: [
         {
@@ -491,6 +504,41 @@ const DEFAULT_FRAGMENT = {
         { label: 'Mentor satisfaction', value: '96%', helper: 'Mentor guild NPS from the past four quarters.' },
       ],
     },
+  },
+  closingCta: {
+    eyebrow: 'Membership',
+    title: 'Join the community where elite crews, mentors, and operators ship together',
+    description:
+      'Onboard in minutes, align collaborators, and access vetted specialists who move at the pace of your programme.',
+    primaryAction: { label: 'Claim your seat', route: '/register' },
+    secondaryAction: { label: 'Talk with our team', href: 'mailto:hello@gigvora.com' },
+    supportingPoints: [
+      'Curated crews that stay in sync with your roadmap',
+      'Mentorship from seasoned operators and advisors',
+      'Enterprise compliance, payments, and onboarding built-in',
+      {
+        title: 'Global reach with local nuance',
+        description: '42 countries represented across product, growth, and impact missions.',
+      },
+    ],
+    stats: [
+      { label: 'Teams onboarded', value: '3,800+', helper: 'Accelerating launches worldwide' },
+      { label: 'Average go-live', value: '6 weeks', helper: 'From kickoff to first delivery' },
+      { label: 'Mentor network', value: '420+', helper: 'Operators coaching every cohort' },
+    ],
+    logos: ['Northwind Digital', 'Forma Studio', 'Atlas Labs', 'Redbird Ventures'],
+    guarantees: ['SOC2 Type II', { label: 'Global compliance' }, { label: 'Escrow protected' }],
+    testimonial: {
+      quote: 'Gigvora aligned our mentors and operators within days—we shipped our launch playbook 3x faster.',
+      name: 'Leah Patel',
+      role: 'Programme Director',
+      company: 'Northwind Digital',
+      avatar: {
+        src: 'https://cdn.gigvora.com/assets/avatars/leah-patel.png',
+        alt: 'Portrait of Leah Patel smiling',
+      },
+    },
+    footnote: 'Backed by production telemetry across venture, enterprise, and social impact programmes.',
   },
 };
 
@@ -838,9 +886,43 @@ const sanitizeMarketingAnnouncement = (announcement, fallback = {}) => {
   return payload;
 };
 
-const sanitizeMarketingTestimonials = (testimonials, fallback = []) => {
-  const baseList = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_FRAGMENT.marketing.testimonials;
-  const list = Array.isArray(testimonials) ? testimonials : [];
+const sanitizeHeroStats = (stats, fallback = []) => {
+  const baseList = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_FRAGMENT.marketing.testimonials.hero.stats;
+  const list = Array.isArray(stats) ? stats : [];
+  const cleaned = list
+    .map((stat, index) => {
+      const base = baseList[index] ?? baseList[0];
+      const value = safeString(stat?.value, base?.value ?? '');
+      const label = safeString(stat?.label, base?.label ?? '');
+      if (!value || !label) {
+        return null;
+      }
+      return {
+        value,
+        label,
+        helper: safeString(stat?.helper ?? stat?.description ?? stat?.copy, base?.helper ?? ''),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 6);
+  return cleaned.length ? cleaned : baseList.map((item) => ({ ...item }));
+};
+
+const sanitizeTestimonialsHero = (hero, fallback = {}) => {
+  const base = fallback && typeof fallback === 'object' ? fallback : DEFAULT_FRAGMENT.marketing.testimonials.hero;
+  const source = hero && typeof hero === 'object' ? hero : {};
+  const heading = safeString(source.heading ?? source.title, base.heading ?? '');
+  return {
+    eyebrow: safeString(source.eyebrow ?? source.label, base.eyebrow ?? ''),
+    heading: heading || base.heading || DEFAULT_FRAGMENT.marketing.testimonials.hero.heading,
+    description: safeString(source.description ?? source.summary, base.description ?? ''),
+    stats: sanitizeHeroStats(source.stats ?? source.metrics, base.stats ?? []),
+  };
+};
+
+const sanitizeTestimonialItems = (items, fallback = []) => {
+  const baseList = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_FRAGMENT.marketing.testimonials.items;
+  const list = Array.isArray(items) ? items : [];
   const cleaned = list
     .map((testimonial, index) => {
       const base = baseList[index] ?? baseList[0];
@@ -858,9 +940,12 @@ const sanitizeMarketingTestimonials = (testimonials, fallback = []) => {
         testimonial?.authorCompany ?? testimonial?.company ?? testimonial?.organisation ?? testimonial?.organization,
         base?.authorCompany ?? '',
       );
-      const avatarUrl = safeString(testimonial?.avatarUrl ?? testimonial?.avatar, base?.avatarUrl ?? '');
+      const avatarUrl = safeString(
+        testimonial?.avatarUrl ?? testimonial?.avatar?.src ?? testimonial?.avatar,
+        base?.avatarUrl ?? '',
+      );
       const avatarAlt = safeString(
-        testimonial?.avatarAlt ?? testimonial?.avatarAltText,
+        testimonial?.avatarAlt ?? testimonial?.avatar?.alt ?? testimonial?.avatarAltText,
         base?.avatarAlt ?? (authorName ? `${authorName} portrait` : ''),
       );
       const highlight = safeString(
@@ -883,8 +968,194 @@ const sanitizeMarketingTestimonials = (testimonials, fallback = []) => {
     })
     .filter(Boolean)
     .slice(0, 6);
-
   return cleaned.length ? cleaned : baseList.map((item) => ({ ...item }));
+};
+
+const sanitizeMarketingTestimonials = (testimonials, fallback = {}) => {
+  const baseSection = fallback && typeof fallback === 'object' && !Array.isArray(fallback)
+    ? fallback
+    : DEFAULT_FRAGMENT.marketing.testimonials;
+  if (Array.isArray(testimonials)) {
+    return {
+      hero: sanitizeTestimonialsHero({}, baseSection.hero ?? {}),
+      items: sanitizeTestimonialItems(testimonials, baseSection.items ?? []),
+    };
+  }
+
+  const source = testimonials && typeof testimonials === 'object' ? testimonials : {};
+  const itemsSource = Array.isArray(source.items)
+    ? source.items
+    : Array.isArray(source.testimonials)
+    ? source.testimonials
+    : Array.isArray(source.quotes)
+    ? source.quotes
+    : [];
+
+  return {
+    hero: sanitizeTestimonialsHero(source.hero ?? source, baseSection.hero ?? {}),
+    items: sanitizeTestimonialItems(itemsSource, baseSection.items ?? []),
+  };
+};
+
+const sanitizeSupportingPoints = (points, fallback = []) => {
+  const baseList = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_FRAGMENT.closingCta.supportingPoints;
+  const list = Array.isArray(points) ? points : [];
+  const cleaned = list
+    .map((point, index) => {
+      if (typeof point === 'string') {
+        const label = safeString(point, '');
+        return label ? label : null;
+      }
+      const base = baseList[index] ?? baseList[0];
+      const title = safeString(point?.title ?? point?.heading, base?.title ?? '');
+      const description = safeString(point?.description ?? point?.copy, base?.description ?? '');
+      if (!title && !description) {
+        return null;
+      }
+      return {
+        ...(title ? { title } : {}),
+        ...(description ? { description } : {}),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 6);
+  return cleaned.length ? cleaned : baseList.map((item) => (typeof item === 'string' ? item : { ...item }));
+};
+
+const sanitizeLogos = (logos, fallback = []) => {
+  const baseList = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_FRAGMENT.closingCta.logos;
+  const list = Array.isArray(logos) ? logos : [];
+  const cleaned = list
+    .map((logo, index) => {
+      if (typeof logo === 'string') {
+        const label = safeString(logo, '');
+        return label ? label : null;
+      }
+      const base = baseList[index] ?? baseList[0];
+      const label = safeString(logo?.label ?? logo?.name, base ?? '');
+      return label ? label : null;
+    })
+    .filter(Boolean)
+    .slice(0, 8);
+  return cleaned.length ? cleaned : baseList.map((item) => (typeof item === 'string' ? item : safeString(item, '')));
+};
+
+const sanitizeGuarantees = (guarantees, fallback = []) => {
+  const baseList = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_FRAGMENT.closingCta.guarantees;
+  const list = Array.isArray(guarantees) ? guarantees : [];
+  const cleaned = list
+    .map((guarantee, index) => {
+      if (typeof guarantee === 'string') {
+        const label = safeString(guarantee, '');
+        return label ? label : null;
+      }
+      const base = baseList[index] ?? baseList[0];
+      const label = safeString(guarantee?.label ?? guarantee?.title, base?.label ?? '');
+      if (!label) {
+        return null;
+      }
+      return { label };
+    })
+    .filter(Boolean)
+    .slice(0, 6);
+  return cleaned.length ? cleaned : baseList.map((item) => (typeof item === 'string' ? item : { ...item }));
+};
+
+const sanitizeTestimonialSpotlight = (testimonial, fallback = {}) => {
+  const base = fallback && typeof fallback === 'object' ? fallback : DEFAULT_FRAGMENT.closingCta.testimonial;
+  const source = testimonial && typeof testimonial === 'object' ? testimonial : {};
+  const quote = safeString(source.quote, base.quote ?? '');
+  const name = safeString(source.name ?? source.author, base.name ?? base.author ?? '');
+  if (!quote || !name) {
+    return base;
+  }
+  const role = safeString(source.role ?? source.authorRole, base.role ?? base.authorRole ?? '');
+  const company = safeString(source.company ?? source.authorCompany, base.company ?? base.authorCompany ?? '');
+  const avatarSource = source.avatar && typeof source.avatar === 'object' ? source.avatar : {};
+  const avatar = source.avatar
+    ? {
+        src: safeString(avatarSource.src ?? source.avatar, base.avatar?.src ?? ''),
+        alt: safeString(avatarSource.alt ?? source.avatarAlt, base.avatar?.alt ?? ''),
+      }
+    : base.avatar
+    ? { ...base.avatar }
+    : undefined;
+
+  return {
+    quote,
+    name,
+    ...(role ? { role } : {}),
+    ...(company ? { company } : {}),
+    ...(avatar?.src ? { avatar } : {}),
+  };
+};
+
+const sanitizeCtaAction = (action, fallback = {}) => {
+  const base = fallback && typeof fallback === 'object' ? fallback : {};
+  const source = action && typeof action === 'object' ? action : {};
+  const label = safeString(source.label ?? source.title, base.label ?? '');
+  if (!label) {
+    return base.label ? { ...base } : null;
+  }
+  const payload = { label };
+  const href = safeString(source.href ?? source.url, base.href ?? '');
+  if (href) {
+    payload.href = href;
+  }
+  const route = !href ? safeString(source.route ?? source.path, base.route ?? '') : '';
+  if (route) {
+    payload.route = route;
+  }
+  const target = safeString(source.target, base.target ?? '');
+  if (target) {
+    payload.target = target;
+  }
+  return payload;
+};
+
+const sanitizeClosingCta = (closingCta, fallback = {}) => {
+  const base = fallback && typeof fallback === 'object' ? fallback : DEFAULT_FRAGMENT.closingCta;
+  const source = closingCta && typeof closingCta === 'object' ? closingCta : {};
+  const ensureAction = (action, baseAction) => {
+    if (action) {
+      return action;
+    }
+    if (baseAction && typeof baseAction === 'object') {
+      return sanitizeCtaAction(baseAction, {}) ?? { ...baseAction };
+    }
+    return null;
+  };
+  const eyebrow = safeString(source.eyebrow ?? source.label, base.eyebrow ?? DEFAULT_FRAGMENT.closingCta.eyebrow ?? '');
+  const title = safeString(source.title ?? source.heading, base.title ?? DEFAULT_FRAGMENT.closingCta.title ?? '');
+  const description = safeString(
+    source.description ?? source.summary,
+    base.description ?? DEFAULT_FRAGMENT.closingCta.description ?? '',
+  );
+  const footnote = safeString(
+    source.footnote ?? source.footerNote ?? source.caption,
+    base.footnote ?? DEFAULT_FRAGMENT.closingCta.footnote ?? '',
+  );
+  const primary = sanitizeCtaAction(source.primaryAction ?? source.primary, base.primaryAction ?? {});
+  const secondary = sanitizeCtaAction(source.secondaryAction ?? source.secondary, base.secondaryAction ?? {});
+  const supportingPointsFallback = base.supportingPoints ?? DEFAULT_FRAGMENT.closingCta.supportingPoints ?? [];
+  const statsFallback = base.stats ?? DEFAULT_FRAGMENT.closingCta.stats ?? [];
+  const logosFallback = base.logos ?? DEFAULT_FRAGMENT.closingCta.logos ?? [];
+  const guaranteesFallback = base.guarantees ?? DEFAULT_FRAGMENT.closingCta.guarantees ?? [];
+  const testimonialFallback = base.testimonial ?? DEFAULT_FRAGMENT.closingCta.testimonial ?? {};
+
+  return {
+    eyebrow: eyebrow || DEFAULT_FRAGMENT.closingCta.eyebrow,
+    title: title || DEFAULT_FRAGMENT.closingCta.title,
+    description: description || DEFAULT_FRAGMENT.closingCta.description,
+    primaryAction: ensureAction(primary, base.primaryAction ?? DEFAULT_FRAGMENT.closingCta.primaryAction),
+    secondaryAction: ensureAction(secondary, base.secondaryAction ?? DEFAULT_FRAGMENT.closingCta.secondaryAction),
+    supportingPoints: sanitizeSupportingPoints(source.supportingPoints, supportingPointsFallback),
+    stats: sanitizeHeroStats(source.stats ?? source.metrics, statsFallback),
+    logos: sanitizeLogos(source.logos, logosFallback),
+    guarantees: sanitizeGuarantees(source.guarantees, guaranteesFallback),
+    testimonial: sanitizeTestimonialSpotlight(source.testimonial, testimonialFallback),
+    footnote: footnote || DEFAULT_FRAGMENT.closingCta.footnote,
+  };
 };
 
 const sanitizeTourMedia = (media, fallback = {}) => {
@@ -1089,13 +1360,13 @@ const sanitizePricingMetrics = (metrics, fallback = []) => {
   return cleaned.length ? cleaned : baseList.map((item) => ({ ...item }));
 };
 
-const sanitizePricing = (pricing) => {
-  const fallback = DEFAULT_FRAGMENT.marketing.pricing;
+const sanitizePricing = (pricing, fallback = DEFAULT_FRAGMENT.marketing.pricing) => {
+  const base = fallback && typeof fallback === 'object' ? fallback : DEFAULT_FRAGMENT.marketing.pricing;
   const source = pricing && typeof pricing === 'object' ? pricing : {};
   return {
-    plans: sanitizePricingPlans(source.plans, fallback.plans),
-    featureMatrix: sanitizePricingFeatureMatrix(source.featureMatrix, fallback.featureMatrix),
-    metrics: sanitizePricingMetrics(source.metrics, fallback.metrics),
+    plans: sanitizePricingPlans(source.plans, base.plans),
+    featureMatrix: sanitizePricingFeatureMatrix(source.featureMatrix, base.featureMatrix),
+    metrics: sanitizePricingMetrics(source.metrics, base.metrics),
   };
 };
 
@@ -1106,9 +1377,12 @@ const sanitizeMarketing = (marketing) => {
     announcement: sanitizeMarketingAnnouncement(source.announcement, fallback.announcement),
     trustBadges: sanitizeTrustBadges(source.trustBadges, fallback.trustBadges),
     personas: sanitizeMarketingPersonas(source.personas, fallback.personas),
-    productTour: { steps: sanitizeProductTourSteps(source?.productTour?.steps ?? source.productTourSteps, fallback.productTour.steps) },
+    productTour: {
+      steps: sanitizeProductTourSteps(source?.productTour?.steps ?? source.productTourSteps, fallback.productTour.steps),
+    },
     testimonials: sanitizeMarketingTestimonials(source.testimonials, fallback.testimonials),
-    pricing: sanitizePricing(source.pricing),
+    pricing: sanitizePricing(source.pricing, fallback.pricing),
+    closingCta: sanitizeClosingCta(source.closingCta ?? source.ctaBand ?? source.joinCommunity, fallback.closingCta),
   };
 };
 

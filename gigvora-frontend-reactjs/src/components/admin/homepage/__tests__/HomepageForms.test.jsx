@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { vi } from 'vitest';
 import HomepageHeroForm from '../HomepageHeroForm.jsx';
 import HomepageFaqForm from '../HomepageFaqForm.jsx';
 import HomepageFeatureSectionsForm from '../HomepageFeatureSectionsForm.jsx';
@@ -57,19 +58,37 @@ describe('Homepage admin forms snapshots', () => {
     expect(container.querySelector('#seo-keywords').value).toBe('gigvora, automation, compliance');
   });
 
-  it('renders testimonials with highlight checkbox', () => {
-    const value = [
-      {
-        id: 't1',
-        quote: 'Gigvora accelerated our launches.',
-        authorName: 'Alex',
-        authorRole: 'Head of Product',
-        highlight: true,
+  it('renders testimonials hero controls and updates payload', () => {
+    const handleChange = vi.fn();
+    const value = {
+      hero: {
+        eyebrow: 'Social proof',
+        heading: 'Trusted by pioneers',
+        description: 'Operators rave about the polish.',
+        stats: [{ id: 'stat-1', value: '92%', label: 'Renewals', helper: '60 day window' }],
+        logos: ['Northwind Labs'],
       },
-    ];
-    const { container } = render(<HomepageTestimonialsForm value={value} onChange={() => {}} />);
-    expect(screen.getByText(/testimonials/i)).toBeInTheDocument();
-    expect(container.querySelector('textarea').value).toContain('accelerated');
-    expect(container.querySelector('input[type="checkbox"]').checked).toBe(true);
+      items: [
+        {
+          id: 't1',
+          quote: 'Gigvora accelerated our launches.',
+          authorName: 'Alex',
+          authorRole: 'Head of Product',
+          authorCompany: 'Northwind',
+          badge: 'Enterprise rollout',
+        },
+      ],
+    };
+    render(<HomepageTestimonialsForm value={value} onChange={handleChange} />);
+
+    expect(screen.getByLabelText(/Hero heading/i).value).toBe('Trusted by pioneers');
+    expect(screen.getByLabelText(/Hero description/i).value).toContain('Operators rave');
+    expect(screen.getByText(/Testimonial 1/i)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/Hero eyebrow/i), { target: { value: 'Proof points' } });
+
+    expect(handleChange).toHaveBeenCalledWith(
+      expect.objectContaining({ hero: expect.objectContaining({ eyebrow: 'Proof points' }) }),
+    );
   });
 });

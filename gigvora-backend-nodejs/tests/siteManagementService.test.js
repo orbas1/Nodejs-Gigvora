@@ -43,6 +43,23 @@ describe('siteManagementService', () => {
         trustBadges: [{ label: '  ', description: '' }],
         productTour: { steps: [{ id: 'custom', title: '  ', summary: 'Summary' }] },
         pricing: { plans: [{ name: '  ', pricing: { monthly: 0 } }] },
+        testimonials: [
+          {
+            id: 'proof',
+            quote: '  Gigvora delivered the launch  ',
+            authorName: '  Casey Vega  ',
+            authorCompany: '  Northwind  ',
+            badge: '  Enterprise  ',
+          },
+        ],
+        closingCta: {
+          title: '   ',
+          description: '  Join the operators  ',
+          primaryAction: { label: '  Claim now  ', route: '  /register  ' },
+          secondaryAction: { label: 'Talk', href: ' mailto:success@gigvora.com ' },
+          stats: [{ value: ' 92% ', label: ' Renewals ' }],
+          guarantees: ['  SOC2  '],
+        },
       },
     });
     const overview = await getSiteManagementOverview();
@@ -51,6 +68,11 @@ describe('siteManagementService', () => {
     expect(overview.settings.marketing.trustBadges.length).toBeGreaterThan(0);
     expect(overview.settings.marketing.productTour.steps.length).toBeGreaterThan(0);
     expect(overview.settings.marketing.pricing.plans[0].name).toBeTruthy();
+    expect(overview.settings.marketing.testimonials.hero.heading).toBeTruthy();
+    expect(overview.settings.marketing.testimonials.items[0].authorName).toBe('Casey Vega');
+    expect(overview.settings.marketing.closingCta.title).toBeTruthy();
+    expect(overview.settings.marketing.closingCta.primaryAction.route).toBe('/register');
+    expect(overview.settings.marketing.closingCta.stats[0].value).toBe('92%');
   });
 
   test('creates, updates, and deletes navigation links', async () => {

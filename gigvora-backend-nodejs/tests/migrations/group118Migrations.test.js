@@ -283,6 +283,11 @@ describe('20241205130000-site-homepage-experience.cjs', () => {
     expect(parsed.marketing.personas).toHaveLength(3);
     expect(parsed.marketing.productTour.steps).toHaveLength(4);
     expect(parsed.marketing.pricing.plans).toHaveLength(3);
+    expect(parsed.marketing.testimonials.hero.heading).toContain('Trusted');
+    expect(parsed.marketing.testimonials.hero.stats).toHaveLength(3);
+    expect(parsed.marketing.testimonials.items.length).toBeGreaterThan(0);
+    expect(parsed.marketing.closingCta.title).toContain('Join');
+    expect(parsed.marketing.closingCta.primaryAction.label).toBeTruthy();
   });
 
   it('sanitizes existing homepage settings and keeps safe overrides', async () => {
@@ -347,6 +352,10 @@ describe('20241205130000-site-homepage-experience.cjs', () => {
     expect(parsed.marketing.trustBadges[0].label).toBe('SOC 2 Type II');
     expect(parsed.marketing.productTour.steps[0].title).toContain('Command centre');
     expect(parsed.marketing.pricing.plans.find((plan) => plan.id === 'launch').metrics['Seats included']).toBe('25');
+    expect(parsed.marketing.testimonials.hero.description).toContain('Gigvora');
+    expect(parsed.marketing.testimonials.items[0].quote).toContain('Gigvora');
+    expect(parsed.marketing.closingCta.supportingPoints.length).toBeGreaterThan(0);
+    expect(parsed.marketing.closingCta.stats.length).toBeGreaterThan(0);
   });
 
   it('removes marketing fragment on down migration', async () => {

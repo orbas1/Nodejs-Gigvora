@@ -526,6 +526,54 @@ const DEFAULT_MARKETING_TESTIMONIALS = [
   },
 ];
 
+const DEFAULT_MARKETING_TESTIMONIALS_HERO = {
+  eyebrow: 'Social proof',
+  heading: 'Trusted by operators shipping the future',
+  description:
+    'From venture studios to enterprise programmes, the teams building on Gigvora speak to velocity, trust, and polish that rivals the largest professional networks.',
+  stats: [
+    { value: '68', label: 'NPS', helper: 'Rolling 90-day sentiment' },
+    { value: '4,200+', label: 'Crews', helper: 'Programmes delivered globally' },
+    { value: '92%', label: 'Renewals', helper: 'Expansions inside 60 days' },
+  ],
+};
+
+const DEFAULT_MARKETING_CTA_BAND = {
+  eyebrow: 'Membership',
+  title: 'Join the community where elite crews, mentors, and operators ship together',
+  description:
+    'Onboard in minutes, align collaborators, and access vetted specialists who move at the pace of your programme.',
+  primaryAction: { label: 'Claim your seat', route: '/register' },
+  secondaryAction: { label: 'Talk with our team', href: 'mailto:hello@gigvora.com' },
+  supportingPoints: [
+    'Curated crews that stay in sync with your roadmap',
+    'Mentorship from seasoned operators and advisors',
+    'Enterprise compliance, payments, and onboarding built-in',
+    {
+      title: 'Global reach with local nuance',
+      description: '42 countries represented across product, growth, and impact missions.',
+    },
+  ],
+  stats: [
+    { label: 'Teams onboarded', value: '3,800+', helper: 'Accelerating launches worldwide' },
+    { label: 'Average go-live', value: '6 weeks', helper: 'From kickoff to first delivery' },
+    { label: 'Mentor network', value: '420+', helper: 'Operators coaching every cohort' },
+  ],
+  logos: ['Northwind Digital', 'Forma Studio', 'Atlas Labs', 'Redbird Ventures'],
+  guarantees: ['SOC2 Type II', { label: 'Global compliance' }, { label: 'Escrow protected' }],
+  testimonial: {
+    quote: 'Gigvora aligned our mentors and operators within days—we shipped our launch playbook 3x faster.',
+    name: 'Leah Patel',
+    role: 'Programme Director',
+    company: 'Northwind Digital',
+    avatar: {
+      src: 'https://cdn.gigvora.com/assets/avatars/leah-patel.png',
+      alt: 'Portrait of Leah Patel smiling',
+    },
+  },
+  footnote: 'Backed by production telemetry across venture, enterprise, and social impact programmes.',
+};
+
 const DEFAULT_MARKETING_FRAGMENT = {
   announcement: { ...DEFAULT_MARKETING_ANNOUNCEMENT },
   trustBadges: [...DEFAULT_MARKETING_TRUST_BADGES],
@@ -536,7 +584,11 @@ const DEFAULT_MARKETING_FRAGMENT = {
     featureMatrix: [...DEFAULT_PRICING_FEATURE_MATRIX],
     metrics: [...DEFAULT_PRICING_METRICS],
   },
-  testimonials: [...DEFAULT_MARKETING_TESTIMONIALS],
+  testimonials: {
+    hero: { ...DEFAULT_MARKETING_TESTIMONIALS_HERO },
+    items: [...DEFAULT_MARKETING_TESTIMONIALS],
+  },
+  closingCta: { ...DEFAULT_MARKETING_CTA_BAND },
 };
 
 function coerceString(value, fallback = '') {
@@ -999,9 +1051,43 @@ function sanitizeMarketingPersonas(personas, fallback = []) {
   return cleaned.length ? cleaned : baseList.map((item) => ({ ...item }));
 }
 
-function sanitizeMarketingTestimonials(testimonials, fallback = []) {
-  const list = Array.isArray(testimonials) ? testimonials : [];
+function sanitizeHeroStats(stats, fallback = []) {
+  const baseList = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_MARKETING_TESTIMONIALS_HERO.stats;
+  const list = Array.isArray(stats) ? stats : [];
+  const cleaned = list
+    .map((stat, index) => {
+      const base = baseList[index] ?? baseList[0];
+      const value = coerceString(stat?.value, base?.value ?? '');
+      const label = coerceString(stat?.label, base?.label ?? '');
+      if (!value || !label) {
+        return null;
+      }
+      return {
+        value,
+        label,
+        helper: coerceOptionalString(stat?.helper ?? stat?.description ?? stat?.copy, base?.helper ?? ''),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 6);
+  return cleaned.length ? cleaned : baseList.map((item) => ({ ...item }));
+}
+
+function sanitizeTestimonialsHero(hero, fallback = {}) {
+  const base = fallback && typeof fallback === 'object' ? fallback : DEFAULT_MARKETING_TESTIMONIALS_HERO;
+  const source = hero && typeof hero === 'object' ? hero : {};
+  const heading = coerceString(source.heading ?? source.title, base.heading ?? '');
+  return {
+    eyebrow: coerceOptionalString(source.eyebrow ?? source.label, base.eyebrow ?? ''),
+    heading: heading || base.heading || DEFAULT_MARKETING_TESTIMONIALS_HERO.heading,
+    description: coerceOptionalString(source.description ?? source.summary, base.description ?? ''),
+    stats: sanitizeHeroStats(source.stats ?? source.metrics, base.stats ?? []),
+  };
+}
+
+function sanitizeTestimonialItems(items, fallback = []) {
   const baseList = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_MARKETING_TESTIMONIALS;
+  const list = Array.isArray(items) ? items : [];
   const cleaned = list
     .map((testimonial, index) => {
       const base = baseList[index] ?? baseList[0];
@@ -1010,8 +1096,6 @@ function sanitizeMarketingTestimonials(testimonials, fallback = []) {
       if (!quote || !authorName) {
         return null;
       }
-      const highlightSource =
-        testimonial?.highlight ?? testimonial?.highlightSummary ?? testimonial?.result ?? base?.highlight ?? '';
       return {
         id: coerceOptionalString(
           testimonial?.id ?? testimonial?.key ?? testimonial?.slug,
@@ -1024,18 +1108,182 @@ function sanitizeMarketingTestimonials(testimonials, fallback = []) {
           testimonial?.authorCompany ?? testimonial?.company ?? testimonial?.organisation ?? testimonial?.organization,
           base?.authorCompany ?? '',
         ),
-        avatarUrl: coerceOptionalString(testimonial?.avatarUrl ?? testimonial?.avatar, base?.avatarUrl ?? ''),
+        avatarUrl: coerceOptionalString(
+          testimonial?.avatarUrl ?? testimonial?.avatar?.src ?? testimonial?.avatar,
+          base?.avatarUrl ?? '',
+        ),
         avatarAlt: coerceOptionalString(
-          testimonial?.avatarAlt ?? testimonial?.avatarAltText,
+          testimonial?.avatarAlt ?? testimonial?.avatar?.alt ?? testimonial?.avatarAltText,
           base?.avatarAlt ?? (authorName ? `${authorName} portrait` : ''),
         ),
-        highlight: coerceOptionalString(highlightSource, base?.highlight ?? ''),
+        highlight: coerceOptionalString(
+          testimonial?.highlight ?? testimonial?.highlightSummary ?? testimonial?.result,
+          base?.highlight ?? '',
+        ),
         badge: coerceOptionalString(testimonial?.badge ?? testimonial?.tag ?? testimonial?.segment, base?.badge ?? ''),
       };
     })
     .filter(Boolean)
     .slice(0, 6);
   return cleaned.length ? cleaned : baseList.map((item) => ({ ...item }));
+}
+
+function sanitizeMarketingTestimonials(testimonials, fallback = DEFAULT_MARKETING_FRAGMENT.testimonials) {
+  if (Array.isArray(testimonials)) {
+    return {
+      hero: sanitizeTestimonialsHero({}, fallback.hero ?? {}),
+      items: sanitizeTestimonialItems(testimonials, fallback.items ?? []),
+    };
+  }
+
+  const baseSection = fallback && typeof fallback === 'object' ? fallback : DEFAULT_MARKETING_FRAGMENT.testimonials;
+  const source = testimonials && typeof testimonials === 'object' ? testimonials : {};
+  const itemsSource = Array.isArray(source.items)
+    ? source.items
+    : Array.isArray(source.testimonials)
+    ? source.testimonials
+    : Array.isArray(source.quotes)
+    ? source.quotes
+    : [];
+
+  return {
+    hero: sanitizeTestimonialsHero(source.hero ?? source, baseSection.hero ?? {}),
+    items: sanitizeTestimonialItems(itemsSource, baseSection.items ?? []),
+  };
+}
+
+function sanitizeSupportingPoints(points, fallback = []) {
+  const baseList = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_MARKETING_CTA_BAND.supportingPoints;
+  const list = Array.isArray(points) ? points : [];
+  const cleaned = list
+    .map((point, index) => {
+      if (typeof point === 'string') {
+        const label = coerceString(point, '');
+        return label ? label : null;
+      }
+      const base = baseList[index] ?? baseList[0];
+      const title = coerceOptionalString(point?.title ?? point?.heading, base?.title ?? '');
+      const description = coerceOptionalString(point?.description ?? point?.copy, base?.description ?? '');
+      if (!title && !description) {
+        return null;
+      }
+      return {
+        ...(title ? { title } : {}),
+        ...(description ? { description } : {}),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 6);
+  return cleaned.length ? cleaned : baseList.map((item) => (typeof item === 'string' ? item : { ...item }));
+}
+
+function sanitizeLogos(logos, fallback = []) {
+  const baseList = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_MARKETING_CTA_BAND.logos;
+  const list = Array.isArray(logos) ? logos : [];
+  const cleaned = list
+    .map((logo, index) => {
+      if (typeof logo === 'string') {
+        const label = coerceString(logo, '');
+        return label ? label : null;
+      }
+      const base = baseList[index] ?? baseList[0];
+      const label = coerceString(logo?.label ?? logo?.name, base ?? '');
+      return label ? label : null;
+    })
+    .filter(Boolean)
+    .slice(0, 8);
+  return cleaned.length ? cleaned : baseList.map((item) => (typeof item === 'string' ? item : coerceString(item, '')));
+}
+
+function sanitizeGuarantees(guarantees, fallback = []) {
+  const baseList = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_MARKETING_CTA_BAND.guarantees;
+  const list = Array.isArray(guarantees) ? guarantees : [];
+  const cleaned = list
+    .map((guarantee, index) => {
+      if (typeof guarantee === 'string') {
+        const label = coerceString(guarantee, '');
+        return label ? label : null;
+      }
+      const base = baseList[index] ?? baseList[0];
+      const label = coerceString(guarantee?.label ?? guarantee?.title, base?.label ?? '');
+      if (!label) {
+        return null;
+      }
+      return { label };
+    })
+    .filter(Boolean)
+    .slice(0, 6);
+  return cleaned.length ? cleaned : baseList.map((item) => (typeof item === 'string' ? item : { ...item }));
+}
+
+function sanitizeTestimonialSpotlight(testimonial, fallback = {}) {
+  const base = fallback && typeof fallback === 'object' ? fallback : DEFAULT_MARKETING_CTA_BAND.testimonial;
+  const source = testimonial && typeof testimonial === 'object' ? testimonial : {};
+  const quote = coerceString(source.quote, base.quote ?? '');
+  const name = coerceString(source.name ?? source.author, base.name ?? base.author ?? '');
+  if (!quote || !name) {
+    return base;
+  }
+  const role = coerceOptionalString(source.role ?? source.authorRole, base.role ?? base.authorRole ?? '');
+  const company = coerceOptionalString(source.company ?? source.authorCompany, base.company ?? base.authorCompany ?? '');
+  const avatarSource = source.avatar && typeof source.avatar === 'object' ? source.avatar : {};
+  const avatar = source.avatar
+    ? {
+        src: coerceOptionalString(avatarSource.src ?? source.avatar, base.avatar?.src ?? ''),
+        alt: coerceOptionalString(avatarSource.alt ?? source.avatarAlt, base.avatar?.alt ?? ''),
+      }
+    : base.avatar
+    ? { ...base.avatar }
+    : undefined;
+  return {
+    quote,
+    name,
+    ...(role ? { role } : {}),
+    ...(company ? { company } : {}),
+    ...(avatar?.src ? { avatar } : {}),
+  };
+}
+
+function sanitizeCtaAction(action, fallback = {}) {
+  const base = fallback && typeof fallback === 'object' ? fallback : {};
+  const source = action && typeof action === 'object' ? action : {};
+  const label = coerceString(source.label ?? source.title, base.label ?? '');
+  if (!label) {
+    return base.label ? { ...base } : null;
+  }
+  const payload = { label };
+  const href = coerceOptionalString(source.href ?? source.url, base.href ?? '');
+  if (href) {
+    payload.href = href;
+  }
+  const route = !href ? coerceOptionalString(source.route ?? source.path, base.route ?? '') : '';
+  if (route) {
+    payload.route = route;
+  }
+  const target = coerceOptionalString(source.target, base.target ?? '');
+  if (target) {
+    payload.target = target;
+  }
+  return payload;
+}
+
+function sanitizeClosingCta(closingCta, fallback = DEFAULT_MARKETING_CTA_BAND) {
+  const base = fallback && typeof fallback === 'object' ? fallback : DEFAULT_MARKETING_CTA_BAND;
+  const source = closingCta && typeof closingCta === 'object' ? closingCta : {};
+  const primary = sanitizeCtaAction(source.primaryAction ?? source.primary, base.primaryAction ?? {});
+  return {
+    eyebrow: coerceOptionalString(source.eyebrow ?? source.label, base.eyebrow ?? ''),
+    title: coerceString(source.title ?? source.heading, base.title ?? ''),
+    description: coerceOptionalString(source.description ?? source.summary, base.description ?? ''),
+    primaryAction: primary ?? sanitizeCtaAction(base.primaryAction, {}),
+    secondaryAction: sanitizeCtaAction(source.secondaryAction ?? source.secondary, base.secondaryAction ?? {}),
+    supportingPoints: sanitizeSupportingPoints(source.supportingPoints, base.supportingPoints ?? []),
+    stats: sanitizeHeroStats(source.stats ?? source.metrics, base.stats ?? []),
+    logos: sanitizeLogos(source.logos, base.logos ?? []),
+    guarantees: sanitizeGuarantees(source.guarantees, base.guarantees ?? []),
+    testimonial: sanitizeTestimonialSpotlight(source.testimonial, base.testimonial ?? {}),
+    footnote: coerceOptionalString(source.footnote ?? source.footerNote ?? source.caption, base.footnote ?? ''),
+  };
 }
 
 function sanitizePricingPlans(plans, fallback = []) {
@@ -1140,8 +1388,8 @@ function sanitizePricingMetrics(metrics, fallback = []) {
   return cleaned.length ? cleaned : baseList.map((item) => ({ ...item }));
 }
 
-function sanitizePricing(pricing, fallback = {}) {
-  const base = fallback ?? {};
+function sanitizePricing(pricing, fallback = DEFAULT_MARKETING_FRAGMENT.pricing) {
+  const base = fallback && typeof fallback === 'object' ? fallback : DEFAULT_MARKETING_FRAGMENT.pricing;
   const source = pricing && typeof pricing === 'object' ? pricing : {};
   return {
     plans: sanitizePricingPlans(source.plans, base.plans ?? DEFAULT_PRICING_PLANS),
@@ -1160,6 +1408,7 @@ function sanitizeMarketing(marketing, fallback = DEFAULT_MARKETING_FRAGMENT) {
     productTour: { steps: sanitizeProductTourSteps(source?.productTour?.steps ?? source.productTourSteps, base.productTour?.steps) },
     pricing: sanitizePricing(source.pricing, base.pricing),
     testimonials: sanitizeMarketingTestimonials(source.testimonials, base.testimonials),
+    closingCta: sanitizeClosingCta(source.closingCta ?? source.ctaBand ?? source.joinCommunity, base.closingCta),
   };
 }
 

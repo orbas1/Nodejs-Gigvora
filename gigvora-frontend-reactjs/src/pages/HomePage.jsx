@@ -6,6 +6,7 @@ import analytics from '../services/analytics.js';
 import MarketingLayout from '../components/marketing/MarketingLayout.jsx';
 import ProductTour from '../components/marketing/ProductTour.jsx';
 import PricingTable from '../components/marketing/PricingTable.jsx';
+import { testimonials as defaultTestimonials, joinCommunityCta as defaultJoinCommunityCta } from '../content/home/testimonials.js';
 
 import {
   HomeHeroSection,
@@ -29,6 +30,44 @@ export const DEFAULT_COMMUNITY_STATS = [
   { label: 'Average NPS', value: '68' },
   { label: 'Completion rate', value: '97%' },
 ];
+
+function normalizeTestimonialsSection(section) {
+  if (!section || typeof section !== 'object') {
+    return null;
+  }
+
+  if (Array.isArray(section)) {
+    return { items: section };
+  }
+
+  const heroSource = section.hero && typeof section.hero === 'object' ? section.hero : section;
+  const items = Array.isArray(section.items)
+    ? section.items
+    : Array.isArray(section.testimonials)
+    ? section.testimonials
+    : Array.isArray(section.quotes)
+    ? section.quotes
+    : [];
+
+  const hero = heroSource && typeof heroSource === 'object'
+    ? {
+        eyebrow: heroSource.eyebrow ?? heroSource.label,
+        heading: heroSource.heading ?? heroSource.title,
+        description: heroSource.description ?? heroSource.summary,
+        stats: Array.isArray(heroSource.stats) ? heroSource.stats : heroSource.metrics,
+        logos: Array.isArray(heroSource.logos) ? heroSource.logos : undefined,
+      }
+    : undefined;
+
+  return { hero, items };
+}
+
+function normalizeClosingCta(cta) {
+  if (!cta || typeof cta !== 'object') {
+    return null;
+  }
+  return cta;
+}
 
 function resolveMarketingContent(homeData) {
   const marketingSource = homeData?.marketing && typeof homeData.marketing === 'object' ? homeData.marketing : {};
@@ -105,11 +144,16 @@ function resolveMarketingContent(homeData) {
         pricingBaseline.metrics ?? [],
       ),
     },
-    testimonials: pickList(
-      marketingSource.testimonials,
-      pageMarketing.testimonials ?? pageContent.testimonials,
-      marketingBaseline.testimonials ?? [],
-    ),
+    testimonials:
+      normalizeTestimonialsSection(marketingSource.testimonials) ||
+      normalizeTestimonialsSection(pageMarketing.testimonials ?? pageContent.testimonials) ||
+      normalizeTestimonialsSection(marketingBaseline.testimonials) ||
+      null,
+    closingCta:
+      normalizeClosingCta(marketingSource.closingCta ?? marketingSource.ctaBand) ||
+      normalizeClosingCta(pageMarketing.closingCta ?? pageContent.closingCta ?? pageContent.joinCommunity) ||
+      normalizeClosingCta(marketingBaseline.closingCta) ||
+      null,
   };
 }
 
@@ -377,10 +421,13 @@ export default function HomePage() {
     return metrics.length ? metrics : undefined;
   }, [marketingContent.pricing?.metrics]);
 
-  const marketingTestimonials = useMemo(() => {
-    const items = ensureArray(marketingContent.testimonials);
-    return items.length ? items : undefined;
+  const marketingTestimonialsSection = useMemo(() => {
+    return marketingContent.testimonials ?? null;
   }, [marketingContent.testimonials]);
+
+  const marketingClosingCta = useMemo(() => {
+    return marketingContent.closingCta ?? null;
+  }, [marketingContent.closingCta]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -517,7 +564,7 @@ export default function HomePage() {
         <TestimonialsSection
           loading={homeLoading}
           error={homeError}
-          testimonials={marketingTestimonials}
+          testimonials={marketingTestimonialsSection}
         />
         <MarketplaceLaunchesSection
           loading={homeLoading}
@@ -542,7 +589,7 @@ export default function HomePage() {
           onExploreMentorshipClick={handleExploreMentorship}
           onGuidelinesClick={handleGuidelines}
         />
-        <JoinCommunitySection />
+        <JoinCommunitySection cta={marketingClosingCta} />
       </div>
     </MarketingLayout>
   );

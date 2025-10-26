@@ -305,17 +305,72 @@ describe('FeesShowcaseSection', () => {
 });
 
 describe('JoinCommunitySection', () => {
-  it('renders call to action links', () => {
-    renderWithRouter(<JoinCommunitySection />);
-    expect(screen.getByRole('link', { name: /Claim your seat/i })).toHaveAttribute('href', '/register');
+  it('normalises CTA payloads and renders stats with guarantees', () => {
+    renderWithRouter(
+      <JoinCommunitySection
+        cta={{
+          eyebrow: 'Membership',
+          title: 'Join a vibrant network',
+          description: 'Align operators, mentors, and crews in one place.',
+          primaryAction: { label: 'Apply now', route: '/apply' },
+          secondaryAction: { label: 'Talk to us', href: 'https://gigvora.com/contact' },
+          stats: [{ value: '92%', label: 'Renewals' }],
+          guarantees: [{ label: 'SOC2' }],
+          logos: ['Northwind Labs'],
+          testimonial: { quote: 'Gigvora elevated our launches.', name: 'Alex Rivera' },
+          footnote: 'Backed by telemetry.',
+        }}
+      />,
+    );
+
+    expect(screen.getByRole('link', { name: /Apply now/i })).toHaveAttribute('href', '/apply');
+    expect(screen.getByRole('link', { name: /Talk to us/i })).toHaveAttribute('href', 'https://gigvora.com/contact');
+    expect(screen.getByText('92%')).toBeInTheDocument();
+    expect(screen.getByText(/SOC2/i)).toBeInTheDocument();
+    expect(screen.getByText(/Northwind Labs/i)).toBeInTheDocument();
+    expect(screen.getByText(/Gigvora elevated our launches/i)).toBeInTheDocument();
+    expect(screen.getByText(/Backed by telemetry/i)).toBeInTheDocument();
   });
 });
 
 describe('TestimonialsSection', () => {
   it('renders testimonials with fallback data', () => {
     renderWithRouter(<TestimonialsSection loading error />);
-    expect(screen.getByText(/Trusted by leaders and makers/i)).toBeInTheDocument();
-    // ensures fallback testimonial present
-    expect(screen.getAllByRole('article').length).toBeGreaterThan(0);
+    expect(screen.getByText(/Trusted by the operators shipping the future/i)).toBeInTheDocument();
+    expect(screen.getByText(/We could not load testimonials right now/i)).toBeInTheDocument();
+  });
+
+  it('honours hero overrides and stat payloads', () => {
+    renderWithRouter(
+      <TestimonialsSection
+        testimonials={{
+          hero: {
+            eyebrow: 'Impact',
+            heading: 'Loved by global programmes',
+            description: 'Every cohort celebrates the polish and speed.',
+            stats: [
+              { value: '120%', label: 'Pipeline velocity', helper: 'Quarterly lift' },
+            ],
+            logos: ['Atlas Collective'],
+          },
+          items: [
+            {
+              id: 'impact',
+              quote: 'Gigvora orchestrated every launch.',
+              authorName: 'Sasha Ali',
+              authorRole: 'Program Director',
+              authorCompany: 'Atlas Collective',
+              badge: 'Global accelerator',
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByText('Loved by global programmes')).toBeInTheDocument();
+    expect(screen.getByText('120%')).toBeInTheDocument();
+    expect(screen.getByText('Pipeline velocity')).toBeInTheDocument();
+    expect(screen.getByText(/Gigvora orchestrated every launch/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Atlas Collective/i).length).toBeGreaterThan(0);
   });
 });

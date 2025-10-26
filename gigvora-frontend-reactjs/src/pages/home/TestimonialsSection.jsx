@@ -2,17 +2,66 @@ import PropTypes from 'prop-types';
 import { testimonials as defaultTestimonials } from '../../content/home/testimonials.js';
 import { TestimonialsCarousel } from '../../components/marketing/TestimonialsCarousel.jsx';
 
-const TRUSTED_LOGOS = [
-  'Northwind Digital',
-  'Forma Studio',
-  'Atlas Labs',
-  'Redbird Ventures',
-  'Aurora Collective',
-];
+function normalizeTestimonials(section) {
+  const baseHero = defaultTestimonials.hero;
+  const baseItems = defaultTestimonials.items;
+
+  if (!section || typeof section !== 'object') {
+    return { hero: baseHero, items: baseItems };
+  }
+
+  const rawItems = Array.isArray(section.items)
+    ? section.items
+    : Array.isArray(section.testimonials)
+    ? section.testimonials
+    : Array.isArray(section.quotes)
+    ? section.quotes
+    : [];
+
+  const heroSource = section.hero && typeof section.hero === 'object' ? section.hero : section;
+
+  const hero = {
+    eyebrow: heroSource.eyebrow ?? heroSource.label ?? baseHero.eyebrow,
+    heading: heroSource.heading ?? heroSource.title ?? baseHero.heading,
+    description: heroSource.description ?? heroSource.summary ?? baseHero.description,
+    stats: Array.isArray(heroSource.stats) && heroSource.stats.length ? heroSource.stats : baseHero.stats,
+    logos: Array.isArray(heroSource.logos) && heroSource.logos.length ? heroSource.logos : baseHero.logos ?? [],
+  };
+
+  const items = rawItems.length ? rawItems : baseItems;
+
+  const normalizedItems = items.map((item) => {
+    if (!item || typeof item !== 'object') {
+      return item;
+    }
+
+    const name = item.authorName ?? item.name ?? '';
+    const avatarCandidate =
+      typeof item.avatar === 'string'
+        ? { src: item.avatar }
+        : item.avatar && typeof item.avatar === 'object'
+        ? { ...item.avatar }
+        : typeof item.avatarUrl === 'string'
+        ? { src: item.avatarUrl }
+        : null;
+
+    if (avatarCandidate) {
+      avatarCandidate.alt = avatarCandidate.alt ?? item.avatarAlt ?? item.avatarAltText ?? (name ? `${name} portrait` : 'Member portrait');
+    }
+
+    return {
+      ...item,
+      ...(avatarCandidate ? { avatar: avatarCandidate } : {}),
+    };
+  });
+
+  return { hero, items: normalizedItems };
+}
 
 export function TestimonialsSection({ loading, error, testimonials }) {
-  const resolvedTestimonials =
-    !loading && !error && Array.isArray(testimonials) && testimonials.length > 0 ? testimonials : defaultTestimonials;
+  const normalized = normalizeTestimonials(!loading && !error ? testimonials : null);
+  const hero = normalized.hero;
+  const items = normalized.items;
 
   return (
     <section className="relative isolate overflow-hidden bg-slate-950 py-28">
@@ -26,17 +75,19 @@ export function TestimonialsSection({ loading, error, testimonials }) {
       </div>
 
       <div className="relative mx-auto flex max-w-6xl flex-col gap-12 px-6 text-white sm:px-10">
-        <div className="space-y-6 text-center sm:space-y-7 sm:text-left">
-          <p className="text-xs font-semibold uppercase tracking-[0.38em] text-accent/90">Proof in production</p>
-          <h2 className="text-pretty text-3xl font-semibold leading-tight sm:text-4xl lg:text-5xl">
-            Operators across continents trust Gigvora crews to launch faster
-          </h2>
-          <p className="mx-auto max-w-3xl text-sm text-white/75 sm:mx-0 sm:text-base">
-            From venture studios to public-sector programmes, founders, executives, and mentors rely on Gigvora’s orchestrated
-            workflows to keep every contributor aligned. These voices come straight from shipped launches.
-          </p>
-          <div className="flex flex-wrap justify-center gap-3 text-[11px] font-semibold uppercase tracking-[0.35em] text-white/60 sm:justify-start">
-            {TRUSTED_LOGOS.map((logo) => (
+        <TestimonialsCarousel
+          testimonials={items}
+          loading={loading}
+          error={error}
+          heroEyebrow={hero.eyebrow}
+          heroHeading={hero.heading}
+          heroDescription={hero.description}
+          heroStats={hero.stats}
+        />
+
+        {hero.logos && hero.logos.length ? (
+          <div className="flex flex-wrap items-center justify-center gap-3 text-[11px] font-semibold uppercase tracking-[0.35em] text-white/60 sm:justify-start">
+            {hero.logos.map((logo) => (
               <span
                 key={logo}
                 className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/5 px-4 py-1"
@@ -45,9 +96,7 @@ export function TestimonialsSection({ loading, error, testimonials }) {
               </span>
             ))}
           </div>
-        </div>
-
-        <TestimonialsCarousel testimonials={resolvedTestimonials} loading={loading} error={error} />
+        ) : null}
       </div>
     </section>
   );
@@ -56,23 +105,38 @@ export function TestimonialsSection({ loading, error, testimonials }) {
 TestimonialsSection.propTypes = {
   loading: PropTypes.bool,
   error: PropTypes.oneOfType([PropTypes.bool, PropTypes.string]),
-  testimonials: PropTypes.arrayOf(
-    PropTypes.shape({
-      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-      quote: PropTypes.string,
-      name: PropTypes.string,
-      authorName: PropTypes.string,
-      role: PropTypes.string,
-      authorRole: PropTypes.string,
-      company: PropTypes.string,
-      authorCompany: PropTypes.string,
-      highlight: PropTypes.string,
-      avatar: PropTypes.string,
-      avatarUrl: PropTypes.string,
-      avatarAlt: PropTypes.string,
-      badge: PropTypes.string,
+  testimonials: PropTypes.shape({
+    hero: PropTypes.shape({
+      eyebrow: PropTypes.string,
+      heading: PropTypes.string,
+      description: PropTypes.string,
+      stats: PropTypes.arrayOf(
+        PropTypes.shape({
+          value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+          label: PropTypes.string,
+          helper: PropTypes.string,
+        }),
+      ),
+      logos: PropTypes.arrayOf(PropTypes.string),
     }),
-  ),
+    items: PropTypes.arrayOf(
+      PropTypes.shape({
+        id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        quote: PropTypes.string,
+        name: PropTypes.string,
+        authorName: PropTypes.string,
+        role: PropTypes.string,
+        authorRole: PropTypes.string,
+        company: PropTypes.string,
+        authorCompany: PropTypes.string,
+        highlight: PropTypes.string,
+        avatar: PropTypes.oneOfType([PropTypes.string, PropTypes.object]),
+        avatarUrl: PropTypes.string,
+        avatarAlt: PropTypes.string,
+        badge: PropTypes.string,
+      }),
+    ),
+  }),
 };
 
 TestimonialsSection.defaultProps = {
