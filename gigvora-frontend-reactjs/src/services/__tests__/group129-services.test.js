@@ -130,7 +130,11 @@ describe('live feed service', () => {
 
     const result = await listFeedPosts({ params: { limit: 5 } });
 
-    expect(apiClient.get).toHaveBeenCalledWith('/feed', { params: { limit: 5 }, signal: undefined });
+    expect(apiClient.get).toHaveBeenCalledWith('/feed', {
+      params: { limit: 5 },
+      signal: undefined,
+      headers: undefined,
+    });
     expect(result.items).toHaveLength(1);
     expect(result.hasMore).toBe(true);
     expect(result.nextCursor).toBe('next');
