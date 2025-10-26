@@ -190,6 +190,8 @@ const feedShareSeeds = [
     channel: 'copy',
     message:
       'Circulating release candidate 1.50 across mentor pods so they can prep their teams for the new analytics export.',
+    notifyList: ['engineering-leads@gigvora.com', 'mentors@gigvora.com'],
+    complianceAcknowledged: true,
   },
   {
     email: 'recruiter@gigvora.com',
@@ -198,6 +200,74 @@ const feedShareSeeds = [
     channel: 'email',
     message:
       'Flagging the automation onboarding template for talent partners — including in the weekly digest to spark referrals.',
+    notifyList: ['talent-partners@gigvora.com'],
+    scheduleOffsetMinutes: 180,
+    complianceAcknowledged: true,
+    metadata: { campaign: 'automation-template' },
+  },
+  {
+    email: 'mia@gigvora.com',
+    postTitle: 'Automation onboarding template available',
+    audience: 'internal',
+    channel: 'secure',
+    message:
+      'Routing the automation template into our client governance workspace so customer councils can review the collateral.',
+    notifyList: ['ops-leads@gigvora.com', 'compliance@gigvora.com'],
+    scheduleOffsetMinutes: 45,
+    complianceAcknowledged: true,
+    metadata: { campaign: 'automation-template', workspace: 'client-governance' },
+  },
+];
+
+const feedCommentSeeds = [
+  {
+    postTitle: 'Release candidate 1.50 rolling out',
+    authorEmail: 'mentor@gigvora.com',
+    message:
+      'Celebrating release 1.50 — mentor pods are prepping client walkthroughs and highlighting the new analytics export.',
+    isPinned: true,
+    insightTags: ['Mentor POV', 'Release plan'],
+    guidance: 'Share adoption wins in the release channel so we can capture customer testimonials.',
+    createdAtOffsetMinutes: 240,
+    replies: [
+      {
+        authorEmail: 'ava@gigvora.com',
+        message:
+          'Appreciate you rallying everyone — we will publish the dashboard templates on Friday with tracking notes.',
+        isOfficial: true,
+        insightTags: ['Founder update'],
+        guidance: 'Drop runbook feedback directly in the release workspace thread.',
+        minutesAfter: 20,
+      },
+      {
+        authorEmail: 'leo@gigvora.com',
+        message:
+          'Impresionante trabajo, equipo — listos para acompañar a los clientes durante la transición esta semana.',
+        language: 'es',
+        insightTags: ['Engineering'],
+        minutesAfter: 45,
+      },
+    ],
+  },
+  {
+    postTitle: 'Automation onboarding template available',
+    authorEmail: 'recruiter@gigvora.com',
+    message:
+      'Gracias equipo, este playbook nos ayudará a preparar a los candidatos y mentores antes de las entrevistas.',
+    language: 'es',
+    insightTags: ['Talent partner'],
+    guidance: 'Lo incluiremos en la newsletter del viernes con ejemplos de outreach.',
+    createdAtOffsetMinutes: 180,
+    replies: [
+      {
+        authorEmail: 'mia@gigvora.com',
+        message:
+          'Perfecto — añadiremos la checklist para los councils y documentaremos los KPIs de adopción antes del martes.',
+        isOfficial: true,
+        insightTags: ['Operations'],
+        minutesAfter: 15,
+      },
+    ],
   },
 ];
 
@@ -566,6 +636,68 @@ async function insertIfMissing(queryInterface, transaction, table, uniqueWhereSq
   return inserted?.[0] ?? null;
 }
 
+async function buildUserSnapshots(queryInterface, transaction, userIds) {
+  if (!userIds || !userIds.size) {
+    return new Map();
+  }
+  const emails = Array.from(userIds.keys());
+  const rows = await queryInterface.sequelize.query(
+    `SELECT u.id, u.email, u.firstName, u.lastName, u.title, u.userType, p.headline AS profileHeadline, p.bio AS profileBio, p.avatarSeed AS profileAvatarSeed
+     FROM users u
+     LEFT JOIN profiles p ON p.userId = u.id
+     WHERE u.email IN (:emails)`,
+    {
+      type: QueryTypes.SELECT,
+      transaction,
+      replacements: { emails },
+    },
+  );
+  return new Map(
+    rows.map((row) => {
+      const name = [row.firstName, row.lastName].filter(Boolean).join(' ').trim() || row.email;
+      const headline =
+        row.profileHeadline || row.profileBio || row.title || row.userType || 'Gigvora member';
+      const avatarSeed = row.profileAvatarSeed || row.firstName || row.email || name;
+      return [row.email, { id: row.id, name, headline, avatarSeed }];
+    }),
+  );
+}
+
+function buildCommentMetadata(seed = {}, seedLabel = 'demo-feed-comment') {
+  const metadata = { seed: seedLabel };
+  if (seed.isPinned !== undefined) {
+    metadata.isPinned = Boolean(seed.isPinned);
+  }
+  if (seed.isOfficial !== undefined) {
+    metadata.isOfficial = Boolean(seed.isOfficial);
+  }
+  if (Array.isArray(seed.insightTags) && seed.insightTags.length) {
+    metadata.insightTags = seed.insightTags;
+  }
+  if (typeof seed.guidance === 'string' && seed.guidance.trim().length) {
+    metadata.guidance = seed.guidance.trim();
+  }
+  if (typeof seed.language === 'string' && seed.language.trim().length) {
+    metadata.language = seed.language.trim();
+  }
+  return metadata;
+}
+
+function buildCommentRow({ postId, userId, snapshot, body, metadata, createdAt, parentId = null }) {
+  return {
+    postId,
+    userId,
+    parentId,
+    body,
+    authorName: snapshot.name,
+    authorHeadline: snapshot.headline,
+    authorAvatarSeed: snapshot.avatarSeed,
+    metadata,
+    createdAt,
+    updatedAt: createdAt,
+  };
+}
+
 module.exports = {
   async up(queryInterface) {
     await queryInterface.sequelize.transaction(async (transaction) => {
@@ -625,44 +757,197 @@ module.exports = {
         );
       }
 
+      const postIdsByTitle = new Map();
+
       for (const share of feedShareSeeds) {
         const userId = userIds.get(share.email);
         if (!userId) continue;
-        const [post] = await queryInterface.sequelize.query(
-          'SELECT id FROM feed_posts WHERE title = :title LIMIT 1',
-          {
-            type: QueryTypes.SELECT,
-            transaction,
-            replacements: { title: share.postTitle },
-          },
-        );
-        if (!post?.id) continue;
+        let postId = postIdsByTitle.get(share.postTitle);
+        if (!postId) {
+          const [post] = await queryInterface.sequelize.query(
+            'SELECT id FROM feed_posts WHERE title = :title LIMIT 1',
+            {
+              type: QueryTypes.SELECT,
+              transaction,
+              replacements: { title: share.postTitle },
+            },
+          );
+          if (!post?.id) continue;
+          postId = post.id;
+          postIdsByTitle.set(share.postTitle, postId);
+        }
         const [existingShare] = await queryInterface.sequelize.query(
           'SELECT id FROM feed_shares WHERE postId = :postId AND userId = :userId AND channel = :channel LIMIT 1',
           {
             type: QueryTypes.SELECT,
             transaction,
-            replacements: { postId: post.id, userId, channel: share.channel },
+            replacements: { postId, userId, channel: share.channel },
           },
         );
         if (existingShare?.id) continue;
+        const scheduledFor = (() => {
+          if (share.scheduledFor) {
+            const scheduled = new Date(share.scheduledFor);
+            return Number.isNaN(scheduled.getTime()) ? null : scheduled;
+          }
+          if (typeof share.scheduleOffsetMinutes === 'number') {
+            return new Date(now.getTime() + share.scheduleOffsetMinutes * 60_000);
+          }
+          return null;
+        })();
+        const notifyList = Array.isArray(share.notifyList)
+          ? share.notifyList.filter(Boolean).slice(0, 15)
+          : [];
+        const complianceAcknowledged =
+          share.complianceAcknowledged !== undefined
+            ? Boolean(share.complianceAcknowledged)
+            : share.audience !== 'external';
+        const metadata = {
+          ...(share.metadata ?? {}),
+          seed: 'demo-feed-share',
+          distribution: {
+            scheduledFor: scheduledFor ? scheduledFor.toISOString() : null,
+            notifyList,
+          },
+          compliance: {
+            audience: share.audience,
+            channel: share.channel,
+            acknowledged: complianceAcknowledged,
+          },
+        };
         await queryInterface.bulkInsert(
           'feed_shares',
           [
             {
-              postId: post.id,
+              postId,
               userId,
               audience: share.audience,
               channel: share.channel,
               message: share.message,
               link: share.link ?? null,
-              metadata: { ...(share.metadata ?? {}), seed: 'demo-feed-share' },
+              metadata,
+              scheduledFor,
+              notifyList: notifyList.length ? notifyList : null,
+              complianceAcknowledged,
               createdAt: now,
               updatedAt: now,
             },
           ],
           { transaction },
         );
+      }
+
+      const userSnapshots = await buildUserSnapshots(queryInterface, transaction, userIds);
+
+      for (const commentSeed of feedCommentSeeds) {
+        const userId = userIds.get(commentSeed.authorEmail);
+        if (!userId) continue;
+        let postId = postIdsByTitle.get(commentSeed.postTitle);
+        if (!postId) {
+          const [post] = await queryInterface.sequelize.query(
+            'SELECT id FROM feed_posts WHERE title = :title LIMIT 1',
+            {
+              type: QueryTypes.SELECT,
+              transaction,
+              replacements: { title: commentSeed.postTitle },
+            },
+          );
+          if (!post?.id) continue;
+          postId = post.id;
+          postIdsByTitle.set(commentSeed.postTitle, postId);
+        }
+
+        const [existingComment] = await queryInterface.sequelize.query(
+          'SELECT id FROM feed_comments WHERE postId = :postId AND userId = :userId AND body = :body LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { postId, userId, body: commentSeed.message },
+          },
+        );
+        if (existingComment?.id) continue;
+
+        const baseCreatedAt = commentSeed.createdAtOffsetMinutes
+          ? new Date(now.getTime() - commentSeed.createdAtOffsetMinutes * 60_000)
+          : now;
+        const snapshot =
+          userSnapshots.get(commentSeed.authorEmail) ?? {
+            id: userId,
+            name: commentSeed.authorName ?? 'Gigvora member',
+            headline: commentSeed.authorHeadline ?? 'Gigvora member',
+            avatarSeed: commentSeed.authorAvatarSeed ?? commentSeed.authorEmail,
+          };
+        const metadata = buildCommentMetadata(commentSeed);
+
+        await queryInterface.bulkInsert(
+          'feed_comments',
+          [
+            buildCommentRow({
+              postId,
+              userId,
+              snapshot,
+              body: commentSeed.message,
+              metadata,
+              createdAt: baseCreatedAt,
+            }),
+          ],
+          { transaction },
+        );
+
+        const [insertedComment] = await queryInterface.sequelize.query(
+          'SELECT id FROM feed_comments WHERE postId = :postId AND userId = :userId AND body = :body ORDER BY id DESC LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { postId, userId, body: commentSeed.message },
+          },
+        );
+        const commentId = insertedComment?.id;
+        if (!commentId) continue;
+
+        if (Array.isArray(commentSeed.replies)) {
+          for (const replySeed of commentSeed.replies) {
+            const replyUserId = userIds.get(replySeed.authorEmail);
+            if (!replyUserId) continue;
+            const [existingReply] = await queryInterface.sequelize.query(
+              'SELECT id FROM feed_comments WHERE parentId = :parentId AND userId = :userId AND body = :body LIMIT 1',
+              {
+                type: QueryTypes.SELECT,
+                transaction,
+                replacements: { parentId: commentId, userId: replyUserId, body: replySeed.message },
+              },
+            );
+            if (existingReply?.id) continue;
+
+            const replySnapshot =
+              userSnapshots.get(replySeed.authorEmail) ?? {
+                id: replyUserId,
+                name: replySeed.authorName ?? 'Gigvora member',
+                headline: replySeed.authorHeadline ?? 'Gigvora member',
+                avatarSeed: replySeed.authorAvatarSeed ?? replySeed.authorEmail,
+              };
+            const replyCreatedAt = replySeed.minutesAfter
+              ? new Date(baseCreatedAt.getTime() + replySeed.minutesAfter * 60_000)
+              : baseCreatedAt;
+            const replyMetadata = buildCommentMetadata(replySeed, 'demo-feed-comment-reply');
+
+            await queryInterface.bulkInsert(
+              'feed_comments',
+              [
+                buildCommentRow({
+                  postId,
+                  userId: replyUserId,
+                  parentId: commentId,
+                  snapshot: replySnapshot,
+                  body: replySeed.message,
+                  metadata: replyMetadata,
+                  createdAt: replyCreatedAt,
+                }),
+              ],
+              { transaction },
+            );
+          }
+        }
       }
 
       for (const job of jobSeeds) {

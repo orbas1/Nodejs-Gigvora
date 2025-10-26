@@ -318,6 +318,26 @@ function normaliseCommentEntry(comment, { index = 0, prefix, fallbackAuthor } = 
       : 'Gigvora member';
   const message = (comment.body ?? comment.content ?? comment.message ?? comment.text ?? '').toString();
   const createdAt = comment.createdAt ?? comment.updatedAt ?? new Date().toISOString();
+  const metadata = comment.metadata && typeof comment.metadata === 'object' ? comment.metadata : null;
+  const metadataFlags = metadata ?? {};
+  const insightTags = Array.isArray(comment.insightTags)
+    ? comment.insightTags
+    : Array.isArray(metadataFlags.insightTags)
+    ? metadataFlags.insightTags
+    : [];
+  const isPinned = Boolean(comment.isPinned ?? metadataFlags.isPinned ?? metadataFlags.pinned);
+  const isOfficial = Boolean(comment.isOfficial ?? metadataFlags.isOfficial ?? metadataFlags.official);
+  const guidance = typeof (comment.guidance ?? metadataFlags.guidance) === 'string'
+    ? (comment.guidance ?? metadataFlags.guidance)
+    : null;
+  const language = comment.language ?? metadataFlags.language ?? null;
+  const avatarSeed =
+    comment.authorAvatarSeed ??
+    comment.avatarSeed ??
+    profile.avatarSeed ??
+    fallbackAuthor?.avatarSeed ??
+    user.firstName ??
+    author;
   const replies = Array.isArray(comment.replies)
     ? comment.replies
         .map((reply, replyIndex) =>
@@ -337,6 +357,13 @@ function normaliseCommentEntry(comment, { index = 0, prefix, fallbackAuthor } = 
     message,
     createdAt,
     replies,
+    metadata,
+    insightTags,
+    isPinned,
+    isOfficial,
+    guidance,
+    language,
+    authorAvatarSeed: avatarSeed,
   };
 }
 
