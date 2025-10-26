@@ -27,11 +27,17 @@ const STATUS_OPTIONS = [
   { id: 'archived', label: 'Archived' },
 ];
 
-const RISK_LEVELS = [
+const DEFAULT_RISK_OPTIONS = [
   { id: 'all', label: 'All risk levels' },
   { id: 'low', label: 'Low', tone: 'emerald' },
   { id: 'medium', label: 'Medium', tone: 'amber' },
   { id: 'high', label: 'High', tone: 'rose' },
+];
+
+const TWO_FACTOR_OPTIONS = [
+  { id: 'all', label: 'All 2FA' },
+  { id: 'enabled', label: 'Enabled' },
+  { id: 'disabled', label: 'Disabled' },
 ];
 
 function useVirtualisedRows(items) {
@@ -143,29 +149,45 @@ RiskBadge.defaultProps = {
   risk: 'low',
 };
 
-function VerificationBadge({ verified }) {
-  if (!verified) {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-600">
-        <LockClosedIcon className="h-3.5 w-3.5" aria-hidden="true" />
-        Pending
-      </span>
-    );
-  }
-  return (
+function VerificationBadge({ verified, twoFactorEnabled, twoFactorMethod }) {
+  const identityBadge = verified ? (
     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-600">
       <ShieldCheckIcon className="h-3.5 w-3.5" aria-hidden="true" />
       Verified
     </span>
+  ) : (
+    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-600">
+      <LockClosedIcon className="h-3.5 w-3.5" aria-hidden="true" />
+      Identity pending
+    </span>
   );
+
+  const methodLabel = twoFactorMethod ? twoFactorMethod.toUpperCase() : '';
+  const twoFactorBadge = twoFactorEnabled ? (
+    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-600">
+      <LockClosedIcon className="h-3.5 w-3.5" aria-hidden="true" />
+      {`2FA ${methodLabel || 'ENABLED'}`}
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-rose-600">
+      <LockClosedIcon className="h-3.5 w-3.5" aria-hidden="true" />
+      2FA disabled
+    </span>
+  );
+
+  return <div className="flex flex-wrap items-center gap-1">{identityBadge}{twoFactorBadge}</div>;
 }
 
 VerificationBadge.propTypes = {
   verified: PropTypes.bool,
+  twoFactorEnabled: PropTypes.bool,
+  twoFactorMethod: PropTypes.string,
 };
 
 VerificationBadge.defaultProps = {
   verified: false,
+  twoFactorEnabled: true,
+  twoFactorMethod: 'email',
 };
 
 function useSavedSegments(customSegments) {
@@ -176,6 +198,45 @@ function useSavedSegments(customSegments) {
     const merged = Array.isArray(customSegments) ? customSegments : DEFAULT_SEGMENTS;
     return merged.length ? merged : DEFAULT_SEGMENTS;
   }, [customSegments]);
+}
+
+function useRiskOptions(riskLevels) {
+  return useMemo(() => {
+    if (!Array.isArray(riskLevels) || riskLevels.length === 0) {
+      return DEFAULT_RISK_OPTIONS;
+    }
+    const unique = Array.from(
+      new Set(
+        riskLevels
+          .map((level) => (typeof level === 'string' ? level.trim().toLowerCase() : null))
+          .filter(Boolean),
+      ),
+    );
+    if (unique.length === 0) {
+      return DEFAULT_RISK_OPTIONS;
+    }
+    return [
+      DEFAULT_RISK_OPTIONS[0],
+      ...unique.map((level) => ({
+        id: level,
+        label: level.charAt(0).toUpperCase() + level.slice(1),
+        tone: level === 'high' ? 'rose' : level === 'medium' ? 'amber' : 'emerald',
+      })),
+    ];
+  }, [riskLevels]);
+}
+
+function resolveRiskToneClass(tone) {
+  switch (tone) {
+    case 'emerald':
+      return 'bg-emerald-500';
+    case 'amber':
+      return 'bg-amber-500';
+    case 'rose':
+      return 'bg-rose-500';
+    default:
+      return 'bg-slate-900';
+  }
 }
 
 function RowActions({ user, onOpenRoleModal, onInspectUser, onChangeStatus }) {
@@ -256,6 +317,7 @@ export default function UserManagementTable({
   segments,
   onApplySegment,
   onBulkAction,
+  riskLevels,
 }) {
   const [searchDraft, setSearchDraft] = useState(filters.search ?? '');
   const { scrollContainerRef, visibleItems, offsetTop, totalHeight } = useVirtualisedRows(items);
@@ -288,6 +350,7 @@ export default function UserManagementTable({
   }, [roleOptions, items]);
 
   const savedSegments = useSavedSegments(segments);
+  const riskOptions = useRiskOptions(riskLevels);
 
   const selectedSet = useMemo(() => new Set((selectedIds ?? []).map(String)), [selectedIds]);
   const allVisibleSelected = visibleItems.every((item) => selectedSet.has(String(item.id)));
@@ -422,14 +485,37 @@ export default function UserManagementTable({
         <div className="flex items-center gap-2">
           <span>Risk</span>
           <div className="inline-flex gap-1 rounded-full bg-slate-100 p-1">
-            {RISK_LEVELS.map((option) => (
+            {riskOptions.map((option) => (
               <button
                 key={option.id}
                 type="button"
                 onClick={() => onFiltersChange?.({ risk: option.id })}
                 className={clsx(
                   'rounded-full px-3 py-1 text-[11px] transition',
-                  filters.risk === option.id ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-600 hover:bg-white',
+                  filters.risk === option.id
+                    ? `${resolveRiskToneClass(option.tone)} text-white shadow-sm`
+                    : 'text-slate-600 hover:bg-white',
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span>2FA</span>
+          <div className="inline-flex gap-1 rounded-full bg-slate-100 p-1">
+            {TWO_FACTOR_OPTIONS.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => onFiltersChange?.({ twoFactor: option.id })}
+                className={clsx(
+                  'rounded-full px-3 py-1 text-[11px] transition',
+                  filters.twoFactor === option.id
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-white',
                 )}
               >
                 {option.label}
@@ -518,7 +604,15 @@ export default function UserManagementTable({
                 {visibleItems.map((user) => {
                   const identifier = String(user.id);
                   const selected = selectedSet.has(identifier);
-                  const riskLevel = user.riskLevel ?? user.risk ?? 'low';
+                  const riskLevelRaw =
+                    typeof user.riskLevel === 'string'
+                      ? user.riskLevel
+                      : typeof user.risk?.level === 'string'
+                        ? user.risk.level
+                        : typeof user.risk === 'string'
+                          ? user.risk
+                          : null;
+                  const riskLevel = riskLevelRaw ? `${riskLevelRaw}`.toLowerCase() : 'low';
                   const lastSeen = user.lastSeenAt ?? user.lastLoginAt ?? user.updatedAt ?? user.createdAt;
                   const verified = Boolean(user.verified ?? user.identityVerified ?? user.identity?.status === 'verified');
                   const persona = user.persona ?? user.userType ?? 'member';
@@ -546,14 +640,20 @@ export default function UserManagementTable({
                         />
                       </div>
                       <div>
-                        <div className="font-semibold text-slate-900">{user.name ?? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email}</div>
+                        <div className="font-semibold text-slate-900">
+                          {(user.name ?? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()) || user.email}
+                        </div>
                         <div className="text-xs text-slate-500">{user.email}</div>
                         <div className="mt-1 inline-flex items-center gap-1 text-[11px] uppercase tracking-wide text-slate-400">
                           {persona}
                         </div>
                       </div>
                       <div>
-                        <VerificationBadge verified={verified} />
+                        <VerificationBadge
+                          verified={verified}
+                          twoFactorEnabled={user.twoFactorEnabled !== false}
+                          twoFactorMethod={user.twoFactorMethod}
+                        />
                       </div>
                       <div className="flex flex-wrap gap-1">
                         {(user.roles ?? []).slice(0, 4).map((role) => (
@@ -637,7 +737,7 @@ export default function UserManagementTable({
             <button
               type="button"
               onClick={() => handlePageChange(-1)}
-              disabled={!pagination || (pagination?.offset ?? 0) <= 0}
+              disabled={!pagination || ((pagination?.offset ?? 0) <= 0)}
               className="rounded-full border border-slate-200 px-3 py-1 text-sm font-semibold text-slate-600 transition hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Previous
@@ -647,7 +747,7 @@ export default function UserManagementTable({
               onClick={() => handlePageChange(1)}
               disabled={
                 !pagination ||
-                (pagination?.offset ?? 0) + (pagination?.limit ?? 0) >= (pagination?.total ?? items.length)
+                ((pagination?.offset ?? 0) + (pagination?.limit ?? 0) >= (pagination?.total ?? items.length))
               }
               className="rounded-full border border-slate-200 px-3 py-1 text-sm font-semibold text-slate-600 transition hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -667,7 +767,22 @@ UserManagementTable.propTypes = {
     roles: PropTypes.arrayOf(PropTypes.string),
     status: PropTypes.string,
     riskLevel: PropTypes.string,
+    riskScore: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    riskSummary: PropTypes.string,
+    risk: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.shape({
+        level: PropTypes.string,
+        score: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+        summary: PropTypes.string,
+        assessedAt: PropTypes.string,
+        factors: PropTypes.array,
+      }),
+    ]),
     userType: PropTypes.string,
+    identityVerified: PropTypes.bool,
+    twoFactorEnabled: PropTypes.bool,
+    twoFactorMethod: PropTypes.string,
   })),
   loading: PropTypes.bool,
   error: PropTypes.string,
@@ -676,6 +791,7 @@ UserManagementTable.propTypes = {
     status: PropTypes.string,
     role: PropTypes.string,
     risk: PropTypes.string,
+    twoFactor: PropTypes.string,
   }),
   onFiltersChange: PropTypes.func,
   sort: PropTypes.shape({
@@ -710,13 +826,14 @@ UserManagementTable.propTypes = {
   ),
   onApplySegment: PropTypes.func,
   onBulkAction: PropTypes.func,
+  riskLevels: PropTypes.arrayOf(PropTypes.string),
 };
 
 UserManagementTable.defaultProps = {
   items: [],
   loading: false,
   error: '',
-  filters: { search: '', status: 'all', role: 'all', risk: 'all' },
+  filters: { search: '', status: 'all', role: 'all', risk: 'all', twoFactor: 'all' },
   onFiltersChange: undefined,
   sort: { field: 'activity', direction: 'desc' },
   onSortChange: undefined,
@@ -732,4 +849,5 @@ UserManagementTable.defaultProps = {
   segments: undefined,
   onApplySegment: undefined,
   onBulkAction: undefined,
+  riskLevels: undefined,
 };

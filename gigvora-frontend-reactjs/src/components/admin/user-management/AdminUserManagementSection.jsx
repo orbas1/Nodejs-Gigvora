@@ -4,6 +4,8 @@ import { Dialog, Transition } from '@headlessui/react';
 import {
   ArrowPathIcon,
   CheckCircleIcon,
+  ExclamationTriangleIcon,
+  LockClosedIcon,
   PauseCircleIcon,
   PlusIcon,
   ShieldExclamationIcon,
@@ -169,7 +171,7 @@ export default function AdminUserManagementSection() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardMetadata, setWizardMetadata] = useState(null);
   const [metadataStatus, setMetadataStatus] = useState('idle');
-  const [filters, setFilters] = useState({ search: '', status: 'all', role: 'all', risk: 'all' });
+  const [filters, setFilters] = useState({ search: '', status: 'all', role: 'all', risk: 'all', twoFactor: 'all' });
   const [sort, setSort] = useState({ field: 'activity', direction: 'desc' });
   const [pagination, setPagination] = useState({ offset: 0, limit: 25, total: 0 });
   const [selectedUserIds, setSelectedUserIds] = useState([]);
@@ -190,20 +192,27 @@ export default function AdminUserManagementSection() {
     async (options = {}) => {
       const limit = options.limit ?? pagination.limit ?? 25;
       const offset = options.offset ?? (options.page != null ? (options.page - 1) * limit : 0);
-      const page = options.page ?? Math.floor(offset / limit) + 1;
-
       setLoading(true);
       setError('');
       try {
+        const riskFilter = filters.risk && filters.risk !== 'all' ? `${filters.risk}`.toLowerCase() : undefined;
+        const twoFactorState =
+          filters.twoFactor === 'enabled' || filters.twoFactor === true || filters.twoFactor === 'true'
+            ? 'enabled'
+            : filters.twoFactor === 'disabled' || filters.twoFactor === false || filters.twoFactor === 'false'
+              ? 'disabled'
+              : undefined;
+
         const response = await adminUsers.fetchDirectory(
           {
             status: filters.status !== 'all' ? filters.status : undefined,
             role: filters.role !== 'all' ? filters.role : undefined,
-            risk: filters.risk !== 'all' ? filters.risk : undefined,
+            risk: riskFilter,
+            twoFactor: twoFactorState,
             search: filters.search || undefined,
             sort: `${sort.field}:${sort.direction}`,
-            page,
-            pageSize: limit,
+            limit,
+            offset,
           },
           { forceRefresh: options.forceRefresh ?? false },
         );
@@ -212,9 +221,23 @@ export default function AdminUserManagementSection() {
           : Array.isArray(response?.data)
             ? response.data
             : [];
-        const total = response?.summary?.total ?? response?.total ?? response?.count ?? items.length;
+        const paginationPayload = response?.pagination ?? {};
+        const total =
+          paginationPayload.total ??
+          response?.summary?.total ??
+          response?.total ??
+          response?.count ??
+          items.length;
         setDirectory({ items, summary: response?.summary ?? null });
-        setPagination({ offset, limit, total });
+        const nextOffsetRaw = paginationPayload.offset ?? offset;
+        const nextLimitRaw = paginationPayload.limit ?? limit;
+        const nextOffset = Number.isFinite(Number(nextOffsetRaw)) ? Number(nextOffsetRaw) : offset;
+        const nextLimit = Number.isFinite(Number(nextLimitRaw)) ? Number(nextLimitRaw) : limit;
+        setPagination({
+          offset: nextOffset,
+          limit: nextLimit,
+          total,
+        });
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : 'Unable to load users.');
         setDirectory({ items: [], summary: null });
@@ -275,25 +298,39 @@ export default function AdminUserManagementSection() {
 
   const summaryMetrics = useMemo(() => {
     const summary = directory.summary ?? {};
-    const counts = summary.counts ?? {};
+    const statusCounts = summary.status ?? summary.counts ?? {};
+    const riskCounts = summary.risk ?? {};
+    const twoFactorCounts = summary.twoFactor ?? {};
     return [
       {
         label: 'Active',
-        value: counts.active ?? summary.active ?? 0,
+        value: statusCounts.active ?? 0,
         caption: 'Active workspace members across all roles.',
         icon: CheckCircleIcon,
       },
       {
         label: 'Invited',
-        value: counts.invited ?? summary.invited ?? 0,
+        value: statusCounts.invited ?? 0,
         caption: 'Awaiting onboarding or email confirmation.',
         icon: UserGroupIcon,
       },
       {
         label: 'Suspended',
-        value: counts.suspended ?? summary.suspended ?? 0,
+        value: statusCounts.suspended ?? 0,
         caption: 'Temporarily restricted accounts pending review.',
         icon: PauseCircleIcon,
+      },
+      {
+        label: 'High risk',
+        value: riskCounts.high ?? 0,
+        caption: 'Accounts flagged for immediate operational review.',
+        icon: ExclamationTriangleIcon,
+      },
+      {
+        label: '2FA disabled',
+        value: twoFactorCounts.disabled ?? 0,
+        caption: 'Members without enforced two-factor protection.',
+        icon: LockClosedIcon,
       },
     ];
   }, [directory.summary]);
@@ -317,7 +354,27 @@ export default function AdminUserManagementSection() {
   };
 
   const handleFiltersChange = useCallback((nextFilters) => {
-    setFilters((current) => ({ ...current, ...(nextFilters ?? {}) }));
+    setFilters((current) => {
+      if (!nextFilters) {
+        return current;
+      }
+      const updates = { ...nextFilters };
+      if (updates.risk !== undefined) {
+        const value = updates.risk;
+        updates.risk = value === 'all' || value == null || value === '' ? 'all' : `${value}`.toLowerCase();
+      }
+      if (updates.twoFactor !== undefined) {
+        const value = updates.twoFactor;
+        if (value === 'all' || value == null || value === '') {
+          updates.twoFactor = 'all';
+        } else if (value === true || value === 'enabled' || value === 'true' || value === 'on') {
+          updates.twoFactor = 'enabled';
+        } else if (value === false || value === 'disabled' || value === 'false' || value === 'off') {
+          updates.twoFactor = 'disabled';
+        }
+      }
+      return { ...current, ...updates };
+    });
   }, []);
 
   const handleSortChange = useCallback((nextSort) => {
@@ -356,16 +413,26 @@ export default function AdminUserManagementSection() {
     }
     try {
       setExporting(true);
-      const headers = ['Name', 'Email', 'Status', 'Roles', 'Risk', 'Last seen'];
+      const headers = ['Name', 'Email', 'Status', 'Roles', 'Risk', '2FA', 'Last seen'];
       const rows = directory.items.map((user) => {
-        const name = user.name ?? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email;
+        const fallbackName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
+        const name = (user.name ?? fallbackName) || user.email;
         const lastSeen = user.lastSeenAt ?? user.lastLoginAt ?? user.updatedAt ?? user.createdAt ?? '';
+        const riskValue =
+          typeof user.riskLevel === 'string'
+            ? user.riskLevel
+            : typeof user.risk?.level === 'string'
+              ? user.risk.level
+              : typeof user.risk === 'string'
+                ? user.risk
+                : '';
         return [
           name,
           user.email ?? '',
           user.status ?? '',
           (user.roles ?? []).join('; '),
-          user.riskLevel ?? user.risk ?? '',
+          riskValue,
+          user.twoFactorEnabled ? 'Enabled' : 'Disabled',
           lastSeen ? new Date(lastSeen).toISOString() : '',
         ]
           .map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`)
@@ -570,6 +637,7 @@ export default function AdminUserManagementSection() {
         segments={wizardMetadata?.segments ?? wizardMetadata?.savedSegments}
         onApplySegment={handleApplySegment}
         onBulkAction={handleBulkAction}
+        riskLevels={wizardMetadata?.riskLevels ?? wizardMetadata?.riskLevelOptions}
       />
 
       <CreateUserWizard
