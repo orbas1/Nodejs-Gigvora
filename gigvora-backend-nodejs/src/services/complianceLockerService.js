@@ -7,6 +7,12 @@ import {
   ComplianceReminder,
   ComplianceObligation,
   ComplianceLocalization,
+  ConsentPolicy,
+  ConsentPolicyVersion,
+  UserConsent,
+  LegalDocument,
+  LegalDocumentVersion,
+  LegalDocumentAuditEvent,
 } from '../models/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
 import { assertComplianceInfrastructureOperational } from './runtimeDependencyGuard.js';
@@ -207,6 +213,18 @@ function buildCollectionByDocument(records, key = 'documentId') {
   return map;
 }
 
+function formatAuditActionLabel(action) {
+  if (!action) {
+    return 'Legal Event';
+  }
+  return action
+    .toString()
+    .split(/[_\s-]+/)
+    .filter((segment) => segment.length > 0)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ');
+}
+
 function sanitizeReminder(reminder) {
   const plain = toPlain(reminder);
   if (!plain) return null;
@@ -224,6 +242,113 @@ function sanitizeReminder(reminder) {
     metadata: plain.metadata ?? null,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
+  };
+}
+
+function sanitizePolicyAcknowledgement(consent) {
+  if (!consent) {
+    return null;
+  }
+  const plain = toPlain(consent);
+  if (!plain) {
+    return null;
+  }
+  return {
+    id: plain.id,
+    policyId: plain.policyId,
+    policyVersionId: plain.policyVersionId,
+    status: plain.status,
+    grantedAt: plain.grantedAt,
+    withdrawnAt: plain.withdrawnAt,
+    source: plain.source,
+    metadata: plain.metadata ?? null,
+  };
+}
+
+function sanitizeConsentPolicy(policy, { activeVersionMap, userConsentMap }) {
+  const plain = toPlain(policy);
+  if (!plain) {
+    return null;
+  }
+  const activeVersion = activeVersionMap.get(plain.activeVersionId ?? null) ?? null;
+  const acknowledgement = sanitizePolicyAcknowledgement(userConsentMap.get(plain.id));
+  const isCurrentAcknowledgement = Boolean(
+    acknowledgement &&
+      acknowledgement.status === 'granted' &&
+      acknowledgement.policyVersionId === (plain.activeVersionId ?? acknowledgement.policyVersionId),
+  );
+  const isOutstanding = Boolean(
+    plain.required && (!acknowledgement || acknowledgement.status !== 'granted' || !isCurrentAcknowledgement),
+  );
+
+  return {
+    id: plain.id,
+    code: plain.code,
+    title: plain.title,
+    description: plain.description ?? null,
+    audience: plain.audience,
+    region: plain.region,
+    legalBasis: plain.legalBasis,
+    required: Boolean(plain.required),
+    revocable: Boolean(plain.revocable),
+    retentionPeriodDays: plain.retentionPeriodDays ?? null,
+    metadata: plain.metadata ?? {},
+    activeVersion,
+    acknowledgement: acknowledgement
+      ? {
+          ...acknowledgement,
+          isCurrentVersion: isCurrentAcknowledgement,
+        }
+      : null,
+    isOutstanding,
+  };
+}
+
+function sanitizeLegalDocumentVersion(version) {
+  if (!version) {
+    return null;
+  }
+  const plain = toPlain(version);
+  if (!plain) {
+    return null;
+  }
+  return {
+    id: plain.id,
+    documentId: plain.documentId,
+    version: plain.version,
+    locale: plain.locale,
+    status: plain.status,
+    summary: plain.summary ?? null,
+    changeSummary: plain.changeSummary ?? null,
+    effectiveAt: plain.effectiveAt,
+    publishedAt: plain.publishedAt,
+    supersededAt: plain.supersededAt,
+    externalUrl: plain.externalUrl ?? null,
+    metadata: plain.metadata ?? null,
+  };
+}
+
+function sanitizeLegalDocument(document, activeVersionMap) {
+  const plain = toPlain(document);
+  if (!plain) {
+    return null;
+  }
+  return {
+    id: plain.id,
+    slug: plain.slug,
+    title: plain.title,
+    category: plain.category,
+    status: plain.status,
+    region: plain.region,
+    defaultLocale: plain.defaultLocale,
+    audienceRoles: Array.isArray(plain.audienceRoles) ? plain.audienceRoles : [],
+    editorRoles: Array.isArray(plain.editorRoles) ? plain.editorRoles : [],
+    tags: Array.isArray(plain.tags) ? plain.tags : [],
+    summary: plain.summary ?? null,
+    metadata: plain.metadata ?? {},
+    publishedAt: plain.publishedAt,
+    retiredAt: plain.retiredAt,
+    activeVersion: sanitizeLegalDocumentVersion(activeVersionMap.get(plain.activeVersionId ?? null)),
   };
 }
 
@@ -392,6 +517,89 @@ function computeReminderSummary(reminders) {
   };
 }
 
+function computePolicySummary(policies) {
+  if (!policies.length) {
+    return {
+      total: 0,
+      required: 0,
+      acknowledged: 0,
+      outstanding: 0,
+      withdrawn: 0,
+      lastAcknowledgedAt: null,
+    };
+  }
+
+  let lastAcknowledgedAt = null;
+  let acknowledged = 0;
+  let withdrawn = 0;
+  const requiredPolicies = policies.filter((policy) => policy.required);
+
+  policies.forEach((policy) => {
+    const acknowledgement = policy.acknowledgement;
+    if (acknowledgement?.status === 'granted') {
+      acknowledged += acknowledgement.isCurrentVersion ? 1 : 0;
+      if (acknowledgement.grantedAt) {
+        const timestamp = new Date(acknowledgement.grantedAt).getTime();
+        if (!Number.isNaN(timestamp) && (lastAcknowledgedAt == null || timestamp > lastAcknowledgedAt)) {
+          lastAcknowledgedAt = timestamp;
+        }
+      }
+    }
+    if (acknowledgement?.status === 'withdrawn') {
+      withdrawn += 1;
+    }
+  });
+
+  return {
+    total: policies.length,
+    required: requiredPolicies.length,
+    acknowledged,
+    outstanding: policies.filter((policy) => policy.isOutstanding).length,
+    withdrawn,
+    lastAcknowledgedAt: lastAcknowledgedAt != null ? new Date(lastAcknowledgedAt) : null,
+  };
+}
+
+function computeLegalDocumentSummary(documents) {
+  if (!documents.length) {
+    return {
+      total: 0,
+      active: 0,
+      categories: [],
+      regions: [],
+      lastPublishedAt: null,
+    };
+  }
+
+  const categories = new Set();
+  const regions = new Set();
+  let latestPublished = null;
+
+  documents.forEach((document) => {
+    if (document.category) {
+      categories.add(document.category);
+    }
+    if (document.region) {
+      regions.add(document.region);
+    }
+    const publishedAt = document.activeVersion?.publishedAt ?? document.publishedAt ?? null;
+    if (publishedAt) {
+      const timestamp = new Date(publishedAt).getTime();
+      if (!Number.isNaN(timestamp) && (latestPublished == null || timestamp > latestPublished)) {
+        latestPublished = timestamp;
+      }
+    }
+  });
+
+  return {
+    total: documents.length,
+    active: documents.filter((document) => document.status === 'active').length,
+    categories: Array.from(categories),
+    regions: Array.from(regions),
+    lastPublishedAt: latestPublished != null ? new Date(latestPublished) : null,
+  };
+}
+
 async function persistDocument(payload, { actorId, logger, requestId, forceRefresh = false } = {}) {
   const normalized = ensureDocumentPayload(payload);
   if (!normalized.ownerId) {
@@ -437,6 +645,7 @@ async function persistDocument(payload, { actorId, logger, requestId, forceRefre
     }
 
     const remindersInput = Array.isArray(payload.reminders) ? payload.reminders : [];
+    const createdReminders = [];
     for (const reminderInput of remindersInput) {
       const normalizedReminder = normalizeReminderPayload(document.id, reminderInput);
       if (!normalizedReminder.obligationId && reminderInput.clauseReference) {
@@ -445,7 +654,8 @@ async function persistDocument(payload, { actorId, logger, requestId, forceRefre
           normalizedReminder.obligationId = referenced.id;
         }
       }
-      await ComplianceReminder.create(normalizedReminder, { transaction });
+      const reminder = await ComplianceReminder.create(normalizedReminder, { transaction });
+      createdReminders.push(reminder);
     }
 
     await document.reload({ transaction });
@@ -456,7 +666,12 @@ async function persistDocument(payload, { actorId, logger, requestId, forceRefre
       await createdVersion.reload({ transaction });
     }
 
-    return document;
+    return {
+      document,
+      versions: createdVersion ? [createdVersion] : [],
+      obligations: createdObligations,
+      reminders: createdReminders,
+    };
   });
 }
 
@@ -511,6 +726,107 @@ async function fetchLockerOverview(ownerId, options = {}) {
       : [],
   ]);
 
+  const policyWhere = { activeVersionId: { [Op.not]: null } };
+  if (region) {
+    policyWhere.region = { [Op.in]: [region, 'global'] };
+  }
+
+  const policies = await ConsentPolicy.findAll({
+    where: policyWhere,
+    order: [
+      ['region', 'ASC'],
+      ['code', 'ASC'],
+    ],
+  });
+
+  const policyIds = policies.map((policy) => policy.id);
+  const activePolicyVersionIds = policies
+    .map((policy) => policy.activeVersionId)
+    .filter((value) => Number.isInteger(value));
+
+  const [activePolicyVersions, userConsents] = await Promise.all([
+    activePolicyVersionIds.length
+      ? ConsentPolicyVersion.findAll({ where: { id: { [Op.in]: activePolicyVersionIds } } })
+      : [],
+    policyIds.length
+      ? UserConsent.findAll({
+          where: {
+            policyId: { [Op.in]: policyIds },
+            userId: ownerId,
+          },
+        })
+      : [],
+  ]);
+
+  const policyVersionMap = new Map();
+  activePolicyVersions.forEach((version) => {
+    const plain = toPlain(version);
+    if (!plain) {
+      return;
+    }
+    policyVersionMap.set(plain.id, {
+      id: plain.id,
+      version: plain.version,
+      documentUrl: plain.documentUrl ?? null,
+      summary: plain.summary ?? null,
+      effectiveAt: plain.effectiveAt,
+      supersededAt: plain.supersededAt,
+      metadata: plain.metadata ?? {},
+    });
+  });
+
+  const userConsentMap = new Map();
+  userConsents.forEach((consent) => {
+    userConsentMap.set(consent.policyId, consent);
+  });
+
+  const sanitizedPolicies = policies
+    .map((policy) => sanitizeConsentPolicy(policy, { activeVersionMap: policyVersionMap, userConsentMap }))
+    .filter(Boolean);
+  const policySummary = computePolicySummary(sanitizedPolicies);
+
+  const legalWhere = { status: { [Op.ne]: 'archived' } };
+  if (region) {
+    legalWhere.region = { [Op.in]: [region, 'global'] };
+  }
+
+  const legalDocuments = await LegalDocument.findAll({
+    where: legalWhere,
+    order: [
+      ['category', 'ASC'],
+      ['title', 'ASC'],
+    ],
+  });
+
+  const legalDocumentIds = legalDocuments.map((document) => document.id);
+  const legalActiveVersionIds = legalDocuments
+    .map((document) => document.activeVersionId)
+    .filter((value) => Number.isInteger(value));
+
+  const legalVersions = legalActiveVersionIds.length
+    ? await LegalDocumentVersion.findAll({ where: { id: { [Op.in]: legalActiveVersionIds } } })
+    : [];
+
+  const legalAuditEvents = legalDocumentIds.length
+    ? await LegalDocumentAuditEvent.findAll({
+        where: { documentId: { [Op.in]: legalDocumentIds } },
+        order: [['createdAt', 'DESC']],
+        limit: 100,
+      })
+    : [];
+
+  const legalVersionMap = new Map();
+  legalVersions.forEach((version) => {
+    if (version) {
+      legalVersionMap.set(version.id, version);
+    }
+  });
+
+  const sanitizedLegalDocuments = legalDocuments
+    .map((document) => sanitizeLegalDocument(document, legalVersionMap))
+    .filter(Boolean);
+  const legalSummary = computeLegalDocumentSummary(sanitizedLegalDocuments);
+
   const versionMap = buildVersionsByDocument(versions.map((version) => toPlain(version)));
   const obligationMap = buildCollectionByDocument(obligations.map((item) => toPlain(item)));
   const reminderMap = buildCollectionByDocument(reminders.map((item) => toPlain(item)));
@@ -529,35 +845,49 @@ async function fetchLockerOverview(ownerId, options = {}) {
     .map((reminder) => ({ ...reminder }));
   const remindersSummary = computeReminderSummary(allReminders);
 
-  const auditLog = versions
-    .map((version) => {
-      const plain = toPlain(version);
-      return {
-        id: `version-${plain.id}`,
-        documentId: plain.documentId,
-        type: 'version',
-        label: `Version ${plain.versionNumber}`,
-        occurredAt: plain.createdAt,
-        actorId: plain.uploadedById,
-        summary: plain.changeSummary ?? 'Document version uploaded',
-        metadata: plain.metadata ?? null,
-      };
-    })
-    .concat(
-      reminders.map((reminder) => {
-        const plain = toPlain(reminder);
-        return {
-          id: `reminder-${plain.id}`,
-          documentId: plain.documentId,
-          type: 'reminder',
-          label: `${plain.reminderType} reminder`,
-          occurredAt: plain.updatedAt ?? plain.createdAt,
-          actorId: plain.createdById,
-          summary: `Reminder ${plain.status}`,
-          metadata: plain.metadata ?? null,
-        };
-      }),
-    )
+  const versionEvents = versions.map((version) => {
+    const plain = toPlain(version);
+    return {
+      id: `version-${plain.id}`,
+      documentId: plain.documentId,
+      type: 'version',
+      label: `Version ${plain.versionNumber}`,
+      occurredAt: plain.createdAt,
+      actorId: plain.uploadedById,
+      summary: plain.changeSummary ?? 'Document version uploaded',
+      metadata: plain.metadata ?? null,
+    };
+  });
+  const reminderEvents = reminders.map((reminder) => {
+    const plain = toPlain(reminder);
+    return {
+      id: `reminder-${plain.id}`,
+      documentId: plain.documentId,
+      type: 'reminder',
+      label: `${plain.reminderType} reminder`,
+      occurredAt: plain.updatedAt ?? plain.createdAt,
+      actorId: plain.createdById,
+      summary: `Reminder ${plain.status}`,
+      metadata: plain.metadata ?? null,
+    };
+  });
+  const legalEvents = legalAuditEvents.map((event) => {
+    const plain = toPlain(event);
+    return {
+      id: `legal-audit-${plain.id}`,
+      documentId: plain.documentId,
+      type: 'legal_audit',
+      label: `Legal ${formatAuditActionLabel(plain.action)}`,
+      occurredAt: plain.createdAt,
+      actorId: plain.actorId,
+      summary: plain.metadata?.summary ?? `Legal document ${plain.action}`,
+      metadata: plain.metadata ?? null,
+    };
+  });
+
+  const auditLog = versionEvents
+    .concat(reminderEvents)
+    .concat(legalEvents)
     .sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime())
     .slice(0, 50);
 
@@ -592,6 +922,27 @@ async function fetchLockerOverview(ownerId, options = {}) {
     frameworks = frameworks.concat(globalFrameworks);
   }
 
+  const policySummaryFormatted = {
+    total: policySummary.total,
+    required: policySummary.required,
+    acknowledged: policySummary.acknowledged,
+    outstanding: policySummary.outstanding,
+    withdrawn: policySummary.withdrawn,
+    lastAcknowledgedAt: policySummary.lastAcknowledgedAt
+      ? policySummary.lastAcknowledgedAt.toISOString()
+      : null,
+  };
+
+  const legalSummaryFormatted = {
+    total: legalSummary.total,
+    active: legalSummary.active,
+    categories: legalSummary.categories,
+    regions: legalSummary.regions,
+    lastPublishedAt: legalSummary.lastPublishedAt
+      ? legalSummary.lastPublishedAt.toISOString()
+      : null,
+  };
+
   return {
     owner: owner ? owner.get({ plain: true }) : null,
     summary: {
@@ -625,13 +976,24 @@ async function fetchLockerOverview(ownerId, options = {}) {
       overdue: remindersSummary.overdue,
     },
     frameworks: frameworks.map(sanitizeFramework),
+    legalPolicies: {
+      summary: policySummaryFormatted,
+      list: sanitizedPolicies,
+    },
+    legalDocuments: {
+      summary: legalSummaryFormatted,
+      list: sanitizedLegalDocuments,
+    },
     auditLog,
   };
 }
 
 export async function createComplianceDocument(payload, options = {}) {
-  const document = await persistDocument(payload, options);
-  return document.toPublicObject();
+  const { document, versions, obligations, reminders } = await persistDocument(payload, options);
+  const versionMap = buildVersionsByDocument(versions.map((item) => toPlain(item)));
+  const obligationMap = buildCollectionByDocument(obligations.map((item) => toPlain(item)));
+  const reminderMap = buildCollectionByDocument(reminders.map((item) => toPlain(item)));
+  return sanitizeDocument(document, { versionMap, obligationMap, reminderMap });
 }
 
 export async function addComplianceDocumentVersion(
@@ -771,8 +1133,11 @@ export async function getComplianceLockerOverview(ownerId, options = {}) {
 }
 
 export async function recordComplianceDocument(payload, options = {}) {
-  const created = await persistDocument(payload, options);
-  return sanitizeDocument(created, { versionMap: new Map(), obligationMap: new Map(), reminderMap: new Map() });
+  const { document, versions, obligations, reminders } = await persistDocument(payload, options);
+  const versionMap = buildVersionsByDocument(versions.map((item) => toPlain(item)));
+  const obligationMap = buildCollectionByDocument(obligations.map((item) => toPlain(item)));
+  const reminderMap = buildCollectionByDocument(reminders.map((item) => toPlain(item)));
+  return sanitizeDocument(document, { versionMap, obligationMap, reminderMap });
 }
 
 export default {

@@ -190,7 +190,7 @@
     "marketplace": {
       "name": "marketplace",
       "displayName": "Marketplace & Delivery",
-      "description": "Projects, gigs, workspaces, automation queues, and collaboration artefacts.",
+      "description": "Projects, gigs, workspaces, automation queues, mentor pods, and collaboration group artefacts.",
       "modelNames": [
         "GigAddon",
         "GigMediaAsset",

@@ -16,7 +16,12 @@ module.exports = {
       message: { type: Sequelize.STRING(512), allowNull: false },
       requestId: { type: Sequelize.STRING(64), allowNull: true },
       triggeredBy: { type: Sequelize.STRING(120), allowNull: true },
-      metadata: { type: jsonType, allowNull: true },
+      metadata: { type: jsonType, allowNull: false, defaultValue: {} },
+      occurredAt: {
+        type: Sequelize.DATE,
+        allowNull: false,
+        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+      },
       createdAt: {
         type: Sequelize.DATE,
         allowNull: false,
@@ -32,6 +37,8 @@ module.exports = {
     await queryInterface.addIndex('runtime_security_audit_events', ['eventType']);
     await queryInterface.addIndex('runtime_security_audit_events', ['level']);
     await queryInterface.addIndex('runtime_security_audit_events', ['createdAt']);
+    await queryInterface.addIndex('runtime_security_audit_events', ['occurredAt']);
+    await queryInterface.addIndex('runtime_security_audit_events', ['requestId']);
   },
 
   async down(queryInterface) {
