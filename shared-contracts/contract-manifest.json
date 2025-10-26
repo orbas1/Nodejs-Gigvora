@@ -1,6 +1,6 @@
 {
-  "version": "1.0.2",
-  "lastGeneratedAt": "2025-10-26T00:00:00.000Z",
+  "version": "1.1.0",
+  "lastGeneratedAt": "2025-10-27T00:00:00.000Z",
   "pendingChanges": false,
   "artifacts": {
     "auth/user": {
@@ -24,9 +24,9 @@
       "generatedAt": "2025-10-25T00:36:52.906Z"
     },
     "marketplace/workspace": {
-      "schemaHash": "2911272a7aad5e8aecf36893401d415f41c15b23fe468a3c0be0ba4874884e89",
-      "typesHash": "437841183734fe56f499eb962c31a5e4aef82460927ab517aa24d35978e5278e",
-      "generatedAt": "2025-10-25T00:36:52.906Z"
+      "schemaHash": "8571bb46972ff79e39d7594515f12daa1e635eb5c8f99f19e9eb8deb03558fb5",
+      "typesHash": "a42474f657c4ce7b9035422493a05529c255882b6e6ccc6300ee22c26c7e6a15",
+      "generatedAt": "2025-10-27T00:36:52.906Z"
     },
     "platform/feature-flag": {
       "schemaHash": "39387215944665044e68949ae286b39ee4125e6df1f7884ee5a0c7d9a61ed432",
@@ -44,17 +44,22 @@
       "generatedAt": "2025-10-25T00:36:52.906Z"
     }
   },
-  "lastReleasedAt": "2025-10-26",
+  "lastReleasedAt": "2025-10-27",
   "releaseHistory": [
     {
-      "version": "1.0.1",
-      "summary": "Baseline shared contract manifest after automation",
-      "releasedAt": "2025-10-25"
+      "version": "1.1.0",
+      "summary": "Introduced workspace search filters and refreshed runtime utilities",
+      "releasedAt": "2025-10-27"
     },
     {
       "version": "1.0.2",
       "summary": "Cleared pending contract changes after regenerating schema artifacts",
       "releasedAt": "2025-10-26"
+    },
+    {
+      "version": "1.0.1",
+      "summary": "Baseline shared contract manifest after automation",
+      "releasedAt": "2025-10-25"
     }
   ]
 }
