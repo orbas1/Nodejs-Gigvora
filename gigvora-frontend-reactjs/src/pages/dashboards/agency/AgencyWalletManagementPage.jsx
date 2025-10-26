@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../../layouts/DashboardLayout.jsx';
 import useSession from '../../../hooks/useSession.js';
 import { AGENCY_DASHBOARD_MENU } from '../../../constants/agencyDashboardMenu.js';
+import WalletOverview from '../../../components/agency/wallet/WalletOverview.jsx';
+import TransactionTable from '../../../components/agency/wallet/TransactionTable.jsx';
+import PayoutSetup from '../../../components/agency/wallet/PayoutSetup.jsx';
 import WalletSummary from '../../../components/agency/wallet/WalletSummary.jsx';
 import WalletAccountsPanel from '../../../components/agency/wallet/WalletAccountsPanel.jsx';
 import WalletFundingSourcesPanel from '../../../components/agency/wallet/WalletFundingSourcesPanel.jsx';
@@ -89,7 +92,7 @@ export default function AgencyWalletManagementPage() {
     enabled: ledgerDrawerOpen && Boolean(selectedAccount?.id),
   });
 
-  const { refresh: refreshOverview } = overviewResource;
+  const { refresh: refreshOverview, data: overviewData } = overviewResource;
   const { refresh: refreshAccounts, data: accountsData } = accountsResource;
   const { refresh: refreshFundingSources } = fundingSourcesResource;
   const { refresh: refreshPayouts } = payoutsResource;
@@ -129,6 +132,154 @@ export default function AgencyWalletManagementPage() {
     }
     return 'All workspaces';
   }, [effectiveWorkspaceId, sessionWorkspaceId, sessionWorkspaceName]);
+
+  const accountsList = useMemo(() => {
+    const items = accountsData?.items;
+    return Array.isArray(items) ? items : [];
+  }, [accountsData]);
+
+  const workspaceCurrency = overviewData?.totals?.currency ?? 'USD';
+
+  const combinedTransactions = useMemo(() => {
+    if (!overviewData) {
+      return [];
+    }
+    const ledgerEntries = Array.isArray(overviewData.recentLedger) ? overviewData.recentLedger : [];
+    const transferEntries = Array.isArray(overviewData.recentTransfers) ? overviewData.recentTransfers : [];
+    const payoutEntries = Array.isArray(payoutsResource.data?.items)
+      ? payoutsResource.data.items
+      : [];
+
+    const formatLedger = ledgerEntries.map((entry) => ({
+      id: entry.id ?? `ledger-${entry.reference}`,
+      reference: entry.reference ?? entry.id,
+      type: entry.entryType ?? 'ledger',
+      status: entry.status ?? entry.entryStatus ?? 'completed',
+      amount: entry.amount ?? entry.delta ?? 0,
+      currencyCode: entry.currencyCode ?? workspaceCurrency,
+      occurredAt: entry.occurredAt ?? entry.recordedAt ?? entry.createdAt,
+      counterparty: entry.counterparty ?? entry.initiatedBy?.name ?? entry.initiatedBy?.displayName,
+      channel: entry.channel ?? entry.paymentMethod ?? 'ledger',
+      walletAccountId: entry.walletAccountId ?? entry.walletAccount?.id,
+      anomalyScore: entry.anomalyScore,
+      flagged: Boolean(entry.flagged),
+      notes: entry.notes,
+      metadata: entry.metadata ?? { source: 'ledger' },
+    }));
+
+    const formatTransfers = transferEntries.map((entry) => ({
+      id: entry.id ?? `transfer-${entry.reference}`,
+      reference: entry.reference ?? entry.id,
+      type: entry.type ?? 'transfer',
+      status: entry.status ?? 'processing',
+      amount: entry.amount ?? 0,
+      currencyCode: entry.currencyCode ?? workspaceCurrency,
+      occurredAt: entry.initiatedAt ?? entry.createdAt,
+      counterparty: entry.counterparty ?? entry.destination,
+      channel: entry.channel ?? entry.method,
+      walletAccountId: entry.walletAccountId ?? entry.accountId,
+      anomalyScore: entry.anomalyScore,
+      flagged: Boolean(entry.flagged),
+      notes: entry.notes,
+      metadata: entry.metadata ?? { source: 'transfer' },
+    }));
+
+    const formatPayouts = payoutEntries.map((entry) => ({
+      id: entry.id ?? `payout-${entry.reference}`,
+      reference: entry.reference ?? entry.id,
+      type: 'payout',
+      status: entry.status ?? 'pending',
+      amount: entry.amount ?? entry.total ?? 0,
+      currencyCode: entry.currencyCode ?? entry.currency ?? workspaceCurrency,
+      occurredAt: entry.scheduledFor ?? entry.requestedAt ?? entry.createdAt,
+      counterparty: entry.destination ?? entry.walletAccount?.displayName,
+      channel: entry.method ?? 'bank_transfer',
+      walletAccountId: entry.walletAccountId ?? entry.walletAccount?.id,
+      anomalyScore: entry.anomalyScore,
+      flagged: Boolean(entry.reviewFlagged ?? entry.flagged),
+      notes: entry.notes,
+      metadata: entry.metadata ?? { source: 'payout' },
+    }));
+
+    return [...formatLedger, ...formatTransfers, ...formatPayouts];
+  }, [overviewData, payoutsResource.data, workspaceCurrency]);
+
+  const handleTransactionSelect = useCallback(
+    (transaction) => {
+      if (!transaction) {
+        return;
+      }
+      const accountId = transaction.walletAccountId ?? transaction.accountId;
+      if (accountId) {
+        const match = accountsList.find((account) => String(account.id) === String(accountId));
+        if (match) {
+          setSelectedAccount(match);
+          setLedgerDrawerOpen(true);
+        }
+      }
+      setActiveSection('wallet-accounts');
+      const anchor = document.getElementById('wallet-accounts');
+      if (anchor) {
+        anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    },
+    [accountsList],
+  );
+
+  const handleExportTransactions = useCallback(
+    (rows) => {
+      const dataset = Array.isArray(rows) && rows.length ? rows : combinedTransactions;
+      if (!dataset.length || typeof window === 'undefined') {
+        return;
+      }
+      const headers = ['reference', 'type', 'status', 'amount', 'currency', 'occurredAt', 'counterparty', 'channel'];
+      const body = dataset
+        .map((row) =>
+          [
+            row.reference ?? row.id ?? '',
+            row.type ?? '',
+            row.status ?? '',
+            row.amount ?? '',
+            row.currencyCode ?? workspaceCurrency,
+            row.occurredAt ?? '',
+            row.counterparty ?? '',
+            row.channel ?? '',
+          ]
+            .map((value) => {
+              const stringValue = value == null ? '' : String(value);
+              return stringValue.includes(',') ? `"${stringValue.replace(/"/g, '""')}"` : stringValue;
+            })
+            .join(','),
+        )
+        .join('\n');
+      const csv = `${headers.join(',')}\n${body}`;
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `wallet-transactions-${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    },
+    [combinedTransactions, workspaceCurrency],
+  );
+
+  const handleNavigateToFunding = useCallback(() => {
+    setActiveSection('wallet-funding-sources');
+    const anchor = document.getElementById('wallet-funding-sources');
+    if (anchor) {
+      anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, []);
+
+  const handleScrollToTransactions = useCallback(() => {
+    const anchor = document.getElementById('wallet-transactions');
+    if (anchor) {
+      anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, []);
 
   const handleMenuSelect = useCallback(
     (itemId, item) => {
@@ -366,12 +517,47 @@ export default function AgencyWalletManagementPage() {
         id: 'wallet-summary',
         label: 'Summary',
         render: () => (
-          <WalletSummary
-            overview={overviewResource.data}
-            loading={overviewResource.loading}
-            error={overviewResource.error}
-            onRefresh={() => refreshOverview?.({ force: true })}
-          />
+          <div className="space-y-10">
+            <WalletOverview
+              overview={overviewData}
+              workspaceLabel={appliedWorkspaceLabel}
+              loading={overviewResource.loading}
+              error={overviewResource.error}
+              onRefresh={refreshOverview}
+              onViewTransactions={handleScrollToTransactions}
+              onSchedulePayout={() => {
+                setActiveSection('wallet-payouts');
+                const anchor = document.getElementById('wallet-payouts');
+                if (anchor) {
+                  anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              }}
+              onManageCompliance={() => {
+                setActiveSection('wallet-controls');
+                const anchor = document.getElementById('wallet-controls');
+                if (anchor) {
+                  anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              }}
+            />
+            <div id="wallet-transactions">
+              <TransactionTable
+                transactions={combinedTransactions}
+                loading={overviewResource.loading || payoutsResource.loading}
+                error={overviewResource.error}
+                onRetry={() => refreshOverview?.({ force: true })}
+                onExport={handleExportTransactions}
+                onSelectTransaction={handleTransactionSelect}
+                workspaceCurrency={workspaceCurrency}
+              />
+            </div>
+            <WalletSummary
+              overview={overviewData}
+              loading={overviewResource.loading}
+              error={overviewResource.error}
+              onRefresh={() => refreshOverview?.({ force: true })}
+            />
+          </div>
         ),
       },
       {
@@ -408,13 +594,25 @@ export default function AgencyWalletManagementPage() {
         id: 'wallet-payouts',
         label: 'Payouts',
         render: () => (
-          <WalletPayoutsPanel
-            resource={payoutsResource}
-            statusFilter={payoutStatusFilter}
-            onStatusFilterChange={handlePayoutStatusChange}
-            onCreatePayout={handleCreatePayout}
-            onUpdatePayout={handleUpdatePayout}
-          />
+          <div className="space-y-10">
+            <PayoutSetup
+              workspaceId={effectiveWorkspaceId ?? ''}
+              settings={settingsResource.data}
+              fundingSources={fundingSourcesResource.data?.items}
+              compliance={overviewData?.compliance}
+              loading={settingsResource.loading}
+              onCreateFundingSource={handleNavigateToFunding}
+              onSave={handleSaveSettings}
+              workspaceCurrency={workspaceCurrency}
+            />
+            <WalletPayoutsPanel
+              resource={payoutsResource}
+              statusFilter={payoutStatusFilter}
+              onStatusFilterChange={handlePayoutStatusChange}
+              onCreatePayout={handleCreatePayout}
+              onUpdatePayout={handleUpdatePayout}
+            />
+          </div>
         ),
       },
       {
@@ -430,10 +628,17 @@ export default function AgencyWalletManagementPage() {
       },
     ],
     [
-      overviewResource.data,
+      overviewData,
       overviewResource.loading,
       overviewResource.error,
       refreshOverview,
+      appliedWorkspaceLabel,
+      handleScrollToTransactions,
+      combinedTransactions,
+      payoutsResource.loading,
+      handleExportTransactions,
+      handleTransactionSelect,
+      workspaceCurrency,
       accountsResource,
       accountStatusFilter,
       accountSearchTerm,
@@ -454,6 +659,7 @@ export default function AgencyWalletManagementPage() {
       settingsResource,
       effectiveWorkspaceId,
       handleSaveSettings,
+      handleNavigateToFunding,
     ],
   );
 

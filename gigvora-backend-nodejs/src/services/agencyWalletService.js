@@ -15,6 +15,12 @@ import { AuthorizationError, NotFoundError, ValidationError } from '../utils/err
 
 const ALLOWED_WALLET_ROLES = new Set(['agency', 'agency_admin', 'admin', 'finance']);
 const PENDING_PAYOUT_STATUSES = ['pending_review', 'approved', 'scheduled'];
+const DEFAULT_COMPLIANCE_STATES = Object.freeze({
+  kycStatus: 'complete',
+  amlStatus: 'clear',
+  taxStatus: 'available',
+  watchlistStatus: 'clear',
+});
 
 function normaliseRoles(roles) {
   if (!Array.isArray(roles)) {
@@ -123,6 +129,12 @@ function serialiseFundingSource(source) {
 
 function serialisePayoutRequest(request) {
   const base = request.toPublicObject();
+  base.metadata = base.metadata ?? {};
+  base.reference = base.reference ?? request.reference ?? null;
+  base.notes = base.notes ?? request.notes ?? null;
+  base.requestedAt = base.requestedAt ?? request.requestedAt ?? null;
+  base.amount = Number.parseFloat(base.amount ?? request.amount ?? 0) || 0;
+  base.currencyCode = base.currencyCode ?? request.currencyCode ?? 'USD';
   if (request.walletAccount) {
     base.walletAccount = serialiseAccount(request.walletAccount);
   }
@@ -136,6 +148,8 @@ function serialisePayoutRequest(request) {
       slug: request.workspace.slug,
     };
   }
+  base.label = base.metadata.label ?? base.notes ?? base.walletAccount?.displayName ?? null;
+  base.destination = base.metadata.destination ?? base.fundingSource?.label ?? base.walletAccount?.displayName ?? null;
   return base;
 }
 
@@ -191,6 +205,151 @@ function aggregateCurrencyBreakdown(accounts) {
   }, new Map());
 }
 
+function determinePrimaryCurrency(accounts, breakdown) {
+  if (breakdown.length) {
+    const sorted = [...breakdown].sort((left, right) => right.totalBalance - left.totalBalance);
+    return sorted[0].currency;
+  }
+  if (accounts.length) {
+    return accounts[0].currencyCode || 'USD';
+  }
+  return 'USD';
+}
+
+function buildNetFlowSeries(entries) {
+  if (!Array.isArray(entries) || entries.length === 0) {
+    return [];
+  }
+
+  const totalsByDay = new Map();
+  entries.forEach((entry) => {
+    const occurred = entry.occurredAt ? new Date(entry.occurredAt) : null;
+    if (!occurred || Number.isNaN(occurred.getTime())) {
+      return;
+    }
+    const key = occurred.toISOString().slice(0, 10);
+    const value = Number.parseFloat(entry.amount ?? entry.delta ?? 0) || 0;
+    const current = totalsByDay.get(key) ?? 0;
+    totalsByDay.set(key, current + value);
+  });
+
+  return Array.from(totalsByDay.entries())
+    .sort((left, right) => left[0].localeCompare(right[0]))
+    .map(([, value]) => Number(value.toFixed(2)));
+}
+
+function buildComplianceSnapshot(settings, pendingSummary, totals) {
+  if (!settings) {
+    return {
+      ...DEFAULT_COMPLIANCE_STATES,
+      dualControlEnabled: false,
+      autoSweepEnabled: false,
+      autoSweepThreshold: null,
+      riskTier: 'standard',
+      complianceContactEmail: null,
+    };
+  }
+
+  const dualControlEnabled = Boolean(settings.dualControlEnabled);
+  const autoSweepEnabled = Boolean(settings.autoSweepEnabled);
+  const pendingAmount = Number.parseFloat(pendingSummary?.amount ?? 0) || 0;
+  const reserveRatio = totals.availableBalance > 0 ? totals.pendingHoldBalance / totals.availableBalance : 0;
+
+  return {
+    kycStatus: pendingAmount > 0 ? 'in_review' : DEFAULT_COMPLIANCE_STATES.kycStatus,
+    amlStatus: reserveRatio > 0.3 ? 'monitoring' : DEFAULT_COMPLIANCE_STATES.amlStatus,
+    taxStatus: DEFAULT_COMPLIANCE_STATES.taxStatus,
+    watchlistStatus:
+      totals.pendingHoldBalance > totals.availableBalance
+        ? 'investigate'
+        : DEFAULT_COMPLIANCE_STATES.watchlistStatus,
+    dualControlEnabled,
+    autoSweepEnabled,
+    autoSweepThreshold: settings.autoSweepThreshold ?? null,
+    riskTier: settings.riskTier ?? 'standard',
+    complianceContactEmail: settings.complianceContactEmail ?? null,
+  };
+}
+
+function buildAlerts({ totals, pendingSummary, fundingSourceCount, activeTransferRules, settings }) {
+  const alerts = [];
+  const now = new Date();
+
+  if (!fundingSourceCount) {
+    alerts.push({
+      id: 'funding-source-missing',
+      severity: 'critical',
+      title: 'Connect a funding source',
+      message: 'Add a verified bank or treasury account to release payouts automatically.',
+      createdAt: now,
+    });
+  }
+
+  if (!activeTransferRules) {
+    alerts.push({
+      id: 'transfer-rules-missing',
+      severity: 'warning',
+      title: 'No active payout automation',
+      message: 'Set up auto-transfer rules to keep balances sweeping into treasury accounts on schedule.',
+      createdAt: now,
+    });
+  }
+
+  if (pendingSummary?.count) {
+    alerts.push({
+      id: 'payout-queue',
+      severity: 'warning',
+      title: 'Payouts awaiting action',
+      message: `There are ${pendingSummary.count} payout requests totalling ${pendingSummary.amount.toFixed(
+        2,
+      )}. Review and approve to keep vendors paid.`,
+      createdAt: now,
+    });
+  }
+
+  if (settings?.lowBalanceAlertThreshold != null) {
+    const threshold = Number.parseFloat(settings.lowBalanceAlertThreshold) || 0;
+    if (threshold > 0 && totals.availableBalance < threshold) {
+      alerts.push({
+        id: 'low-balance',
+        severity: 'critical',
+        title: 'Available balance below guardrail',
+        message: `Available balance ${totals.availableBalance.toFixed(
+          2,
+        )} is below the configured guardrail of ${threshold.toFixed(2)}.`,
+        createdAt: now,
+      });
+    }
+  }
+
+  if (totals.pendingHoldBalance > totals.availableBalance) {
+    alerts.push({
+      id: 'reserve-imbalance',
+      severity: 'warning',
+      title: 'Held funds exceed available balance',
+      message: 'Investigate delayed releases or escalate to compliance to rebalance held reserves.',
+      createdAt: now,
+    });
+  }
+
+  return alerts;
+}
+
+function normaliseScheduledFor(metadata, fallbackDate) {
+  if (!metadata) {
+    return fallbackDate ?? null;
+  }
+  if (metadata.scheduledFor) {
+    const scheduleDate = new Date(metadata.scheduledFor);
+    return Number.isNaN(scheduleDate.getTime()) ? fallbackDate ?? null : scheduleDate.toISOString();
+  }
+  if (metadata.expectedAt) {
+    const expected = new Date(metadata.expectedAt);
+    return Number.isNaN(expected.getTime()) ? fallbackDate ?? null : expected.toISOString();
+  }
+  return fallbackDate ?? null;
+}
+
 export async function getWalletOverview({ workspaceId } = {}, { roles } = {}) {
   assertWalletAccess(roles);
   const resolvedWorkspaceId = workspaceId == null ? null : parsePositiveInteger(workspaceId, 'workspaceId');
@@ -235,15 +394,33 @@ export async function getWalletOverview({ workspaceId } = {}, { roles } = {}) {
     pendingHoldBalance: Number(bucket.pendingHoldBalance.toFixed(2)),
     accounts: bucket.accounts,
   }));
+  const primaryCurrency = determinePrimaryCurrency(accounts, currencyBreakdown);
 
-  const pendingPayouts = await WalletPayoutRequest.findAll({
+  const pendingRequests = await WalletPayoutRequest.findAll({
     where: {
       ...buildWorkspaceFilter(resolvedWorkspaceId),
       status: { [Op.in]: PENDING_PAYOUT_STATUSES },
     },
-    attributes: ['amount'],
+    include: [
+      {
+        model: WalletAccount,
+        as: 'walletAccount',
+        include: [
+          { model: Profile, as: 'profile', attributes: ['id', 'headline', 'userId'] },
+          { model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email'] },
+          { model: ProviderWorkspace, as: 'workspace', attributes: ['id', 'name', 'slug'] },
+        ],
+      },
+      {
+        model: AgencyWalletFundingSource,
+        as: 'fundingSource',
+        include: [{ model: ProviderWorkspace, as: 'workspace', attributes: ['id', 'name', 'slug'] }],
+      },
+      { model: ProviderWorkspace, as: 'workspace', attributes: ['id', 'name', 'slug'] },
+    ],
+    order: [['requestedAt', 'DESC']],
   });
-  const pendingSummary = pendingPayouts.reduce(
+  const pendingSummary = pendingRequests.reduce(
     (acc, request) => {
       const amount = Number.parseFloat(request.amount ?? 0) || 0;
       acc.count += 1;
@@ -252,6 +429,7 @@ export async function getWalletOverview({ workspaceId } = {}, { roles } = {}) {
     },
     { count: 0, amount: 0 },
   );
+  pendingSummary.amount = Number(pendingSummary.amount.toFixed(2));
 
   const [fundingSourceCount, activeTransferRules] = await Promise.all([
     AgencyWalletFundingSource.count({ where: buildWorkspaceFilter(resolvedWorkspaceId) }),
@@ -298,25 +476,81 @@ export async function getWalletOverview({ workspaceId } = {}, { roles } = {}) {
     ? await WalletOperationalSetting.findOne({ where: { workspaceId: resolvedWorkspaceId } })
     : null;
 
+  const settings = settingsInstance ? settingsInstance.toPublicObject() : null;
+  const totalsSnapshot = {
+    totalBalance: Number(totals.totalBalance.toFixed(2)),
+    availableBalance: Number(totals.availableBalance.toFixed(2)),
+    pendingHoldBalance: Number(totals.pendingHoldBalance.toFixed(2)),
+    accountCount: totals.count,
+    statusCounts: totals.statusCounts,
+    latestReconciledAt: totals.latestReconciledAt,
+  };
+
+  const compliance = buildComplianceSnapshot(settings, pendingSummary, totalsSnapshot);
+  const alerts = buildAlerts({
+    totals: totalsSnapshot,
+    pendingSummary,
+    fundingSourceCount,
+    activeTransferRules,
+    settings,
+  });
+
+  const upcomingPayouts = pendingRequests.slice(0, 5).map((request) => {
+    const base = serialisePayoutRequest(request);
+    const scheduledFor = normaliseScheduledFor(base.metadata, base.requestedAt);
+    return {
+      ...base,
+      scheduledFor,
+      label: base.metadata?.label ?? base.walletAccount?.displayName ?? 'Scheduled payout',
+      destination: base.metadata?.destination ?? base.fundingSource?.label ?? base.walletAccount?.displayName,
+    };
+  });
+
+  const recentTransfers = pendingRequests.slice(0, 10).map((request) => {
+    const base = serialisePayoutRequest(request);
+    return {
+      id: base.id,
+      reference: base.reference ?? base.id,
+      status: base.status,
+      amount: base.amount,
+      currencyCode: base.currencyCode,
+      walletAccountId: base.walletAccountId,
+      occurredAt: base.requestedAt,
+      scheduledFor: normaliseScheduledFor(base.metadata, base.requestedAt),
+      channel: base.metadata?.channel ?? 'bank_transfer',
+      destination: base.metadata?.destination ?? base.fundingSource?.label ?? base.walletAccount?.displayName,
+      notes: base.notes,
+      metadata: base.metadata ?? {},
+    };
+  });
+
+  const netFlows = buildNetFlowSeries(recentLedger);
+
   return {
     workspaceId: resolvedWorkspaceId,
+    currency: primaryCurrency,
+    primaryCurrency,
     totals: {
-      totalBalance: Number(totals.totalBalance.toFixed(2)),
-      availableBalance: Number(totals.availableBalance.toFixed(2)),
-      pendingHoldBalance: Number(totals.pendingHoldBalance.toFixed(2)),
-      accountCount: totals.count,
-      statusCounts: totals.statusCounts,
-      latestReconciledAt: totals.latestReconciledAt,
+      ...totalsSnapshot,
+      currency: primaryCurrency,
+      currencyCode: primaryCurrency,
+      pendingPayoutAmount: pendingSummary.amount,
     },
     currencyBreakdown,
     fundingSourceCount,
     activeTransferRules,
     pendingPayouts: {
       count: pendingSummary.count,
-      amount: Number(pendingSummary.amount.toFixed(2)),
+      amount: pendingSummary.amount,
     },
+    upcomingPayouts,
     recentLedger,
-    settings: settingsInstance ? settingsInstance.toPublicObject() : null,
+    recentTransfers,
+    alerts,
+    compliance,
+    netFlows,
+    refreshedAt: new Date().toISOString(),
+    settings,
   };
 }
 

@@ -1,9 +1,12 @@
 import { useCallback, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import DataStatus from '../../../../components/DataStatus.jsx';
+import WalletOverview from '../../../../components/agency/wallet/WalletOverview.jsx';
+import TransactionTable from '../../../../components/agency/wallet/TransactionTable.jsx';
 import WalletSummary from '../../../../components/agency/wallet/WalletSummary.jsx';
 import WalletAccountsPanel from '../../../../components/agency/wallet/WalletAccountsPanel.jsx';
 import WalletFundingSourcesPanel from '../../../../components/agency/wallet/WalletFundingSourcesPanel.jsx';
+import PayoutSetup from '../../../../components/agency/wallet/PayoutSetup.jsx';
 import WalletPayoutsPanel from '../../../../components/agency/wallet/WalletPayoutsPanel.jsx';
 import WalletSettingsForm from '../../../../components/agency/wallet/WalletSettingsForm.jsx';
 import WalletLedgerDrawer from '../../../../components/agency/wallet/WalletLedgerDrawer.jsx';
@@ -81,6 +84,71 @@ export default function AgencyWalletSection({ workspaceId, statusLabel }) {
 
   const handlePayoutStatusChange = useCallback((value) => {
     setPayoutStatusFilter(value ?? '');
+  }, []);
+
+  const overviewData = overviewResource?.data ?? null;
+  const workspaceCurrency = overviewData?.totals?.currency ?? 'USD';
+
+  const accountsList = useMemo(() => {
+    const items = accountsResource?.data?.items;
+    return Array.isArray(items) ? items : [];
+  }, [accountsResource?.data?.items]);
+
+  const combinedTransactions = useMemo(() => {
+    const ledgerEntries = Array.isArray(overviewData?.recentLedger) ? overviewData.recentLedger : [];
+    const transferEntries = Array.isArray(overviewData?.recentTransfers) ? overviewData.recentTransfers : [];
+    const payoutEntries = Array.isArray(payoutsResource?.data?.items) ? payoutsResource.data.items : [];
+
+    const normalize = (entry = {}, fallbackType = 'ledger') => ({
+      id: entry.id ?? `${fallbackType}-${entry.reference ?? entry.createdAt ?? Math.random()}`,
+      reference: entry.reference ?? entry.id,
+      type: entry.entryType ?? entry.type ?? fallbackType,
+      status: entry.status ?? entry.entryStatus ?? 'pending',
+      amount: entry.amount ?? entry.total ?? entry.delta ?? 0,
+      currencyCode: entry.currencyCode ?? entry.currency ?? workspaceCurrency,
+      occurredAt: entry.occurredAt ?? entry.recordedAt ?? entry.scheduledFor ?? entry.requestedAt ?? entry.createdAt,
+      counterparty: entry.counterparty ?? entry.destination ?? entry.walletAccount?.displayName,
+      channel: entry.channel ?? entry.method ?? entry.paymentMethod ?? 'ledger',
+      walletAccountId: entry.walletAccountId ?? entry.walletAccount?.id ?? entry.accountId,
+      anomalyScore: entry.anomalyScore,
+      flagged: Boolean(entry.flagged ?? entry.reviewFlagged),
+      notes: entry.notes,
+      metadata: entry.metadata ?? { source: fallbackType },
+    });
+
+    return [
+      ...ledgerEntries.map((entry) => normalize(entry, 'ledger')),
+      ...transferEntries.map((entry) => normalize(entry, 'transfer')),
+      ...payoutEntries.map((entry) => normalize(entry, 'payout')),
+    ];
+  }, [overviewData, payoutsResource?.data?.items, workspaceCurrency]);
+
+  const handleTransactionSelect = useCallback(
+    (transaction) => {
+      const accountId = transaction?.walletAccountId ?? transaction?.accountId;
+      if (accountId) {
+        const match = accountsList.find((account) => String(account.id) === String(accountId));
+        if (match) {
+          setSelectedAccount(match);
+          setLedgerOpen(true);
+        }
+      }
+    },
+    [accountsList],
+  );
+
+  const handleNavigateToFunding = useCallback(() => {
+    const anchor = document.getElementById('agency-wallet-funding');
+    if (anchor) {
+      anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, []);
+
+  const handleScrollTransactions = useCallback(() => {
+    const anchor = document.getElementById('agency-wallet-transactions');
+    if (anchor) {
+      anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   }, []);
 
   const reloadAll = useCallback(async () => {
@@ -254,51 +322,99 @@ export default function AgencyWalletSection({ workspaceId, statusLabel }) {
         />
       </header>
 
-      <div className="rounded-3xl border border-white/60 bg-white/80 p-5 shadow-inner">
+      <div className="space-y-8 rounded-3xl border border-white/60 bg-white/80 p-5 shadow-inner">
+        <WalletOverview
+          overview={overviewData}
+          workspaceLabel={statusLabel}
+          loading={overviewResource?.loading}
+          error={overviewResource?.error}
+          onRefresh={refreshOverview}
+          onViewTransactions={handleScrollTransactions}
+          onSchedulePayout={() => {
+            const anchor = document.getElementById('agency-wallet-payouts');
+            if (anchor) {
+              anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          }}
+          onManageCompliance={() => {
+            const anchor = document.getElementById('agency-wallet-settings');
+            if (anchor) {
+              anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          }}
+        />
+        <div id="agency-wallet-transactions">
+          <TransactionTable
+            transactions={combinedTransactions}
+            loading={overviewResource?.loading || payoutsResource?.loading}
+            error={overviewResource?.error}
+            onRetry={() => refreshOverview?.({ force: true })}
+            onSelectTransaction={handleTransactionSelect}
+            workspaceCurrency={workspaceCurrency}
+          />
+        </div>
         <WalletSummary
-          overview={overviewResource?.data ?? null}
+          overview={overviewData}
           loading={overviewResource?.loading}
           error={overviewResource?.error}
           onRefresh={() => refreshOverview?.({ force: true })}
         />
       </div>
 
-      <WalletAccountsPanel
-        resource={accountsResource}
-        statusFilter={accountStatusFilter}
-        onStatusChange={handleAccountStatusChange}
-        searchTerm={accountSearchTerm}
-        onSearchChange={handleAccountSearchChange}
-        page={accountPage}
-        pageSize={ACCOUNT_PAGE_SIZE}
-        onPageChange={setAccountPage}
-        onCreateAccount={handleCreateAccount}
-        onUpdateAccount={handleUpdateAccount}
-        onSelectAccount={(account) => {
-          setSelectedAccount(account);
-          setLedgerOpen(true);
-        }}
-      />
+      <div id="agency-wallet-accounts">
+        <WalletAccountsPanel
+          resource={accountsResource}
+          statusFilter={accountStatusFilter}
+          onStatusChange={handleAccountStatusChange}
+          searchTerm={accountSearchTerm}
+          onSearchChange={handleAccountSearchChange}
+          page={accountPage}
+          pageSize={ACCOUNT_PAGE_SIZE}
+          onPageChange={setAccountPage}
+          onCreateAccount={handleCreateAccount}
+          onUpdateAccount={handleUpdateAccount}
+          onSelectAccount={(account) => {
+            setSelectedAccount(account);
+            setLedgerOpen(true);
+          }}
+        />
+      </div>
 
-      <WalletFundingSourcesPanel
-        resource={fundingSourcesResource}
-        onCreate={handleCreateFundingSource}
-        onUpdate={handleUpdateFundingSource}
-      />
+      <div id="agency-wallet-funding">
+        <WalletFundingSourcesPanel
+          resource={fundingSourcesResource}
+          onCreate={handleCreateFundingSource}
+          onUpdate={handleUpdateFundingSource}
+        />
+      </div>
 
-      <WalletPayoutsPanel
-        resource={payoutsResource}
-        statusFilter={payoutStatusFilter}
-        onStatusChange={handlePayoutStatusChange}
-        onCreate={handleCreatePayout}
-        onUpdate={handleUpdatePayout}
-      />
+      <div id="agency-wallet-payouts" className="space-y-8">
+        <PayoutSetup
+          workspaceId={workspaceId ? String(workspaceId) : ''}
+          settings={settingsResource?.data}
+          fundingSources={fundingSourcesResource?.data?.items}
+          compliance={overviewData?.compliance}
+          loading={settingsResource?.loading}
+          onCreateFundingSource={handleNavigateToFunding}
+          onSave={handleSettingsSave}
+          workspaceCurrency={workspaceCurrency}
+        />
+        <WalletPayoutsPanel
+          resource={payoutsResource}
+          statusFilter={payoutStatusFilter}
+          onStatusChange={handlePayoutStatusChange}
+          onCreate={handleCreatePayout}
+          onUpdate={handleUpdatePayout}
+        />
+      </div>
 
-      <WalletSettingsForm
-        resource={settingsResource}
-        onSave={handleSettingsSave}
-        workspaceId={workspaceId}
-      />
+      <div id="agency-wallet-settings">
+        <WalletSettingsForm
+          resource={settingsResource}
+          onSave={handleSettingsSave}
+          workspaceId={workspaceId}
+        />
+      </div>
 
       <WalletLedgerDrawer
         account={selectedAccount}
