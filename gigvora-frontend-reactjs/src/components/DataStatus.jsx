@@ -83,6 +83,7 @@ export default function DataStatus({
   helpLink,
   helpLabel = 'Open support centre',
   children,
+  className,
 }) {
   const resolvedLastUpdated = resolveDate(lastUpdated);
   const label = fromCache ? 'Offline snapshot' : statusLabel;
@@ -105,8 +106,10 @@ export default function DataStatus({
       helpLink,
   );
 
+  const Icon = statePreset.icon ?? CheckCircleIcon;
+
   return (
-    <div className="space-y-4">
+    <div className={classNames('space-y-4', className)}>
       <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
         <span className={classNames('inline-flex items-center gap-2 rounded-full px-3 py-1 font-semibold', badgeTone)}>
           <span aria-hidden="true" className={`inline-block h-2 w-2 rounded-full ${dotTone}`} />
@@ -139,7 +142,7 @@ export default function DataStatus({
                 resolvedState === 'loading' ? 'animate-spin' : '',
               )}
             >
-              <statePreset.icon className="h-5 w-5" aria-hidden="true" />
+              <Icon className="h-5 w-5" aria-hidden="true" />
             </span>
             <div className="space-y-2">
               {displayTitle ? <p className="text-sm font-semibold text-slate-900">{displayTitle}</p> : null}
@@ -205,6 +208,7 @@ DataStatus.propTypes = {
   fromCache: PropTypes.bool,
   lastUpdated: PropTypes.oneOfType([PropTypes.instanceOf(Date), PropTypes.string, PropTypes.number]),
   onRefresh: PropTypes.func,
+  onRetry: PropTypes.func,
   error: PropTypes.shape({
     message: PropTypes.string,
   }),
@@ -228,4 +232,5 @@ DataStatus.propTypes = {
   helpLink: PropTypes.string,
   helpLabel: PropTypes.string,
   children: PropTypes.node,
+  className: PropTypes.string,
 };

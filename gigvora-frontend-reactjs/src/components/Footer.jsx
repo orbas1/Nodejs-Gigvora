@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { BoltIcon, ShieldCheckIcon, SignalIcon } from '@heroicons/react/24/outline';
 import { LOGO_URL } from '../constants/branding.js';
 import { useNavigationChrome } from '../context/NavigationChromeContext.jsx';
+import DataStatus from './DataStatus.jsx';
 
 const STATUS_ICON_MAP = {
   signal: SignalIcon,
@@ -58,7 +59,7 @@ function renderSocialIcon(iconKey) {
 
 export default function Footer() {
   const [newsletterSubmitted, setNewsletterSubmitted] = useState(false);
-  const { footer } = useNavigationChrome();
+  const { footer, locales, personas, loading, error, lastFetchedAt, refresh } = useNavigationChrome();
 
   const navigationSections = Array.isArray(footer?.navigationSections) ? footer.navigationSections : [];
   const statusHighlights = Array.isArray(footer?.statusHighlights)
@@ -71,6 +72,19 @@ export default function Footer() {
   const officeLocations = Array.isArray(footer?.officeLocations) ? footer.officeLocations : [];
   const certifications = Array.isArray(footer?.certifications) ? footer.certifications : [];
   const socialLinks = Array.isArray(footer?.socialLinks) ? footer.socialLinks : [];
+  const totalLocales = Array.isArray(locales) ? locales.length : 0;
+  const totalPersonas = Array.isArray(personas) ? personas.length : 0;
+  const chromeState = error ? 'error' : loading ? 'loading' : 'ready';
+  const chromeMeta = [
+    { label: 'Locales', value: `${totalLocales} active`, trend: 'Persona-ready copy', positive: true },
+    { label: 'Personas', value: `${totalPersonas} journeys`, trend: 'Blueprint metrics', positive: true },
+    { label: 'Programmes', value: `${communityLinks.length} live`, trend: 'Community rails', positive: true },
+  ];
+  const chromeInsights = [
+    ...statusHighlights.map((highlight) => `${highlight.label}: ${highlight.status} — ${highlight.detail}`),
+    'Locales, personas, and footer rails hydrate from navigation chrome.',
+    'Refresh to pull the latest compliance badges and programme copy.',
+  ];
 
   const handleNewsletterSubmit = (event) => {
     event.preventDefault();
@@ -158,6 +172,30 @@ export default function Footer() {
                   {renderSocialIcon(item.icon)}
                 </a>
               ))}
+            </div>
+            <div className="rounded-3xl border border-slate-200/80 bg-white/80 p-4 shadow-sm">
+              <DataStatus
+                className="text-xs"
+                loading={loading}
+                error={error}
+                state={chromeState}
+                lastUpdated={lastFetchedAt}
+                statusLabel="Navigation chrome"
+                title={chromeState === 'error' ? "Chrome data unavailable" : 'Navigation chrome ready'}
+                description={
+                  chromeState === 'error'
+                    ? 'We are serving cached footer, locale, and persona metadata while we reconnect to the chrome service.'
+                    : 'Footer, locale, and persona metadata are in sync with the chrome service.'
+                }
+                fromCache={Boolean(error)}
+                meta={chromeMeta}
+                insights={chromeInsights}
+                actionLabel="Refresh chrome"
+                onAction={() => refresh()}
+                helpLink="/support/status"
+                helpLabel="Open status centre"
+                footnote="Chrome sync telemetry"
+              />
             </div>
           </div>
           <div className="space-y-8">

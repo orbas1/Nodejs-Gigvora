@@ -56,12 +56,16 @@ const FALLBACK_LANGUAGE = {
 
 export default function LanguageSelector({ variant = 'header', className }) {
   const { availableLanguages, language, setLanguage, t } = useLanguage();
-  const languages = Array.isArray(availableLanguages) && availableLanguages.length ? availableLanguages : [FALLBACK_LANGUAGE];
+  const languages =
+    Array.isArray(availableLanguages) && availableLanguages.length
+      ? availableLanguages
+      : [FALLBACK_LANGUAGE];
   const activeLanguage = languages.find((entry) => entry.code === language) ?? languages[0] ?? FALLBACK_LANGUAGE;
   const buttonStyles = BUTTON_STYLES[variant] ?? BUTTON_STYLES.header;
   const menuPosition = MENU_POSITION[variant] ?? MENU_POSITION.header;
   const activeBadge = STATUS_BADGES[activeLanguage.status] ?? { label: 'In localisation', tone: 'bg-slate-200 text-slate-600' };
   const activeUpdate = describeUpdate(activeLanguage.lastUpdated, language);
+  const requestPath = activeLanguage.metadata?.requestPath ?? '/support/localization';
 
   const handleChange = (code) => {
     if (code !== language) {
@@ -134,7 +138,7 @@ export default function LanguageSelector({ variant = 'header', className }) {
             Localisation coverage
           </p>
           <div className="max-h-60 overflow-y-auto">
-            {availableLanguages.map((option) => (
+            {languages.map((option) => (
               <Menu.Item key={option.code}>
                 {({ active }) => (
                   <button
@@ -199,7 +203,7 @@ export default function LanguageSelector({ variant = 'header', className }) {
               Submit a localisation request so we can prioritise copy, QA, and support enablement for your market.
             </p>
             <Link
-              to="/support/localization"
+              to={requestPath}
               className="mt-2 inline-flex items-center gap-2 rounded-full border border-accent/60 px-3 py-1.5 font-semibold text-accent transition hover:border-accent hover:text-accentDark"
             >
               Raise a request
