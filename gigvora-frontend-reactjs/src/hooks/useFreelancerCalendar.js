@@ -4,49 +4,12 @@ import {
   createFreelancerCalendarEvent,
   updateFreelancerCalendarEvent,
   deleteFreelancerCalendarEvent,
+  downloadFreelancerCalendarEventInvite,
 } from '../services/freelancerCalendar.js';
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_LOOKBACK_DAYS = 14;
 const DEFAULT_LOOKAHEAD_DAYS = 90;
-
-const FALLBACK_EVENTS = [
-  {
-    id: 'demo-event-1',
-    title: 'Client onboarding workshop',
-    eventType: 'project',
-    status: 'confirmed',
-    startsAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
-    endsAt: new Date(Date.now() + 3.5 * 60 * 60 * 1000).toISOString(),
-    location: 'Virtual',
-    notes: 'Walk through delivery workspace and align on priorities.',
-    relatedEntityType: 'project',
-    relatedEntityName: 'Atlas Robotics revamp',
-    color: '#2563eb',
-  },
-  {
-    id: 'demo-event-2',
-    title: 'Venture interview • Finley Capital',
-    eventType: 'job_interview',
-    status: 'confirmed',
-    startsAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    endsAt: new Date(Date.now() + 25 * 60 * 60 * 1000).toISOString(),
-    location: 'Google Meet',
-    notes: 'Prep deck and traction narrative for roundtable.',
-    color: '#0ea5e9',
-  },
-  {
-    id: 'demo-event-3',
-    title: 'Community design clinic',
-    eventType: 'volunteering',
-    status: 'tentative',
-    startsAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    endsAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 90 * 60 * 1000).toISOString(),
-    location: 'Impact Hub',
-    notes: 'Support nonprofit founders with pitch narrative.',
-    color: '#16a34a',
-  },
-];
 
 function computeRange({ startDate, endDate, lookbackDays, lookaheadDays } = {}) {
   const now = new Date();
@@ -131,10 +94,10 @@ export default function useFreelancerCalendar({
   lookbackDays = DEFAULT_LOOKBACK_DAYS,
   lookaheadDays = DEFAULT_LOOKAHEAD_DAYS,
 } = {}) {
-  const [events, setEvents] = useState(() => sortEvents(FALLBACK_EVENTS));
+  const [events, setEvents] = useState(() => []);
   const [range, setRange] = useState(() => computeRange({ lookbackDays, lookaheadDays }));
   const [filters, setFilters] = useState({ types: undefined, statuses: undefined });
-  const [metrics, setMetrics] = useState(() => computeMetrics(FALLBACK_EVENTS, range));
+  const [metrics, setMetrics] = useState(() => computeMetrics([], computeRange({ lookbackDays, lookaheadDays })));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -142,13 +105,7 @@ export default function useFreelancerCalendar({
   const refresh = useCallback(
     async (overrides = {}) => {
       if (!enabled) {
-        return { events, fromServer: false };
-      }
-
-      if (!freelancerId) {
-        setEvents(sortEvents(FALLBACK_EVENTS));
-        setMetrics(computeMetrics(FALLBACK_EVENTS, range));
-        return { events: FALLBACK_EVENTS, fromServer: false };
+        return { events: [], fromServer: false };
       }
 
       const nextRange = computeRange({
@@ -162,6 +119,16 @@ export default function useFreelancerCalendar({
         types: overrides.types ?? overrides.type ?? filters.types,
         statuses: overrides.statuses ?? overrides.status ?? filters.statuses,
       };
+
+      if (!freelancerId) {
+        setRange(nextRange);
+        setFilters(nextFilters);
+        setEvents([]);
+        setMetrics(computeMetrics([], nextRange));
+        setLastUpdated(null);
+        setError(null);
+        return { events: [], metrics: null, fromServer: false };
+      }
 
       setLoading(true);
       try {
@@ -177,17 +144,16 @@ export default function useFreelancerCalendar({
 
         const receivedEvents = Array.isArray(response?.events) ? sortEvents(response.events) : [];
         setEvents(receivedEvents);
-        if (response?.metrics) {
-          setMetrics({
-            ...response.metrics,
-            range: response.metrics.range ?? {
-              start: nextRange.start.toISOString(),
-              end: nextRange.end.toISOString(),
-            },
-          });
-        } else {
-          setMetrics(computeMetrics(receivedEvents, nextRange));
-        }
+        const computedMetrics = response?.metrics && typeof response.metrics === 'object'
+          ? {
+              ...response.metrics,
+              range: response.metrics.range ?? {
+                start: nextRange.start.toISOString(),
+                end: nextRange.end.toISOString(),
+              },
+            }
+          : computeMetrics(receivedEvents, nextRange);
+        setMetrics(computedMetrics);
         setRange(nextRange);
         setFilters(nextFilters);
         setError(null);
@@ -195,20 +161,8 @@ export default function useFreelancerCalendar({
         return { events: receivedEvents, metrics: response?.metrics ?? null, fromServer: true };
       } catch (err) {
         setError(err);
-        let hadEvents = false;
-        setEvents((current) => {
-          if (current.length) {
-            hadEvents = true;
-            return current;
-          }
-          return sortEvents(FALLBACK_EVENTS);
-        });
-        setMetrics((current) => {
-          if (hadEvents) {
-            return current;
-          }
-          return computeMetrics(FALLBACK_EVENTS, nextRange);
-        });
+        setRange(nextRange);
+        setFilters(nextFilters);
         throw err;
       } finally {
         setLoading(false);
@@ -219,7 +173,8 @@ export default function useFreelancerCalendar({
   );
 
   useEffect(() => {
-    setRange(computeRange({ lookbackDays, lookaheadDays }));
+    const nextRange = computeRange({ lookbackDays, lookaheadDays });
+    setRange(nextRange);
   }, [lookbackDays, lookaheadDays]);
 
   useEffect(() => {
@@ -280,6 +235,16 @@ export default function useFreelancerCalendar({
     [freelancerId, range],
   );
 
+  const downloadEventInvite = useCallback(
+    async (eventId, options = {}) => {
+      if (!freelancerId) {
+        throw new Error('freelancerId is required to export calendar events.');
+      }
+      return downloadFreelancerCalendarEventInvite(freelancerId, eventId, options);
+    },
+    [freelancerId],
+  );
+
   const state = useMemo(
     () => ({
       events,
@@ -299,6 +264,7 @@ export default function useFreelancerCalendar({
     createEvent,
     updateEvent,
     deleteEvent,
+    downloadEventInvite,
     setFilters,
     setRange,
   };

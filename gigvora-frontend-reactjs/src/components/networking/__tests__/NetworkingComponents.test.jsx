@@ -202,6 +202,12 @@ describe('SessionConnectionsPanel', () => {
 
     render(<SessionConnectionsPanel connections={connections} onScheduleFollowUp={onSchedule} />);
 
+    expect(screen.getByText(/Quality intro prompts/i)).toBeInTheDocument();
+    const prompts = screen.getAllByText(
+      /Confirm next steps from the “Investor Mixer” session and recap what you already logged with Jamie\./i,
+    );
+    expect(prompts.length).toBeGreaterThan(0);
+
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /log follow-up/i }));
     });
@@ -242,6 +248,11 @@ describe('SessionPlanner', () => {
     averageSatisfaction: 92,
     noShowRate: 4,
     averageMessages: 12,
+    totalFollowUps: 6,
+    averageFollowUpsPerSession: 3,
+    averageFollowUpsPerAttendee: 1.5,
+    connectionsCaptured: 9,
+    averageConnectionsPerSession: 4.5,
   };
 
   it('opens designer modal and triggers create flow', async () => {
@@ -258,6 +269,7 @@ describe('SessionPlanner', () => {
     );
 
     expect(screen.getByText('Plan')).toBeInTheDocument();
+    expect(screen.getByText('Follow-ups')).toBeInTheDocument();
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /new session/i }));

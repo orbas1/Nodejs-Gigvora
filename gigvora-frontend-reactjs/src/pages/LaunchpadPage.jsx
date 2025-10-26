@@ -9,7 +9,7 @@ import LaunchpadCandidatePipeline from '../components/LaunchpadCandidatePipeline
 import useOpportunityListing from '../hooks/useOpportunityListing.js';
 import analytics from '../services/analytics.js';
 import { fetchLaunchpadDashboard } from '../services/launchpad.js';
-import { formatRelativeTime } from '../utils/date.js';
+import { formatRelativeTime, formatDateLabel } from '../utils/date.js';
 import useSession from '../hooks/useSession.js';
 import AccessRestricted from '../components/AccessRestricted.jsx';
 import { canAccessLaunchpad, getLaunchpadMemberships } from '../constants/access.js';
@@ -62,6 +62,7 @@ export default function LaunchpadPage() {
   const [dashboard, setDashboard] = useState(null);
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [dashboardError, setDashboardError] = useState(null);
+  const impactHighlights = useMemo(() => dashboard?.impactHighlights ?? {}, [dashboard]);
 
   useEffect(() => {
     if (!selectedLaunchpadId && items.length) {
@@ -140,6 +141,48 @@ export default function LaunchpadPage() {
     [items, selectedLaunchpadId],
   );
 
+  const heroHighlightItems = useMemo(() => {
+    const itemsList = [];
+    if (Number.isFinite(impactHighlights.interviewRate)) {
+      itemsList.push({
+        id: 'interview_rate',
+        label: 'Interview conversion',
+        value: `${impactHighlights.interviewRate}%`,
+        caption: 'Applicants graduating into mentor-led interviews this cycle.',
+      });
+    }
+    if (Number.isFinite(impactHighlights.placementVelocityDays)) {
+      itemsList.push({
+        id: 'placement_velocity',
+        label: 'Placement velocity',
+        value: `${impactHighlights.placementVelocityDays} days`,
+        caption: 'Average time to confirm a placement once fellows are shortlisted.',
+      });
+    }
+    if (Number.isFinite(impactHighlights.volunteerOpportunityShare)) {
+      itemsList.push({
+        id: 'volunteer_mix',
+        label: 'Volunteering share',
+        value: `${impactHighlights.volunteerOpportunityShare}%`,
+        caption: 'Opportunities prioritising pro-bono or community missions.',
+      });
+    }
+    if (selectedLaunchpad) {
+      const startLabel = formatDateLabel(selectedLaunchpad.startDate, { fallback: 'To be announced' });
+      itemsList.push({
+        id: 'next_cohort',
+        label: 'Next cohort start',
+        value: startLabel,
+        caption: selectedLaunchpad.mentorLead
+          ? `Led by ${selectedLaunchpad.mentorLead}`
+          : selectedLaunchpad.location
+            ? `Location • ${selectedLaunchpad.location}`
+            : 'Schedule updates every Friday.',
+      });
+    }
+    return itemsList;
+  }, [impactHighlights, selectedLaunchpad]);
+
   if (isAuthenticated && !hasLaunchpadAccess) {
     return (
       <section className="relative overflow-hidden bg-surfaceMuted py-20">
@@ -150,7 +193,7 @@ export default function LaunchpadPage() {
             tone="sky"
             badge={launchpadAccessLabel ? `Active: ${launchpadAccessLabel}` : 'Experience Launchpad'}
             title="Launchpad workspace is safeguarded"
-            description="Only verified fellows, mentors, agencies, and partner companies collaborate here. That keeps pilot programmes, placement data, and briefs secure."
+            description="Only verified fellows, mentors, agencies, and partner companies collaborate here. That protects pilot programmes, volunteering rosters, and impact telemetry."
             actionLabel="Request Launchpad access"
             actionHref="mailto:launchpad@gigvora.com?subject=Launchpad%20access%20request"
           />
@@ -166,8 +209,8 @@ export default function LaunchpadPage() {
       <div className="relative mx-auto max-w-5xl px-6">
         <PageHeader
           eyebrow="Experience Launchpad"
-          title="Guided programmes to ship portfolio-ready work"
-          description="Join structured cohorts with partner companies, shared rituals, and measurable outcomes."
+          title="Mentor-led launchpads to unlock measurable impact"
+          description="Join structured cohorts that blend executive mentorship, live briefs, and volunteering missions so every engagement drives portfolio-ready outcomes."
           meta={
             <DataStatus
               loading={loading}
@@ -180,6 +223,17 @@ export default function LaunchpadPage() {
         {launchpadAccessLabel ? (
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-white/80 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-accent">
             Access granted · {launchpadAccessLabel}
+          </div>
+        ) : null}
+        {heroHighlightItems.length ? (
+          <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {heroHighlightItems.map((item) => (
+              <div key={item.id} className="rounded-3xl border border-slate-200 bg-white/80 p-5 shadow-soft">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{item.label}</div>
+                <div className="mt-1 text-2xl font-semibold text-slate-900">{item.value}</div>
+                {item.caption ? <p className="mt-2 text-xs text-slate-500">{item.caption}</p> : null}
+              </div>
+            ))}
           </div>
         ) : null}
         <div className="mb-6 max-w-xl">
@@ -288,7 +342,7 @@ export default function LaunchpadPage() {
               <h3 className="text-lg font-semibold text-slate-900">Launchpad mission control access required</h3>
               <p className="mt-2 text-sm text-slate-600">
                 Detailed pipeline telemetry is limited to Launchpad mentors, company programme leads, and administrators. Request
-                access to collaborate on cohort orchestration.
+                access to orchestrate talent placements and volunteering missions with us.
               </p>
               <div className="mt-4 flex flex-wrap justify-center gap-3">
                 <Link
@@ -314,7 +368,7 @@ export default function LaunchpadPage() {
                 <h3 className="text-lg font-semibold text-slate-900">Activate your freelancer profile</h3>
                 <p className="mt-2 text-sm text-slate-600">
                   Experience Launchpad applications are reserved for approved freelancer and mentor memberships. Sign in to your
-                  account or complete your onboarding to share your portfolio.
+                  account or complete onboarding to surface the mentorship outcomes you want to achieve.
                 </p>
                 <div className="mt-4 flex flex-wrap justify-center gap-3">
                   {isAuthenticated ? null : (
@@ -340,7 +394,8 @@ export default function LaunchpadPage() {
               <article className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
                 <h3 className="text-lg font-semibold text-slate-900">Partner with the Launchpad</h3>
                 <p className="mt-2 text-sm text-slate-600">
-                  Sign in with a company or agency membership to submit employer briefs and align mentor pods to your briefs.
+                  Sign in with a company or agency membership to submit employer briefs, volunteering missions, and align mentor
+                  pods to your briefs.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-3">
                   {isAuthenticated ? null : (

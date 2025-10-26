@@ -28,6 +28,11 @@ import {
   stopPlatformSettingsAuditWorker,
   getPlatformSettingsAuditWorkerStatus,
 } from '../services/platformSettingsAuditWorker.js';
+import {
+  startRuntimeMaintenanceWorker,
+  stopRuntimeMaintenanceWorker,
+  getRuntimeMaintenanceWorkerStatus,
+} from '../services/runtimeMaintenanceWorker.js';
 
 const workerStops = new Map();
 const workerTelemetry = new Map();
@@ -71,7 +76,7 @@ async function startOpportunitySearch(logger) {
     if (result?.configured) {
       markDependencyHealthy('searchIndex', { configured: true });
     } else {
-      markDependencyDisabled('searchIndex', { configured: false, reason: 'environment variables missing' });
+      markDependencyDisabled('searchIndex', { configured: false, reason: 'disabled by configuration' });
     }
   } catch (error) {
     toLogger(logger).error?.({ err: error }, 'Failed to bootstrap opportunity search');
@@ -186,6 +191,39 @@ async function startPlatformSettingsAudit(logger) {
   }
 }
 
+async function startRuntimeMaintenance(logger) {
+  if (!runtimeConfig?.workers) {
+    runtimeConfig = getRuntimeConfig();
+  }
+  const enabled = runtimeConfig?.workers?.autoStart !== false && runtimeConfig?.workers?.runtimeMaintenance?.enabled !== false;
+  if (!enabled) {
+    markWorkerStopped('runtimeMaintenance', { disabled: true });
+    registerWorkerTelemetry('runtimeMaintenance', { sampler: null });
+    workerStops.delete('runtimeMaintenance');
+    return { started: false, reason: 'disabled' };
+  }
+
+  const result = await startRuntimeMaintenanceWorker({ logger });
+  if (result?.started) {
+    registerWorkerStop('runtimeMaintenance', async () => {
+      await stopRuntimeMaintenanceWorker();
+      markWorkerStopped('runtimeMaintenance');
+    });
+    registerWorkerTelemetry('runtimeMaintenance', {
+      sampler: () => getRuntimeMaintenanceWorkerStatus(),
+      ttlMs: 30_000,
+      metadata: { intervalMs: result.intervalMs },
+    });
+    markWorkerHealthy('runtimeMaintenance', { intervalMs: result.intervalMs });
+    return { started: true, intervalMs: result.intervalMs };
+  }
+
+  registerWorkerTelemetry('runtimeMaintenance', { sampler: null });
+  markWorkerStopped('runtimeMaintenance', { disabled: true });
+  workerStops.delete('runtimeMaintenance');
+  return { started: false, reason: result?.reason ?? 'disabled' };
+}
+
 export async function startBackgroundWorkers({ logger } = {}) {
   const log = toLogger(logger);
   const results = [];
@@ -198,6 +236,8 @@ export async function startBackgroundWorkers({ logger } = {}) {
     results.push({ name: 'newsAggregation', ...newsResult });
     const auditResult = await startPlatformSettingsAudit(log);
     results.push({ name: 'platformSettingsAudit', ...auditResult });
+    const maintenanceResult = await startRuntimeMaintenance(log);
+    results.push({ name: 'runtimeMaintenance', ...maintenanceResult });
     return results;
   } catch (error) {
     log.error?.({ err: error }, 'Background worker initialisation failed, stopping partially started workers');

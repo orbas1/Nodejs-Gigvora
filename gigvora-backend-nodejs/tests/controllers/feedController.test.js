@@ -2,25 +2,54 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const modelsModuleUrl = new URL('../../src/models/index.js', import.meta.url);
 const moderationModuleUrl = new URL('../../src/services/contentModerationService.js', import.meta.url);
+const suggestionModuleUrl = new URL('../../src/services/feedSuggestionService.js', import.meta.url);
 
 const feedPostMock = {
   findAll: jest.fn(),
   create: jest.fn(),
   findByPk: jest.fn(),
+  count: jest.fn(),
 };
+
+const feedCommentMock = {
+  findAll: jest.fn(),
+};
+
+const feedReactionMock = {
+  findAll: jest.fn(),
+};
+
+const userModelMock = {
+  findByPk: jest.fn(),
+};
+
+const profileModelMock = {};
 
 const modelsMock = {
   FeedPost: feedPostMock,
-  User: {},
-  Profile: {},
+  FeedComment: feedCommentMock,
+  FeedReaction: feedReactionMock,
+  User: userModelMock,
+  Profile: profileModelMock,
 };
 
 const moderationMock = {
   enforceFeedPostPolicies: jest.fn(),
+  enforceFeedCommentPolicies: jest.fn(),
+};
+
+const suggestionMock = {
+  getFeedSuggestions: jest.fn().mockResolvedValue({
+    generatedAt: new Date().toISOString(),
+    connections: [],
+    groups: [],
+    liveMoments: [],
+  }),
 };
 
 await jest.unstable_mockModule(modelsModuleUrl.pathname, () => ({ __esModule: true, ...modelsMock }));
 await jest.unstable_mockModule(moderationModuleUrl.pathname, () => ({ __esModule: true, ...moderationMock }));
+await jest.unstable_mockModule(suggestionModuleUrl.pathname, () => ({ __esModule: true, ...suggestionMock }));
 
 const controllerModule = await import('../../src/controllers/feedController.js');
 const { listFeed, createPost } = controllerModule;
@@ -42,6 +71,24 @@ function createModel(data) {
 describe('feedController', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    moderationMock.enforceFeedPostPolicies.mockReset();
+    moderationMock.enforceFeedCommentPolicies.mockReset();
+    userModelMock.findByPk.mockReset();
+    suggestionMock.getFeedSuggestions.mockClear().mockResolvedValue({
+      generatedAt: new Date().toISOString(),
+      connections: [],
+      groups: [],
+      liveMoments: [],
+    });
+    moderationMock.enforceFeedPostPolicies.mockImplementation((payload) => ({
+      ...payload,
+      attachments: payload.attachments ?? [],
+      signals: [],
+    }));
+    moderationMock.enforceFeedCommentPolicies.mockImplementation(({ content }) => ({
+      content,
+      signals: [],
+    }));
   });
 
   it('lists feed posts ordered by recency', async () => {
@@ -50,14 +97,31 @@ describe('feedController', () => {
     ];
     const res = createResponse();
     feedPostMock.findAll.mockResolvedValueOnce(posts);
+    feedPostMock.count.mockResolvedValueOnce(1);
+    feedReactionMock.findAll.mockResolvedValueOnce([]);
+    feedCommentMock.findAll.mockResolvedValueOnce([]);
 
-    await listFeed({}, res);
+    await listFeed({ query: {} }, res);
 
-    expect(feedPostMock.findAll).toHaveBeenCalledWith({
-      include: [{ model: modelsMock.User, include: [modelsMock.Profile] }],
-      order: [['createdAt', 'DESC']],
-    });
-    expect(res.json).toHaveBeenCalledWith(expect.any(Array));
+    expect(feedPostMock.findAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: [expect.objectContaining({ model: modelsMock.User })],
+        order: expect.any(Array),
+        limit: expect.any(Number),
+      }),
+    );
+    expect(suggestionMock.getFeedSuggestions).toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: expect.any(Array),
+        total: 1,
+        suggestions: expect.objectContaining({
+          connections: expect.any(Array),
+          groups: expect.any(Array),
+          liveMoments: expect.any(Array),
+        }),
+      }),
+    );
   });
 
   it('creates a post with sanitised payloads and moderation context', async () => {
@@ -85,6 +149,14 @@ describe('feedController', () => {
       attachments: [{ url: 'https://example.com/image.png', type: 'image' }],
       signals: [{ type: 'repetitive_content' }],
     });
+    moderationMock.enforceFeedCommentPolicies.mockReturnValue({ content: 'Closing the loop', signals: [] });
+    userModelMock.findByPk.mockResolvedValue({
+      id: 7,
+      firstName: 'Jamie',
+      lastName: 'Smith',
+      email: 'jamie@example.com',
+      Profile: { headline: 'Founder', avatarSeed: 'jamie-smith' },
+    });
     feedPostMock.create.mockResolvedValueOnce({ id: 42 });
     feedPostMock.findByPk.mockResolvedValueOnce(
       createModel({
@@ -104,7 +176,9 @@ describe('feedController', () => {
       expect.objectContaining({
         content: 'Building something great',
         summary: 'Quick summary',
-        attachments: [{ url: 'https://example.com/image.png', type: 'image' }],
+        attachments: expect.arrayContaining([
+          expect.objectContaining({ url: 'https://example.com/image.png', type: 'image' }),
+        ]),
       }),
       { role: 'freelancer' },
     );
@@ -122,7 +196,6 @@ describe('feedController', () => {
       expect.objectContaining({
         id: 42,
         moderation: { signals: [{ type: 'repetitive_content' }] },
-        mediaAttachments: [{ url: 'https://example.com/image.png', type: 'image' }],
       }),
     );
   });

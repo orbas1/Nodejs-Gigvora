@@ -187,6 +187,7 @@ function messagingReducer(state, action) {
             ? {
                 ...thread,
                 unreadCount: 0,
+                unread: false,
                 viewerState: { ...(thread.viewerState ?? {}), lastReadAt: action.timestamp },
               }
             : thread,

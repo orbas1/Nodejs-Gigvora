@@ -43,6 +43,11 @@ export function summariseSessions(sessions = []) {
     averageSatisfaction: null,
     noShowRate: null,
     averageMessages: null,
+    totalFollowUps: 0,
+    averageFollowUpsPerSession: null,
+    averageFollowUpsPerAttendee: null,
+    connectionsCaptured: 0,
+    averageConnectionsPerSession: null,
   };
 
   const joinLimits = [];
@@ -50,6 +55,8 @@ export function summariseSessions(sessions = []) {
   const satisfaction = [];
   const noShow = { missed: 0, total: 0 };
   const messageStats = { total: 0, sessions: 0 };
+  const followUps = { total: 0, sessions: 0, attendees: 0 };
+  const connectionStats = { total: 0, sessions: 0 };
 
   sessions.forEach((session) => {
     aggregate.total += 1;
@@ -92,6 +99,26 @@ export function summariseSessions(sessions = []) {
       messageStats.total += messages;
       messageStats.sessions += 1;
     }
+
+    const signups = Array.isArray(session?.signups) ? session.signups : [];
+    if (signups.length) {
+      followUps.sessions += 1;
+      connectionStats.sessions += 1;
+    }
+
+    signups.forEach((signup) => {
+      followUps.attendees += 1;
+      const scheduled = normaliseNumber(signup?.followUpsScheduled);
+      if (scheduled != null) {
+        followUps.total += scheduled;
+      }
+
+      const savedConnections =
+        normaliseNumber(signup?.connectionsSaved ?? signup?.connectionsTracked ?? signup?.connectionsRecorded);
+      if (savedConnections != null) {
+        connectionStats.total += savedConnections;
+      }
+    });
   });
 
   if (joinLimits.length) {
@@ -110,6 +137,17 @@ export function summariseSessions(sessions = []) {
   }
   if (messageStats.sessions > 0) {
     aggregate.averageMessages = Number((messageStats.total / messageStats.sessions).toFixed(1));
+  }
+  aggregate.totalFollowUps = followUps.total;
+  if (followUps.sessions > 0) {
+    aggregate.averageFollowUpsPerSession = Number((followUps.total / followUps.sessions).toFixed(1));
+  }
+  if (followUps.attendees > 0) {
+    aggregate.averageFollowUpsPerAttendee = Number((followUps.total / followUps.attendees).toFixed(2));
+  }
+  aggregate.connectionsCaptured = connectionStats.total;
+  if (connectionStats.sessions > 0) {
+    aggregate.averageConnectionsPerSession = Number((connectionStats.total / connectionStats.sessions).toFixed(1));
   }
 
   return aggregate;
