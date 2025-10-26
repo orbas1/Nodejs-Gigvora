@@ -4,6 +4,7 @@ import {
   listSitePages,
   getPublishedSitePage,
 } from '../services/siteManagementService.js';
+import { getNavigationChrome } from '../services/navigationChromeService.js';
 import { AuthorizationError, ValidationError } from '../utils/errors.js';
 import { resolveRequestPermissions, resolveRequestUserId } from '../utils/requestContext.js';
 
@@ -71,6 +72,12 @@ export async function navigation(req, res) {
   res.json({ links });
 }
 
+export async function navigationChrome(req, res) {
+  const includeFooter = req.query?.includeFooter !== 'false';
+  const chrome = await getNavigationChrome({ includeFooter });
+  res.json({ chrome });
+}
+
 export async function index(req, res) {
   const status = `${req.query?.status ?? 'published'}`.trim().toLowerCase();
   const includeDrafts = req.query?.includeDrafts === 'true';
@@ -100,6 +107,7 @@ export async function show(req, res) {
 export default {
   settings,
   navigation,
+  navigationChrome,
   index,
   show,
 };

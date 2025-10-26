@@ -7,6 +7,16 @@ import { optionalNumber, optionalTrimmedString } from '../validation/primitives.
 
 const router = Router();
 
+const navigationChromeQuerySchema = z
+  .object({
+    includeFooter: optionalTrimmedString({ max: 5 })
+      .refine((value) => value == null || ['true', 'false'].includes(value.toLowerCase()), {
+        message: 'includeFooter must be true or false when provided.',
+      })
+      .transform((value) => value?.toLowerCase()),
+  })
+  .strip();
+
 const sitePagesQuerySchema = z
   .object({
     limit: optionalNumber({ min: 1, max: 50, integer: true }).transform((value) => value ?? undefined),
@@ -23,6 +33,11 @@ const sitePageParamsSchema = z
   .strip();
 
 router.get('/settings', asyncHandler(siteController.settings));
+router.get(
+  '/navigation/chrome',
+  validateRequest({ query: navigationChromeQuerySchema }),
+  asyncHandler(siteController.navigationChrome),
+);
 router.get('/navigation', asyncHandler(siteController.navigation));
 router.get('/pages', validateRequest({ query: sitePagesQuerySchema }), asyncHandler(siteController.index));
 router.get(
