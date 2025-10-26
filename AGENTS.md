@@ -4355,6 +4355,15 @@ Freelancer planner journeys now persist to the dedicated `freelancer_calendar_ev
   - [ ] Subcategory 3.C. Suggested Connections & Signals
 14. **Text analysis, placement, length, redundancy, quality.** Use concise bios (≤80 chars) and highlight call-to-action buttons.
   - [x] Subcategory 8.C. Reputation & Reviews
+    - **Stack Integration.** Reputation orchestration now spans migrations, ORM, services, and demo data: the migration extend
+s `freelancer_reviews` with persona, visibility, avatar, endorsement, and metadata fields plus supporting indexes; the Sequelize
+ model and `FreelancerReview.toPublicObject` surface those attributes; services enforce validation and response shaping for scor
+ecard/composer/wall payloads; and the `20250326113000-reputation-experience-demo` seeder hydrates testimonials, success stories
+, metrics, badges, widgets, and persona-filtered reviews for the Leo showcase so end-to-end experiences stay in sync across env
+ironments.【F:gigvora-backend-nodejs/database/migrations/20250326110000-freelancer-review-reputation-upgrade.cjs†L1-L71】【F:gi
+gvora-backend-nodejs/src/models/index.js†L2896-L2983】【F:gigvora-backend-nodejs/src/services/freelancerReviewService.js†L1-L20
+4】【F:gigvora-backend-nodejs/src/services/reputationService.js†L1-L412】【F:gigvora-backend-nodejs/database/seeders/202503261130
+00-reputation-experience-demo.cjs†L1-L347】【F:gigvora-backend-nodejs/database/seeders/registry.json†L1-L36】
     - [x] 8.C.1. ReputationScorecard.jsx
 1. **Appraisal.** The ReputationScorecard now greets executives with a gradient trust dial, persona badge, and premium hero copy that frames credibility within seconds, delivering the aspirational polish the audit demands.【F:gigvora-frontend-reactjs/src/components/reputation/ReputationScorecard.jsx†L29-L169】【F:gigvora-frontend-reactjs/src/components/reputation/ReputationScorecard.jsx†L435-L503】【F:user_experience.md†L9905-L9909】
 2. **Functionality.** Loading, cache, error, spotlight, and trend states run through DataStatus, TrendSparkline, and fallbacks so every state change, trigger, and device breakpoint is covered with production logic instead of mock flows.【F:gigvora-frontend-reactjs/src/components/reputation/ReputationScorecard.jsx†L100-L170】【F:gigvora-frontend-reactjs/src/components/reputation/ReputationScorecard.jsx†L470-L557】【F:user_experience.md†L9910-L9914】

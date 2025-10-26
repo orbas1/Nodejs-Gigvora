@@ -1,445 +1,372 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import PropTypes from 'prop-types';
 import {
   ArrowTrendingUpIcon,
-  ChatBubbleLeftRightIcon,
-  CheckBadgeIcon,
   GlobeAltIcon,
   MegaphoneIcon,
   SparklesIcon,
 } from '@heroicons/react/24/outline';
-import PropTypes from 'prop-types';
-import DataStatus from '../DataStatus.jsx';
-import UserAvatar from '../UserAvatar.jsx';
-import { formatRelativeTime, formatAbsolute } from '../../utils/date.js';
-
-function formatBadgeDate(value) {
-  if (!value) return null;
-  try {
-    return new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium' }).format(new Date(value));
-  } catch (error) {
-    return value;
-  }
-}
-
-function formatMetricDescription(metric) {
-  if (!metric?.periodLabel && !metric?.source) {
-    return null;
-  }
-  const parts = [];
-  if (metric.periodLabel) {
-    parts.push(metric.periodLabel);
-  }
-  if (metric.source) {
-    parts.push(`Source: ${metric.source}`);
-  }
-  return parts.join(' • ');
-}
+import ReputationScorecard from './ReputationScorecard.jsx';
+import ReviewComposer from './ReviewComposer.jsx';
+import EndorsementWall from './EndorsementWall.jsx';
+import { createFreelancerReview } from '../../services/reputation.js';
+import { formatRelativeTime } from '../../utils/date.js';
 
 function classNames(...values) {
   return values.filter(Boolean).join(' ');
 }
 
-function TrendPill({ trendDirection, trendLabel }) {
-  if (!trendLabel) {
-    return null;
-  }
-  const palette = trendDirection === 'down' ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600';
-  return (
-    <span className={classNames('inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold', palette)}>
-      <ArrowTrendingUpIcon
-        className={classNames('mr-1 h-3.5 w-3.5', trendDirection === 'down' ? 'rotate-180 text-rose-500' : 'text-emerald-500')}
-      />
-      {trendLabel}
-    </span>
-  );
-}
-
-TrendPill.propTypes = {
-  trendDirection: PropTypes.oneOf(['up', 'down']),
-  trendLabel: PropTypes.string,
-};
-
-function TestimonialCard({ testimonial, featured = false }) {
-  if (!testimonial) {
-    return null;
-  }
-  return (
-    <article
-      className={classNames(
-        'flex h-full flex-col justify-between rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm',
-        featured ? 'ring-2 ring-blue-200' : '',
-      )}
-    >
-      <div>
-        <p className="text-sm text-slate-600">{testimonial.comment}</p>
-      </div>
-      <footer className="mt-6 flex flex-col gap-1 text-sm text-slate-700">
-        <div className="font-semibold text-slate-900">{testimonial.clientName}</div>
-        <div className="text-xs uppercase tracking-wide text-slate-400">
-          {[testimonial.clientRole, testimonial.company].filter(Boolean).join(' • ')}
-        </div>
-        {testimonial.rating ? (
-          <div className="mt-2 inline-flex items-center gap-2 text-xs font-semibold text-amber-600">
-            <SparklesIcon className="h-4 w-4" /> {testimonial.rating.toFixed(1)} / 5
-          </div>
-        ) : null}
-      </footer>
-    </article>
-  );
-}
-
-TestimonialCard.propTypes = {
-  testimonial: PropTypes.shape({
-    comment: PropTypes.string,
-    clientName: PropTypes.string,
-    clientRole: PropTypes.string,
-    company: PropTypes.string,
-    rating: PropTypes.number,
-  }),
-  featured: PropTypes.bool,
-};
-
-TestimonialCard.defaultProps = {
-  testimonial: null,
-  featured: false,
-};
-
-function SuccessStoryCard({ story }) {
-  if (!story) return null;
-  return (
-    <article className="flex h-full flex-col justify-between rounded-3xl border border-slate-200 bg-slate-50 p-6">
-      <div className="space-y-3">
-        <h3 className="text-lg font-semibold text-slate-900">{story.title}</h3>
-        <p className="text-sm text-slate-600">{story.summary}</p>
-        {story.impactMetrics ? (
-          <dl className="grid gap-2 text-sm text-slate-600">
-            {Object.entries(story.impactMetrics).map(([key, value]) => (
-              <div key={key} className="flex items-center justify-between rounded-2xl bg-white/80 px-3 py-2">
-                <dt className="text-xs uppercase tracking-wide text-slate-400">{key.replace(/_/g, ' ')}</dt>
-                <dd className="font-semibold text-slate-800">{value}</dd>
-              </div>
-            ))}
-          </dl>
-        ) : null}
-      </div>
-      {story.ctaUrl ? (
-        <a
-          href={story.ctaUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-6 inline-flex items-center justify-center rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100"
-        >
-          View case study
-        </a>
-      ) : null}
-    </article>
-  );
-}
-
-SuccessStoryCard.propTypes = {
-  story: PropTypes.shape({
-    title: PropTypes.string,
-    summary: PropTypes.string,
-    impactMetrics: PropTypes.object,
-    ctaUrl: PropTypes.string,
-  }),
-};
-
-SuccessStoryCard.defaultProps = {
-  story: null,
-};
-
-function BadgeCard({ badge }) {
-  return (
-    <article className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
-      <div className="flex items-center gap-3">
-        <CheckBadgeIcon className="h-6 w-6 text-blue-500" />
-        <div>
-          <h4 className="text-sm font-semibold text-slate-900">{badge.name}</h4>
-          <p className="text-xs uppercase tracking-wide text-slate-400">{badge.badgeType}</p>
-        </div>
-      </div>
-      {badge.description ? <p className="text-sm text-slate-600">{badge.description}</p> : null}
-      <dl className="mt-auto space-y-1 text-xs text-slate-500">
-        {badge.issuedBy ? (
-          <div>
-            <dt className="inline text-slate-400">Issued by:</dt>{' '}
-            <dd className="inline text-slate-500">{badge.issuedBy}</dd>
-          </div>
-        ) : null}
-        {badge.issuedAt ? (
-          <div>
-            <dt className="inline text-slate-400">Issued:</dt>{' '}
-            <dd className="inline text-slate-500">{formatBadgeDate(badge.issuedAt)}</dd>
-          </div>
-        ) : null}
-      </dl>
-    </article>
-  );
-}
-
-BadgeCard.propTypes = {
-  badge: PropTypes.shape({
-    name: PropTypes.string,
-    badgeType: PropTypes.string,
-    description: PropTypes.string,
-    issuedBy: PropTypes.string,
-    issuedAt: PropTypes.string,
-  }).isRequired,
-};
-
-function WidgetCard({ widget }) {
-  const placement = widget.metadata?.placement ?? widget.config?.placement ?? 'active surfaces';
-  return (
-    <article className="flex h-full flex-col justify-between rounded-3xl border border-slate-200 bg-white/80 p-5 shadow-sm">
-      <div>
-        <h4 className="text-sm font-semibold text-slate-900">{widget.name}</h4>
-        <p className="text-xs uppercase tracking-wide text-slate-400">{widget.widgetType}</p>
-        <p className="mt-3 text-sm text-slate-600">Optimised for {placement} placements.</p>
-      </div>
-      <dl className="mt-4 grid grid-cols-2 gap-2 text-xs text-slate-500">
-        <div className="rounded-2xl bg-slate-100 px-3 py-2">
-          <dt>Impressions</dt>
-          <dd className="text-sm font-semibold text-slate-800">{widget.impressions?.toLocaleString?.() ?? widget.impressions}</dd>
-        </div>
-        <div className="rounded-2xl bg-slate-100 px-3 py-2">
-          <dt>CTA clicks</dt>
-          <dd className="text-sm font-semibold text-slate-800">{widget.ctaClicks?.toLocaleString?.() ?? widget.ctaClicks}</dd>
-        </div>
-      </dl>
-    </article>
-  );
-}
-
-WidgetCard.propTypes = {
-  widget: PropTypes.shape({
-    name: PropTypes.string,
-    widgetType: PropTypes.string,
-    metadata: PropTypes.object,
-    config: PropTypes.object,
-    impressions: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-    ctaClicks: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-  }).isRequired,
-};
-
-export default function ReputationEngineShowcase({
-  data,
-  loading,
-  error,
-  onRefresh,
-  fromCache,
-  lastUpdated,
-}) {
-  const freelancer = data?.freelancer;
-  const metrics = data?.metrics ?? [];
-  const summary = data?.summary ?? {};
-  const featuredTestimonial = data?.testimonials?.featured ?? null;
-  const additionalTestimonials = data?.testimonials?.recent ?? [];
-  const successStories = data?.successStories?.collection ?? [];
-  const featuredStory = data?.successStories?.featured ?? null;
-  const badges = data?.badges?.collection ?? [];
-  const promotedBadges = data?.badges?.promoted ?? [];
-  const reviewWidgets = data?.reviewWidgets ?? [];
+export default function ReputationEngineShowcase({ data, loading, error, onRefresh, fromCache, lastUpdated }) {
+  const scorecard = data?.scorecard ?? null;
+  const reviewComposerConfig = data?.reviewComposer ?? null;
+  const endorsementWall = data?.endorsementWall ?? { endorsements: [], stats: [] };
   const automationPlaybooks = data?.automationPlaybooks ?? [];
   const integrationTouchpoints = data?.integrationTouchpoints ?? [];
   const shareableLinks = data?.shareableLinks ?? [];
+  const summary = data?.summary ?? null;
+  const freelancerId = data?.freelancer?.id ?? null;
 
-  const metricsToRender = metrics.slice(0, 4);
-  const secondaryMetrics = metrics.slice(4, 8);
-  const verifiedRelative = summary?.lastVerifiedAt ? formatRelativeTime(summary.lastVerifiedAt) : null;
-  const verifiedAbsolute = summary?.lastVerifiedAt ? formatAbsolute(summary.lastVerifiedAt) : null;
+  const [shareFeedback, setShareFeedback] = useState(null);
+  const [composerState, setComposerState] = useState({ state: 'idle', message: null });
+  const composerSectionRef = useRef(null);
+  const shareFeedbackTimeoutRef = useRef(null);
+
+  const personaPrompts = reviewComposerConfig?.personaPrompts ?? {
+    general: {
+      label: 'General',
+      summary: 'Celebrate impact, collaboration, and measurable outcomes.',
+      prompts: [],
+    },
+  };
+
+  const defaultPersona = reviewComposerConfig?.defaultPersona ?? Object.keys(personaPrompts)[0];
+
+  const automationList = useMemo(() => automationPlaybooks.slice(0, 6), [automationPlaybooks]);
+  const integrationList = useMemo(() => integrationTouchpoints.slice(0, 10), [integrationTouchpoints]);
+
+  const pushShareFeedback = useCallback((message) => {
+    if (shareFeedbackTimeoutRef.current) {
+      clearTimeout(shareFeedbackTimeoutRef.current);
+    }
+    setShareFeedback(message);
+    shareFeedbackTimeoutRef.current = setTimeout(() => {
+      setShareFeedback(null);
+      shareFeedbackTimeoutRef.current = null;
+    }, 5000);
+  }, []);
+
+  useEffect(() => () => {
+    if (shareFeedbackTimeoutRef.current) {
+      clearTimeout(shareFeedbackTimeoutRef.current);
+    }
+  }, []);
+
+  const handleScorecardShare = useCallback(async () => {
+    if (!shareableLinks.length) {
+      pushShareFeedback('No shareable links are available yet. Publish a testimonial to unlock sharing.');
+      return;
+    }
+    const primaryLink = shareableLinks[0].url;
+    if (!primaryLink) {
+      pushShareFeedback('Shareable link missing a URL. Refresh the page and try again.');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(primaryLink);
+      pushShareFeedback('Scorecard link copied to clipboard.');
+    } catch (clipboardError) {
+      pushShareFeedback('Clipboard permissions blocked. Copy the link manually from the share menu.');
+    }
+  }, [shareableLinks, pushShareFeedback]);
+
+  const handleScorecardExport = useCallback(() => {
+    if (!scorecard) {
+      pushShareFeedback('Scorecard data is still loading.');
+      return;
+    }
+    const exportPayload = {
+      generatedAt: new Date().toISOString(),
+      scorecard,
+      summary,
+    };
+    const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `gigvora-reputation-${freelancerId ?? 'profile'}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    pushShareFeedback('Scorecard export downloaded.');
+  }, [scorecard, summary, freelancerId, pushShareFeedback]);
+
+  const handleReviewSubmit = useCallback(
+    async (form) => {
+      if (!freelancerId) {
+        setComposerState({ state: 'error', message: 'Freelancer context missing. Please refresh and try again.' });
+        return;
+      }
+      setComposerState({ state: 'submitting', message: 'Submitting review…' });
+      try {
+        const payload = {
+          title: form.title,
+          body: form.body,
+          rating: form.rating,
+          tags: (form.tags ?? []).map((tag) => (typeof tag === 'string' ? tag : tag.label ?? tag.id)).filter(Boolean),
+          visibility: form.visibility,
+          requestFollowUp: form.requestFollowUp,
+          shareToProfile: form.shareToProfile,
+          persona: form.persona,
+          endorsementHighlights: (form.tags ?? [])
+            .map((tag) => (typeof tag === 'string' ? tag : tag.label ?? tag.id))
+            .filter(Boolean),
+          status: 'pending',
+          metadata: { submittedFrom: 'profile_reputation_showcase' },
+        };
+        await createFreelancerReview(freelancerId, payload);
+        setComposerState({ state: 'success', message: 'Review submitted for moderation. Thank you!' });
+        await onRefresh?.();
+      } catch (submitError) {
+        setComposerState({
+          state: 'error',
+          message: submitError?.message ?? 'Unable to submit review right now. Please try again shortly.',
+        });
+      }
+    },
+    [freelancerId, onRefresh],
+  );
+
+  const handleReviewSaveDraft = useCallback(
+    async (form) => {
+      if (!freelancerId) {
+        setComposerState({ state: 'error', message: 'Freelancer context missing. Unable to save draft.' });
+        return;
+      }
+      setComposerState({ state: 'submitting', message: 'Saving draft…' });
+      try {
+        const payload = {
+          title: form.title,
+          body: form.body,
+          rating: form.rating,
+          tags: (form.tags ?? []).map((tag) => (typeof tag === 'string' ? tag : tag.label ?? tag.id)).filter(Boolean),
+          visibility: form.visibility,
+          requestFollowUp: form.requestFollowUp,
+          shareToProfile: form.shareToProfile,
+          persona: form.persona,
+          endorsementHighlights: (form.tags ?? [])
+            .map((tag) => (typeof tag === 'string' ? tag : tag.label ?? tag.id))
+            .filter(Boolean),
+          status: 'draft',
+          metadata: { submittedFrom: 'profile_reputation_showcase' },
+        };
+        await createFreelancerReview(freelancerId, payload);
+        setComposerState({ state: 'success', message: 'Draft saved. You can continue editing before publishing.' });
+        await onRefresh?.();
+      } catch (draftError) {
+        setComposerState({
+          state: 'error',
+          message: draftError?.message ?? 'Unable to save draft right now.',
+        });
+      }
+    },
+    [freelancerId, onRefresh],
+  );
+
+  const handleReviewCancel = useCallback(() => {
+    setComposerState({ state: 'idle', message: null });
+    composerSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
+  const handleRequestEndorsements = useCallback(() => {
+    composerSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
+  const handleShareEndorsements = useCallback(async () => {
+    const spotlight = endorsementWall?.spotlight;
+    const text = spotlight
+      ? `“${spotlight.quote}” — ${spotlight.endorser.name}`
+      : shareableLinks[0]?.url ?? null;
+    if (!text) {
+      pushShareFeedback('No endorsement spotlight ready to share yet.');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      pushShareFeedback('Endorsement spotlight copied to clipboard.');
+    } catch (copyError) {
+      pushShareFeedback('Clipboard permissions blocked. Copy the spotlight text manually.');
+    }
+  }, [endorsementWall?.spotlight, shareableLinks, pushShareFeedback]);
+
+  const composerMessage = composerState.state === 'success' || composerState.state === 'error' || composerState.state === 'submitting'
+    ? composerState.message
+    : null;
+
+  const composerMessageTone = composerState.state === 'success'
+    ? 'success'
+    : composerState.state === 'error'
+      ? 'error'
+      : composerState.state === 'submitting'
+        ? 'info'
+        : null;
+
+  const lastVerifiedLabel = summary?.lastVerifiedAt ? formatRelativeTime(summary.lastVerifiedAt) : null;
 
   return (
     <div className="space-y-12">
-      <section id="reputation-engine" className="rounded-3xl border border-slate-200 bg-white p-8 shadow-[0_24px_50px_-30px_rgba(30,64,175,0.35)]">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-          <div className="space-y-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-blue-600/80">Reputation engine</p>
-            <h2 className="text-3xl font-semibold text-slate-900">Social proof operations</h2>
-            <p className="max-w-2xl text-sm text-slate-600">
-              Monitor testimonials, success stories, verified metrics, and shareable badges from one command center. Every insight
-              links back to Gigvora delivery data so clients can trust what they see.
+      <section className="rounded-4xl border border-slate-200 bg-white p-8 shadow-[0_24px_60px_-30px_rgba(30,64,175,0.35)]">
+        <div className="flex flex-wrap items-start justify-between gap-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-blue-600/70">Reputation intelligence</p>
+            <h2 className="mt-2 text-3xl font-semibold text-slate-900">Executive trust telemetry</h2>
+            <p className="mt-3 max-w-3xl text-sm text-slate-600">
+              Track delivery credibility, client advocacy, and brand amplification from a single scorecard that mirrors live
+              Gigvora data.
             </p>
-            {freelancer ? (
-              <div className="flex items-center gap-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                <UserAvatar name={freelancer.name} seed={freelancer.avatarSeed} size="md" />
-                <div>
-                  <p className="text-sm uppercase tracking-wide text-slate-400">Featured freelancer</p>
-                  <p className="text-lg font-semibold text-slate-900">{freelancer.name}</p>
-                  <p className="text-sm text-slate-500">{freelancer.title}</p>
-                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
-                    {freelancer.location ? <span>{freelancer.location}</span> : null}
-                    {freelancer.timezone ? <span>• {freelancer.timezone}</span> : null}
-                    {verifiedRelative ? (
-                      <span title={verifiedAbsolute ?? undefined}>• Metrics verified {verifiedRelative}</span>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            ) : null}
           </div>
-          <DataStatus
+          {lastVerifiedLabel ? (
+            <p className="text-xs text-slate-400">Metrics verified {lastVerifiedLabel}</p>
+          ) : null}
+        </div>
+        <div className="mt-6">
+          <ReputationScorecard
+            profile={scorecard?.profile}
+            overallScore={scorecard?.overallScore ?? 0}
+            scoreLabel={scorecard?.scoreLabel ?? 'Reputation overview'}
+            scoreDeltaLabel={scorecard?.scoreDeltaLabel}
+            scoreDeltaDirection={scorecard?.scoreDeltaDirection ?? 'up'}
+            milestone={scorecard?.milestone}
+            personaFocus={scorecard?.personaFocus}
+            trend={scorecard?.trend}
+            segments={scorecard?.segments ?? []}
+            benchmarks={scorecard?.benchmarks ?? []}
+            achievements={scorecard?.achievements ?? []}
+            recommendations={scorecard?.recommendations ?? []}
+            milestones={scorecard?.milestones ?? []}
+            personaInsight={scorecard?.personaInsight}
+            highlight={scorecard?.highlight}
             loading={loading}
-            fromCache={fromCache}
+            error={error}
             lastUpdated={lastUpdated}
+            fromCache={fromCache}
             onRefresh={onRefresh}
+            onShare={handleScorecardShare}
+            onExport={handleScorecardExport}
           />
         </div>
-
-        {error ? (
-          <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-            {error}
-          </div>
-        ) : null}
-
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {metricsToRender.map((metric) => (
-            <div key={metric.metricType} className="flex h-full flex-col justify-between rounded-3xl border border-slate-200 bg-slate-50 p-5">
-              <div className="space-y-3">
-                <p className="text-xs uppercase tracking-wide text-slate-400">{metric.label}</p>
-                <p className="text-2xl font-semibold text-slate-900">{metric.formattedValue ?? metric.value}</p>
-                {metric.trendLabel ? <TrendPill trendDirection={metric.trendDirection} trendLabel={metric.trendLabel} /> : null}
-                {formatMetricDescription(metric) ? (
-                  <p className="text-xs text-slate-500">{formatMetricDescription(metric)}</p>
-                ) : null}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {secondaryMetrics.length ? (
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {secondaryMetrics.map((metric) => (
-              <div key={metric.metricType} className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/70 p-5">
-                <p className="text-xs uppercase tracking-wide text-slate-400">{metric.label}</p>
-                <p className="mt-2 text-lg font-semibold text-slate-900">{metric.formattedValue ?? metric.value}</p>
-                {formatMetricDescription(metric) ? (
-                  <p className="mt-2 text-xs text-slate-500">{formatMetricDescription(metric)}</p>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        ) : null}
-
-        <div className="mt-10 grid gap-6 lg:grid-cols-5">
-          <div className="lg:col-span-2 space-y-4">
-            <h3 className="text-lg font-semibold text-slate-900">Featured testimonial</h3>
-            <TestimonialCard testimonial={featuredTestimonial} featured />
-          </div>
-          <div className="lg:col-span-3 space-y-4">
-            <h3 className="text-lg font-semibold text-slate-900">Recent testimonials</h3>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {additionalTestimonials.slice(0, 4).map((testimonial) => (
-                <TestimonialCard key={testimonial.id} testimonial={testimonial} />
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="reputation-success-stories" className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-        <div className="flex flex-col gap-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-blue-600/80">Success stories</p>
-          <h2 className="text-2xl font-semibold text-slate-900">Evidence-rich case studies</h2>
-          <p className="text-sm text-slate-600">
-            Publish data-backed narratives that blend milestone charts, CSAT trends, and ROI snapshots. Stories sync across your
-            public profile, proposals, and external channels automatically.
-          </p>
-        </div>
-        <div className="mt-8 grid gap-6 lg:grid-cols-3">
-          {featuredStory ? <SuccessStoryCard story={featuredStory} /> : null}
-          {successStories
-            .filter((story) => !featuredStory || story.id !== featuredStory.id)
-            .slice(0, 2)
-            .map((story) => (
-              <SuccessStoryCard key={story.id} story={story} />
-            ))}
-        </div>
-      </section>
-
-      <section id="reputation-badges" className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-        <div className="flex flex-col gap-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-blue-600/80">Badges & credentials</p>
-          <h2 className="text-2xl font-semibold text-slate-900">Signal credibility instantly</h2>
-          <p className="text-sm text-slate-600">
-            Earned badges sync to gig listings, proposals, and shareable widgets. Use them to highlight verified CSAT, reliability
-            streaks, or community leadership.
-          </p>
-        </div>
-        <div className="mt-6 grid gap-4 lg:grid-cols-3">
-          {promotedBadges.concat(badges.filter((badge) => !promotedBadges.some((promoted) => promoted.id === badge.id))).map(
-            (badge) => (
-              <BadgeCard key={badge.id} badge={badge} />
-            ),
-          )}
-        </div>
-      </section>
-
-      <section id="reputation-widgets" className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-        <div className="flex flex-col gap-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-blue-600/80">Shareable widgets</p>
-          <h2 className="text-2xl font-semibold text-slate-900">Embed proof everywhere</h2>
-          <p className="text-sm text-slate-600">
-            Widgets stay in sync with Gigvora data. Drop them into pitch decks, CRM deal rooms, or marketing sites without
-            touching code.
-          </p>
-        </div>
-        <div className="mt-6 grid gap-4 lg:grid-cols-2">
-          {reviewWidgets.slice(0, 4).map((widget) => (
-            <WidgetCard key={widget.id} widget={widget} />
-          ))}
-        </div>
-        {shareableLinks.length ? (
-          <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-4">
-            <h3 className="text-sm font-semibold text-slate-900">Shareable links</h3>
-            <ul className="mt-3 space-y-2 text-sm text-blue-600">
-              {shareableLinks.map((link) => (
-                <li key={link.url}>
-                  <a href={link.url} target="_blank" rel="noopener noreferrer" className="underline decoration-dotted">
-                    {link.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
+        {shareFeedback ? (
+          <p className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-2 text-sm text-sky-700">{shareFeedback}</p>
         ) : null}
       </section>
 
-      <section id="reputation-automation" className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-        <div className="grid gap-8 lg:grid-cols-2">
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
+      <section ref={composerSectionRef} className="rounded-4xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-blue-600/70">Compose endorsement</p>
+            <h2 className="mt-2 text-3xl font-semibold text-slate-900">Invite premium reviews</h2>
+            <p className="mt-3 max-w-2xl text-sm text-slate-600">
+              Curate persona-specific prompts, add evidence, and publish polished endorsements that match enterprise expectations.
+            </p>
+          </div>
+        </div>
+        {composerMessage && composerMessageTone ? (
+          <div
+            className={classNames(
+              'mt-6 rounded-2xl px-4 py-3 text-sm',
+              composerMessageTone === 'success' && 'border border-emerald-300/40 bg-emerald-500/10 text-emerald-700',
+              composerMessageTone === 'error' && 'border border-rose-300/40 bg-rose-50 text-rose-700',
+              composerMessageTone === 'info' && 'border border-blue-200 bg-blue-50 text-blue-700',
+            )}
+          >
+            {composerMessage}
+          </div>
+        ) : null}
+        {reviewComposerConfig ? (
+          <div className="mt-6">
+            <ReviewComposer
+              profile={reviewComposerConfig?.profile}
+              personaPrompts={personaPrompts}
+              defaultPersona={defaultPersona}
+              tagLibrary={reviewComposerConfig?.tagLibrary ?? []}
+              guidelines={reviewComposerConfig?.guidelines ?? []}
+              attachmentsEnabled={reviewComposerConfig?.attachmentsEnabled ?? true}
+              maxAttachmentSize={reviewComposerConfig?.maxAttachmentSize ?? 15 * 1024 * 1024}
+              characterLimit={reviewComposerConfig?.characterLimit ?? 1200}
+              defaultVisibility={reviewComposerConfig?.defaultVisibility ?? 'public'}
+              onSubmit={handleReviewSubmit}
+              onCancel={handleReviewCancel}
+              onSaveDraft={handleReviewSaveDraft}
+            />
+          </div>
+        ) : (
+          <div className="mt-6 rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-sm text-slate-600">
+            Review composer will unlock once reputation automation is configured for this profile.
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-4xl border border-slate-200 bg-white p-8 shadow-sm">
+        <EndorsementWall
+          endorsements={endorsementWall?.endorsements ?? []}
+          spotlight={endorsementWall?.spotlight}
+          stats={endorsementWall?.stats ?? []}
+          loading={loading}
+          error={error}
+          lastUpdated={lastUpdated}
+          onRefresh={onRefresh}
+          onRequest={handleRequestEndorsements}
+          onShare={handleShareEndorsements}
+        />
+      </section>
+
+      <section className="rounded-4xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="grid gap-10 lg:grid-cols-2">
+          <div>
+            <header className="flex items-center gap-3">
               <MegaphoneIcon className="h-6 w-6 text-blue-500" />
-              <h2 className="text-xl font-semibold text-slate-900">Automation playbooks</h2>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-600/70">Automation playbooks</p>
+                <h3 className="text-xl font-semibold text-slate-900">Keep social proof on autopilot</h3>
+              </div>
+            </header>
+            <div className="mt-6 space-y-3">
+              {automationList.length ? (
+                automationList.map((item) => (
+                  <div key={item} className="flex items-start gap-3 rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                    <SparklesIcon className="mt-1 h-4 w-4 text-blue-500" />
+                    <span>{item}</span>
+                  </div>
+                ))
+              ) : (
+                <p className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                  Configure automation triggers to keep testimonials, badges, and widgets current.
+                </p>
+              )}
             </div>
-            <p className="text-sm text-slate-600">
-              Keep social proof fresh without manual effort. These automations trigger from Gigvora delivery data and CRM signals.
-            </p>
-            <ul className="space-y-3">
-              {automationPlaybooks.map((item) => (
-                <li key={item} className="flex gap-3 rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-                  <SparklesIcon className="mt-1 h-4 w-4 text-blue-500" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
           </div>
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
+          <div>
+            <header className="flex items-center gap-3">
               <GlobeAltIcon className="h-6 w-6 text-blue-500" />
-              <h2 className="text-xl font-semibold text-slate-900">Integration touchpoints</h2>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-600/70">Integration touchpoints</p>
+                <h3 className="text-xl font-semibold text-slate-900">Broadcast credibility everywhere</h3>
+              </div>
+            </header>
+            <div className="mt-6 grid gap-2 text-sm text-slate-600">
+              {integrationList.length ? (
+                integrationList.map((item) => (
+                  <div key={item} className="flex items-center gap-3 rounded-3xl border border-slate-200 bg-slate-50 px-4 py-2">
+                    <ArrowTrendingUpIcon className="h-4 w-4 text-blue-500" />
+                    <span>{item}</span>
+                  </div>
+                ))
+              ) : (
+                <p className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                  Publish success stories and review widgets to proposals, deal rooms, and marketing sites to maximise reach.
+                </p>
+              )}
             </div>
-            <p className="text-sm text-slate-600">
-              Publish proof across every client journey touchpoint. Embeds and APIs keep everything synced from proposals to live
-              deal rooms.
-            </p>
-            <ul className="space-y-2 text-sm text-slate-600">
-              {integrationTouchpoints.map((item) => (
-                <li key={item} className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2">
-                  <ChatBubbleLeftRightIcon className="h-4 w-4 text-blue-500" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
           </div>
         </div>
       </section>
@@ -449,48 +376,52 @@ export default function ReputationEngineShowcase({
 
 ReputationEngineShowcase.propTypes = {
   data: PropTypes.shape({
-    freelancer: PropTypes.shape({
-      name: PropTypes.string,
-      title: PropTypes.string,
-      location: PropTypes.string,
-      headline: PropTypes.string,
-      avatarUrl: PropTypes.string,
-      avatarSeed: PropTypes.string,
-    }),
-    metrics: PropTypes.arrayOf(
-      PropTypes.shape({
-        id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-        label: PropTypes.string,
-        value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-        trendDirection: PropTypes.string,
-        trendLabel: PropTypes.string,
-        periodLabel: PropTypes.string,
-        source: PropTypes.string,
-      })
-    ),
+    freelancer: PropTypes.shape({ id: PropTypes.number }),
     summary: PropTypes.shape({
       lastVerifiedAt: PropTypes.string,
-      totalReviews: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-      reviewAverage: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-      responseTime: PropTypes.string,
-      publishedWidgets: PropTypes.number,
     }),
-    testimonials: PropTypes.shape({
-      featured: PropTypes.object,
-      recent: PropTypes.arrayOf(PropTypes.object),
+    scorecard: PropTypes.shape({
+      profile: PropTypes.object,
+      overallScore: PropTypes.number,
+      scoreLabel: PropTypes.string,
+      scoreDeltaLabel: PropTypes.string,
+      scoreDeltaDirection: PropTypes.oneOf(['up', 'down']),
+      milestone: PropTypes.string,
+      personaFocus: PropTypes.string,
+      trend: PropTypes.shape({ history: PropTypes.array }),
+      segments: PropTypes.array,
+      benchmarks: PropTypes.array,
+      achievements: PropTypes.array,
+      recommendations: PropTypes.array,
+      milestones: PropTypes.array,
+      personaInsight: PropTypes.object,
+      highlight: PropTypes.object,
     }),
-    successStories: PropTypes.shape({
-      featured: PropTypes.object,
-      collection: PropTypes.arrayOf(PropTypes.object),
+    reviewComposer: PropTypes.shape({
+      profile: PropTypes.object,
+      personaPrompts: PropTypes.object,
+      defaultPersona: PropTypes.string,
+      tagLibrary: PropTypes.array,
+      guidelines: PropTypes.array,
+      attachmentsEnabled: PropTypes.bool,
+      maxAttachmentSize: PropTypes.number,
+      characterLimit: PropTypes.number,
+      defaultVisibility: PropTypes.oneOf(['public', 'members', 'private']),
     }),
-    badges: PropTypes.shape({
-      promoted: PropTypes.arrayOf(PropTypes.object),
-      collection: PropTypes.arrayOf(PropTypes.object),
+    endorsementWall: PropTypes.shape({
+      endorsements: PropTypes.array,
+      spotlight: PropTypes.object,
+      stats: PropTypes.array,
     }),
-    reviewWidgets: PropTypes.arrayOf(PropTypes.object),
     automationPlaybooks: PropTypes.arrayOf(PropTypes.string),
     integrationTouchpoints: PropTypes.arrayOf(PropTypes.string),
-    shareableLinks: PropTypes.arrayOf(PropTypes.object),
+    shareableLinks: PropTypes.arrayOf(
+      PropTypes.shape({
+        label: PropTypes.string,
+        url: PropTypes.string,
+        publishedAt: PropTypes.string,
+      }),
+    ),
   }),
   loading: PropTypes.bool,
   error: PropTypes.instanceOf(Error),
@@ -507,4 +438,3 @@ ReputationEngineShowcase.defaultProps = {
   fromCache: false,
   lastUpdated: undefined,
 };
-

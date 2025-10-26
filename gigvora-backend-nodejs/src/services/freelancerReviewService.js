@@ -1,5 +1,9 @@
 import { Op } from 'sequelize';
 import { sequelize, User, FreelancerReview } from '../models/index.js';
+import {
+  FREELANCER_REVIEW_VISIBILITIES,
+  FREELANCER_REVIEW_PERSONAS,
+} from '../models/constants/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
 
 const ALLOWED_STATUSES = Object.freeze(['draft', 'pending', 'published', 'archived']);
@@ -88,6 +92,76 @@ function normalizeStatus(value, { allowNull = false } = {}) {
     throw new ValidationError(`status must be one of: ${ALLOWED_STATUSES.join(', ')}`);
   }
   return normalized;
+}
+
+function normalizePersona(value) {
+  if (value == null || value === '') {
+    return null;
+  }
+  const normalized = `${value}`.trim().toLowerCase();
+  const match = FREELANCER_REVIEW_PERSONAS.find((persona) => persona === normalized);
+  if (!match) {
+    throw new ValidationError(
+      `persona must be one of: ${FREELANCER_REVIEW_PERSONAS.join(', ')}`,
+    );
+  }
+  return match;
+}
+
+function normalizeVisibility(value) {
+  if (value == null || value === '') {
+    return 'public';
+  }
+  const normalized = `${value}`.trim().toLowerCase();
+  const match = FREELANCER_REVIEW_VISIBILITIES.find((visibility) => visibility === normalized);
+  if (!match) {
+    throw new ValidationError(
+      `visibility must be one of: ${FREELANCER_REVIEW_VISIBILITIES.join(', ')}`,
+    );
+  }
+  return match;
+}
+
+function normalizeHighlights(value) {
+  if (value == null) {
+    return null;
+  }
+  if (!Array.isArray(value)) {
+    throw new ValidationError('endorsementHighlights must be an array of strings');
+  }
+  const highlights = value
+    .map((item) => (item == null ? null : `${item}`.trim()))
+    .filter(Boolean);
+  return highlights.length ? highlights.slice(0, 12) : [];
+}
+
+function normalizeMetadata(value) {
+  if (value == null) {
+    return null;
+  }
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    throw new ValidationError('metadata must be an object when provided');
+  }
+  return value;
+}
+
+function normalizeBoolean(value, defaultValue = false) {
+  if (value === undefined) {
+    return defaultValue;
+  }
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'number') {
+    if (value === 1) return true;
+    if (value === 0) return false;
+  }
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'y', 'on'].includes(normalized)) return true;
+    if (['false', '0', 'no', 'n', 'off'].includes(normalized)) return false;
+  }
+  throw new ValidationError('Expected a boolean-like value');
 }
 
 function normalizeTags(value) {
@@ -379,6 +453,15 @@ export async function createFreelancerReview(freelancerId, payload = {}) {
     attachments: normalizeAttachments(payload.attachments),
     responses: Array.isArray(payload.responses) ? payload.responses : null,
     privateNotes: sanitizeString(payload.privateNotes, { maxLength: 2000 }),
+    persona: normalizePersona(payload.persona),
+    visibility: normalizeVisibility(payload.visibility),
+    reviewerAvatarUrl: sanitizeUrl(payload.reviewerAvatarUrl),
+    endorsementHighlights: normalizeHighlights(payload.endorsementHighlights ?? payload.highlights),
+    endorsementHeadline: sanitizeString(payload.endorsementHeadline ?? payload.headline, { maxLength: 255 }),
+    endorsementChannel: sanitizeString(payload.endorsementChannel ?? payload.channel, { maxLength: 180 }),
+    requestFollowUp: normalizeBoolean(payload.requestFollowUp, false),
+    shareToProfile: normalizeBoolean(payload.shareToProfile, true),
+    metadata: normalizeMetadata(payload.metadata),
   });
 
   return record.toPublicObject();
@@ -456,6 +539,37 @@ export async function updateFreelancerReview(freelancerId, reviewId, payload = {
   }
   if (payload.privateNotes !== undefined) {
     updates.privateNotes = sanitizeString(payload.privateNotes, { maxLength: 2000 });
+  }
+  if (payload.persona !== undefined) {
+    updates.persona = normalizePersona(payload.persona);
+  }
+  if (payload.visibility !== undefined) {
+    updates.visibility = normalizeVisibility(payload.visibility);
+  }
+  if (payload.reviewerAvatarUrl !== undefined) {
+    updates.reviewerAvatarUrl = sanitizeUrl(payload.reviewerAvatarUrl);
+  }
+  if (payload.endorsementHighlights !== undefined || payload.highlights !== undefined) {
+    updates.endorsementHighlights = normalizeHighlights(payload.endorsementHighlights ?? payload.highlights);
+  }
+  if (payload.endorsementHeadline !== undefined || payload.headline !== undefined) {
+    updates.endorsementHeadline = sanitizeString(payload.endorsementHeadline ?? payload.headline, {
+      maxLength: 255,
+    });
+  }
+  if (payload.endorsementChannel !== undefined || payload.channel !== undefined) {
+    updates.endorsementChannel = sanitizeString(payload.endorsementChannel ?? payload.channel, {
+      maxLength: 180,
+    });
+  }
+  if (payload.requestFollowUp !== undefined) {
+    updates.requestFollowUp = normalizeBoolean(payload.requestFollowUp, false);
+  }
+  if (payload.shareToProfile !== undefined) {
+    updates.shareToProfile = normalizeBoolean(payload.shareToProfile, true);
+  }
+  if (payload.metadata !== undefined) {
+    updates.metadata = normalizeMetadata(payload.metadata);
   }
 
   if (Object.keys(updates).length === 0) {
