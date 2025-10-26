@@ -1,3 +1,121 @@
+- [x] Subcategory 3.A. Timeline Feed Rendering
+- [x] Subcategory 3.B. Reactions & Comments
+  - [x] 3.A. Timeline Feed Framework
+    - [x] 3.A.1. FeedComposer.jsx
+    - [x] 3.A.2. FeedCard.jsx
+    - [x] 3.A.3. ActivityFilters.jsx
+    - [x] 3.A.1. FeedComposer.jsx
+    - [x] 3.A.2. FeedCard.jsx
+    - [x] 3.A.3. ActivityFilters.jsx
+  - [x] 3.C. Activity & Engagement Mechanics
+    - [x] 3.C.1. ReactionsBar.jsx
+    - [x] 3.C.2. CommentsThread.jsx
+    - [x] 3.C.3. ShareModal.jsx
+    - [x] 3.C.1. ReactionsBar.jsx
+    - [x] 3.C.2. CommentsThread.jsx
+    - [x] 3.C.3. ShareModal.jsx
+   - *Component Snapshot – FeedComposer.jsx.* Confirm the composer greets mentors and founders with aspirational prompts, premium typography, and immediate clarity on privacy defaults while flagging gaps called out in UX reviews (e.g., missing autosave status, dormant AI template buttons).【F:user_experience.md†L2800-L2864】
+   - *Component Snapshot – FeedCard.jsx.* Inspect hero media, author ribbons, and reaction summaries for LinkedIn-grade first impressions, ensuring opportunity posts surface spotlight ribbons and metadata stacks remain scannable on tablet and phone layouts.【F:user_experience.md†L2938-L3036】
+   - *Component Snapshot – ActivityFilters.jsx.* Evaluate visual density, segmentation clarity, and saved filter affordances so busy executives can instantly understand how the feed is curated for them across locales and intents.【F:user_experience.md†L3069-L3148】
+   - *FeedComposer Workflows.* Map autosave drafts, attachment uploads, poll creation, and audience gating so founders never lose progress and admins can review moderation holds before publish.【F:user_experience.md†L2865-L2935】
+   - *FeedCard States.* Ensure cards gracefully handle carousels, video previews, “Opportunity spotlight” banners, and analytics chips with consistent skeletons, retries, and pinning flows across viewport breakpoints.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L240-L420】【F:user_experience.md†L3037-L3114】
+   - *ActivityFilters Behaviour.* Persist saved filter sets, quick toggles, and personalization tokens to keep curated feeds predictable when members switch roles, organisations, or devices.【F:user_experience.md†L3069-L3148】
+   - *Composer Intelligence.* Tie contextual prompts, recommended hashtags, and milestone templates to persona-driven insights so guidance feels bespoke and measurable.【F:user_experience.md†L2835-L2864】
+   - *FeedCard Ranking.* Audit how opportunity posts, mentor wins, and knowledge drops are prioritised, ensuring badges, analytics overlays, and follow suggestions align with growth KPIs.【F:user_experience.md†L3008-L3084】
+   - *Filter Intelligence.* Calibrate saved searches, persona presets, and trend-based chips so surfaced cohorts reflect mentorship, hiring, and fundraising intents without bias.【F:user_experience.md†L3069-L3148】
+   - *Composer Dupes.* Merge attachment uploaders, mention resolvers, and validation rules currently forked between composer, messaging, and workspace forms to avoid diverging experiences.【F:user_experience.md†L2865-L2884】
+   - *Card Variants.* Collapse redundant feed card implementations (e.g., opportunity vs. milestone) into a token-driven system while preserving badge/summary differences via props.【F:user_experience.md†L2996-L3076】
+   - *Filter Controls.* Centralise chip/drawer implementations reused across dashboards, saved searches, and feed filters so UI kits share tokens and persistence logic.【F:user_experience.md†L3097-L3148】
+   - *Composer Cleanup.* Replace dead “Template picker” CTAs, integrate real poll builder, and wire autosave banners so founders trust their drafts survive interruptions.【F:user_experience.md†L2865-L2896】
+   - *Card Content.* Purge placeholder thumbnails, stubbed analytics chips, and empty “AI insights” slots that currently occupy hero zones without data.【F:user_experience.md†L2972-L3054】
+   - *Filter Drawer.* Remove unused AI recommendation toggles and connect saved-filter APIs before exposing personalization banners to members.【F:user_experience.md†L3097-L3148】
+   - *Composer Helpers.* Centralise mention search, character counting, and attachment validation shared across FeedComposer, CommentsThread, and MessageComposer to cut drift.【F:user_experience.md†L2865-L2884】
+   - *Card Formatters.* Reuse feed card summarisation utilities for analytics badges, opportunity labels, and appreciation summaries rather than re-encoding per post type.【F:user_experience.md†L2996-L3054】
+   - *Filter Stores.* Merge feed-filter stores with dashboard filter controllers so saved searches, chips, and query params resolve identically across surfaces.【F:user_experience.md†L3097-L3148】
+14. **Text analysis, placement, length, redundancy, quality.** Timeline copy should celebrate momentum, surface opportunity signals, and explain next actions with enterprise polish.
+   - *Opportunity Spotlights.* When a feed entry represents a job, gig, or project, pair the title with the “Opportunity spotlight” banner so readers instantly recognise hiring or collaboration intent (see `FeedPostCard`).
+   - *Microcopy Voice.* Reaction rollups refer to “appreciations” rather than generic “likes,” reinforcing the professional tone while quantifying engagement in the summary badge.
+   - *Action Prompts.* Links and share CTAs remain outcome-focused—e.g., “Share externally” or “View attached resource”—and should mention whether they trigger referrals, applications, or knowledge sharing.
+   - *Scannability.* Limit body paragraphs to four lines with whitespace between sections so busy mentors can scan wins, context, and calls-to-action without fatigue.
+   - *Component Snapshot – ReactionsBar.jsx.* Evaluate palette richness, appreciation summary badge clarity, and keyboard/touch affordances so multi-reaction flows feel as premium as LinkedIn’s celebrations while respecting enterprise tone.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L80-L222】【F:user_experience.md†L3566-L3652】
+   - *Component Snapshot – CommentsThread.jsx.* Review nesting, author badges, and inline composer entry to ensure conversations remain legible and emotionally intelligent even at scale, highlighting official responses and translation pathways.【F:user_experience.md†L3653-L3748】
+   - *Component Snapshot – ShareModal.jsx.* Confirm share surfaces reinforce privacy defaults, external distribution guidance, and preview fidelity so executives understand audience impact before syndication.【F:user_experience.md†L3749-L3844】
+    - *Edge Conditions.* Simulate throttled networks, large payloads, permission changes, and session expiry to confirm Reactions & Comments degrades gracefully.
+    - *Reaction Picker Flows.* Validate hover, long-press, and keyboard interactions for the reaction palette, ensuring batching logic handles rapid toggles without double-counting while offline retries queue gracefully.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L222-L420】【F:user_experience.md†L3566-L3652】
+    - *Comment Lifecycle.* Map draft persistence, attachment uploads, translation requests, and moderation flags so founders can compose confidently and admins can intervene without losing context.【F:user_experience.md†L3653-L3748】
+    - *ShareModal Journeys.* Ensure internal vs. external sharing toggles wire into analytics, link-tracking, and governance workflows across desktop, mobile, and email follow-ups.【F:user_experience.md†L3749-L3844】
+    - *Recovery Paths.* Check fallback logic for missing data, upstream outages, or conflicting updates so Reactions & Comments maintains continuity.
+    - *Reaction Insights.* Tie appreciation summaries, sentiment weighting, and influencer highlights back to mentorship and deal-flow OKRs so analytics chips surface the most valuable conversations.【F:user_experience.md†L3566-L3652】
+    - *Comment Ranking.* Prioritise official replies, mentor endorsements, and translated answers to keep expertise discoverable for global cohorts.【F:user_experience.md†L3653-L3748】
+    - *Share Guardrails.* Gate external shares behind compliance and branding checks, surfacing warnings when attachments lack approval metadata or when audiences conflict with contractual obligations.【F:user_experience.md†L3749-L3844】
+    - *Process Review.* Align team ownership to prevent parallel implementations of Reactions & Comments in different repos.
+    - *Reaction Components.* Consolidate legacy “likes” bars, new appreciation pickers, and analytics badges into a single configurable component with themed tokens.【F:user_experience.md†L3566-L3652】
+    - *Comment Controls.* Merge reply toggles, attachment uploaders, and mention handlers shared by composer and thread modules to minimise divergent behaviours.【F:user_experience.md†L3653-L3748】
+    - *Share Modals.* Unify share dialog templates across feed, projects, and events to keep branding, governance notices, and analytics instrumentation consistent.【F:user_experience.md†L3749-L3844】
+    - *Operational Hooks.* Activate dormant cron jobs or worker topics responsible for refreshing Reactions & Comments content cadence.
+    - *Reaction Palette.* Replace mock reaction icons, align alias metadata, and ensure appreciation summaries render real counts even when offline queues replay events.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L80-L222】【F:user_experience.md†L3566-L3652】
+    - *Comment Enhancements.* Implement translation toggles, inline moderation notes, and AI summarisation or remove placeholders until ready, preventing ghost icons in the drawer.【F:user_experience.md†L3653-L3748】
+    - *ShareModal Notices.* Populate legal/privacy disclaimers, workspace targeting options, and email preview thumbnails instead of placeholder lorem copy before toggling features on for members.【F:user_experience.md†L3749-L3844】
+    - *Testing Utilities.* Deduplicate mocks and fixtures to maintain a single source of truth for Reactions & Comments scenario coverage.
+    - *Reaction Services.* Merge event batching utilities between feed reactions and spotlight modules so analytics rollups stay consistent across product surfaces.【F:user_experience.md†L3566-L3652】
+    - *Comment Pipelines.* Standardise mention resolution, spam detection, and translation caching between comments, replies, and direct messages to reduce maintenance overhead.【F:user_experience.md†L3653-L3748】
+    - *Share Templates.* Reuse share modal generation logic across feed, opportunities, and groups to keep CTA copy, link shorteners, and governance hooks aligned.【F:user_experience.md†L3749-L3844】
+7. **Improvements need to make.** Multi-reaction support now renders five professional sentiments, updates summary badges, and persists optimistic state across the feed. Next upgrades focus on richer insights, moderation, and cross-platform polish so engagement stays premium.
+   - *Realtime Consistency.* Wire socket fan-out so `normaliseReactionSummary` receives live tallies instead of waiting for manual refreshes, keeping badges accurate during fast-moving launches.
+   - *Mobile Reach.* Mirror the reaction picker inside the Flutter client, matching the `REACTION_OPTIONS` taxonomy and ensuring touch affordances feel native.
+   - *Moderation Hooks.* Extend existing analytics events (`web_feed_reaction_click`, `web_feed_comment_submit`) with admin context so trust-and-safety teams can trace abuse escalations.
+   - *Reply Enhancements.* Provide smart reply templates per persona (mentor, founder, recruiter) and expose inline edit for recently posted comments to reduce churn.
+   - *Observability.* Dashboards should chart palette usage, comment-to-reaction ratios, and failure counts from `reactToFeedPost` to prove business outcomes.
+8. **Styling improvements.** Reaction controls lean on glassy capsules, tinted badges, and pill summaries to rival LinkedIn polish. Continue evolving the systemised aesthetic while safeguarding accessibility.
+   - *Palette Governance.* Document the dot colors used in `REACTION_OPTIONS` (sky, amber, emerald, violet, rose) and link them to design tokens so other squads reuse the same emotion spectrum.
+   - *Menu Motion.* Apply a 180–220 ms ease when the picker opens; subtle drop shadows and staggered icon fades reinforce premium craft.
+   - *Summary Badge.* Keep the appreciation chip (`px-3 py-1`, rounded-full) anchored near actions, switching to a stacked layout below 640 px for readability.
+   - *Emoji & GIF Popovers.* Align tray headers, dividers, and focus states with the reaction picker to deliver one cohesive popover language.
+9. **Efficiency analysis and improvement.** `handleReactionChange` batches deactivate/activate calls with `Promise.all`, but we must still profile the full pipeline to avoid saturation during peak events.
+   - *Network Hygiene.* Instrument latency on `/feed/:id/reactions` and retry throttled calls with exponential backoff so optimistic UI stays trustworthy.
+   - *Render Budgets.* Use React Profiler to confirm the picker and summary chips re-render only when `reactionSummary` changes; memoise where necessary.
+   - *Pagination.* Ensure `listFeedComments` respects cancellation (already using `AbortController`) and audit thread virtualization for 100+ replies.
+   - *Analytics Sampling.* Buffer reaction events client-side to ship in micro-batches, balancing fidelity with network overhead.
+   - *Stress Scenarios.* Simulate mentors toggling reactions rapidly to validate `setActiveReaction` never produces negative counts.
+10. **Strengths to Keep.** Preserve the empathetic, fast UI moments that already delight power users.
+   - *Optimistic Loops.* Keep instant comment/reply insertion with graceful rollback so conversations feel live even on flaky networks.
+   - *Quick Replies.* Maintain the curated `QUICK_REPLY_SUGGESTIONS` strings; they spark thoughtful engagement without sounding robotic.
+   - *Accessible Palette.* Retain keyboard/touch parity for the reaction picker (`aria-expanded`, escape handling) and keep the summary badge announcing updates with `aria-live`.
+   - *Moderation Safeguards.* Continue running payloads through `moderateFeedComposerPayload` so spam never leaks into the feed.
+11. **Weaknesses to remove.** Close gaps that still risk credibility or responsiveness.
+   - *Offline Grace.* Provide queued reactions/comments when the device drops offline, flushing once connectivity returns.
+   - *Error Surfaces.* Surface toasts when reaction sync fails instead of silent console warnings, giving members confidence their intent landed.
+   - *Long Threads.* Introduce “Show more replies” pagination to avoid vertical fatigue on heavily engaged posts.
+   - *Persona Tone.* Audit quick replies and placeholder copy so they stay relevant for founders, mentors, and talent partners alike.
+   - *Analytics Drift.* Verify backend aggregators treat `support` vs `love` aliases identically to avoid mis-reporting sentiments.
+12. **Styling and Colour review changes.** Calibrate the new appreciation spectrum with brand guidelines.
+   - *Contrast Audits.* Test each dot/background pair in light and dark themes to exceed WCAG 2.2 AA for text and iconography.
+   - *Hover States.* Define lighter tint variations for palette buttons when hovered/focused so visual feedback feels intentional.
+   - *Badge Typography.* Use semibold 0.7 rem uppercase text in summary chips, matching other feed metrics for visual harmony.
+   - *Export Modes.* Ensure screenshots or PDFs preserve the gradient and blur treatments applied to reaction controls for investor decks.
+   - *Iconography.* Keep heroicons at 16–20 px inside 24–28 px pills for crisp retina rendering.
+13. **CSS, orientation, placement and arrangement changes.** Reaction controls now combine a capsule button, chevron trigger, and appreciation badge; layout rules must scale across breakpoints.
+   - *Flex Behaviour.* Keep the action row as a wrapping flex container so reactions, comments, and share buttons reflow on narrow screens.
+   - *Hit Targets.* Maintain 40 px minimum hit zones for palette toggles and ensure focus outlines are visible against tinted backgrounds.
+   - *Menu Placement.* Clamp the picker within the viewport by flipping it above the button when close to the bottom of the screen.
+   - *RTL Support.* Mirror icon order and badge alignment when the interface runs right-to-left, avoiding overlap with the summary chip.
+   - *Responsive Summary.* Collapse the appreciation badge beneath the action row below 480 px to protect copy legibility.
+14. **Text analysis, placement, length, redundancy, quality.** Reaction microcopy emphasises appreciation and celebration language instead of casual slang.
+   - *Palette Labels.* Keep verbs aspirational—“Appreciate”, “Celebrate”, “Support”, “Insightful”, “Curious”—so executives feel respected.
+   - *Summary Copy.* Use “appreciation(s)” in the badge to reinforce positive culture while staying concise.
+   - *Comment Prompts.* Retain prompts like “Join the conversation” and “Offer context, signal interest…” to encourage thoughtful, multi-sentence replies.
+   - *Error Messaging.* Align comment/reaction errors with supportive tone (“We could not load the latest conversation. Please try again soon.”).
+15. **Change Checklist Tracker.** Palette rollout requires tight coordination across product, design, engineering, and enablement.
+   - *Design Sign-off.* Capture final swatches, iconography, and motion specs in Figma before development.
+   - *Analytics Wiring.* Update event schemas and dashboards to track reaction-type adoption and comment depth after release.
+   - *QA Matrix.* Test keyboard navigation, screen reader announcements, and touch gestures on major browsers/devices.
+   - *Support Readiness.* Brief community managers on the new sentiments and provide guidance on moderating celebratory vs support reactions.
+   - *Documentation.* Refresh runbooks detailing `reactToFeedPost` usage, optimistic update expectations, and rollback procedures.
+   - *Launch Plan.* Stage via feature flag—internal dogfood → mentor beta → full network—while monitoring error rates and sentiment mix.
+16. **Full Upgrade Plan & Release Steps.** Roll out multi-reaction analytics, moderation hooks, and mobile parity in a staged program: discovery → dual-track build → comprehensive QA → telemetry-backed launch. Maintain rollback scripts and guardrails so reactions remain trustworthy during peak hiring pushes.
+   - *ShareModal Journeys.* Ensure internal vs. external sharing toggles wire into analytics, link-tracking, and governance workflows across desktop, mobile, and email follow-ups.【F:user_experience.md†L3749-L3844】
+   - *Taxonomy Parity.* Keep reaction enumerations and payload schemas consistent between `FeedPage.jsx`, backend controllers, Sequelize models, and historical migrations to avoid enum drift when releasing new engagement signals.
+5. **Placeholders Or non-working functions or stubs.** Reaction taxonomy now ships fully across frontend, controllers, models, migrations, and demo seeders; any deprecated options must be retired end-to-end rather than hidden behind TODOs. Placeholder and stub hunting for Reactions & Comments scans feature flags, TODO comments, scaffolding controllers, schema columns, and UI components that render mocked data or static cards. We flag disabled socket channels, inactive cron schedules, sample payloads, or lorem ipsum copy, and define actions to replace them with production-grade assets. Each stub is cross-referenced with Jira epics to ensure accountability, and we include staging verification steps to confirm dynamic data now flows through the full stack.
   - [x] Subcategory 1.D. Shared Contracts & Validation
   - [x] Subcategory 2.B. Authorization & RBAC
 1. **Appraisal.** Authorization & RBAC stitches backend policy enforcement with admin and mobile governance experiences. Express middleware normalises memberships, roles, and user types before protected controllers execute, ensuring every request carries consistent persona context.【F:gigvora-backend-nodejs/src/middleware/authorization.js†L1-L268】 RBAC controllers expose matrix, audit-log, and simulation endpoints while recording audit trails for compliance-grade traceability.【F:gigvora-backend-nodejs/src/controllers/rbacPolicyController.js†L1-L356】 React hooks aggregate memberships, roles, and permissions to gate navigation and feature affordances, auto-selecting the active membership when users satisfy policy requirements.【F:gigvora-frontend-reactjs/src/hooks/useAuthorization.js†L1-L172】【F:gigvora-frontend-reactjs/src/hooks/useRoleAccess.js†L1-L92】 Admin surfaces render persona guardrails, resources, and review cadences, and the Flutter client mirrors the same matrix so operations staff receive parity across devices.【F:gigvora-frontend-reactjs/src/components/admin/RbacMatrixPanel.jsx†L1-L220】【F:gigvora-flutter-phoneapp/lib/features/governance/application/rbac_matrix_provider.dart†L8-L24】【F:gigvora-flutter-phoneapp/lib/features/governance/presentation/rbac_matrix_card.dart†L8-L188】 Appraisal work compares these experiences against LinkedIn- and Workday-class benchmarks to guarantee the Gigvora stack feels trustworthy to executives, recruiters, and mentors.
