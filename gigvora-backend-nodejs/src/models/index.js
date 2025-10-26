@@ -9,6 +9,15 @@ import {
   PLATFORM_SETTINGS_WATCHER_CHANNELS,
   PLATFORM_SETTINGS_WATCHER_DIGEST_FREQUENCIES,
 } from './platformSettingsWatcher.js';
+import {
+  SystemStatusEvent,
+  SystemStatusAcknowledgement,
+  FeedbackPulseSurvey,
+  FeedbackPulseResponse,
+  SYSTEM_STATUS_EVENT_STATUSES,
+  SYSTEM_STATUS_EVENT_SEVERITIES,
+  FEEDBACK_PULSE_SURVEY_STATUSES,
+} from './systemMessagingModels.js';
 import { SchemaMigrationAudit, SeedExecutionAudit } from './schemaGovernanceModels.js';
 import { SiteSetting, SitePage, SiteNavigationLink, SITE_PAGE_STATUSES } from './siteManagementModels.js';
 import { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
@@ -22,6 +31,15 @@ import {
 export { AdminTreasuryPolicy, AdminFeeRule, AdminPayoutSchedule, AdminEscrowAdjustment } from './adminFinanceModels.js';
 export { RouteRegistryEntry } from './routeRegistryModels.js';
 export { SchemaMigrationAudit, SeedExecutionAudit } from './schemaGovernanceModels.js';
+export {
+  SystemStatusEvent,
+  SystemStatusAcknowledgement,
+  FeedbackPulseSurvey,
+  FeedbackPulseResponse,
+  SYSTEM_STATUS_EVENT_STATUSES,
+  SYSTEM_STATUS_EVENT_SEVERITIES,
+  FEEDBACK_PULSE_SURVEY_STATUSES,
+} from './systemMessagingModels.js';
 import './agencyWorkforceModels.js';
 import { RbacPolicyAuditEvent } from './rbacPolicyAuditEvent.js';
 import { RuntimeAnnouncement } from './runtimeAnnouncement.js';

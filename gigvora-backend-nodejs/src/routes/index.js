@@ -63,6 +63,7 @@ import communityEventsRoutes from './communityEventsRoutes.js';
 import routeRegistryRoutes from './routeRegistryRoutes.js';
 import formBlueprintRoutes from './formBlueprintRoutes.js';
 import presenceRoutes from './presenceRoutes.js';
+import systemMessagingRoutes from './systemMessagingRoutes.js';
 
 const router = Router();
 
@@ -123,6 +124,7 @@ const routeDefinitions = [
   ['/explorer', explorerRoutes],
   ['/search', searchRoutes],
   ['/support', supportRoutes],
+  ['/system', systemMessagingRoutes],
   ['/trust', trustRoutes],
   ['/route-registry', routeRegistryRoutes],
   ['/site', siteRoutes],

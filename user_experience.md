@@ -218,6 +218,7 @@
 ### SystemStatusToast.jsx
 - **Appraisal.** Gradient glassmorphism, pulsing severity badges, and status-specific iconography give the toast a flagship incident-control presence on par with modern enterprise status centers.
 - **Functionality.** Status configs drive severity copy, impacted-service chips, metadata grids, next-step checklists, action links, and acknowledge flows so operators see every required control in a single glance.
+- **Platform Integration.** The toast hydrates from `/system/status/latest`, which calls the production `systemMessagingService` pipeline, Sequelize models, and seed data to stream persisted incident payloads and acknowledgement telemetry instead of mock fixtures.【F:gigvora-backend-nodejs/src/services/systemMessagingService.js†L1-L215】【F:gigvora-backend-nodejs/src/routes/systemMessagingRoutes.js†L1-L33】【F:gigvora-backend-nodejs/database/migrations/20250327150000-system-messaging-feedback.cjs†L1-L189】【F:gigvora-backend-nodejs/database/seeders/20250327151000-system-messaging-foundation.cjs†L1-L171】【F:gigvora-frontend-reactjs/src/services/systemMessaging.js†L1-L71】
 - **Logic Usefulness.** Relative-time refresh, severity analytics, and optional meta tiles ensure the component communicates actionable information with no filler, keeping leadership aligned on response posture.
 - **Redundancies.** Status styles, action variants, and metadata shaping consolidate through single helpers so other surfaces can reuse the canonical toast without re-implementing gradients or buttons.
 - **Placeholders Or non-working functions or stubs.** Dynamic copy, analytics hooks, and live action buttons replace lorem banners or inert CTAs, ensuring every surface is production-ready for real incidents.
@@ -237,6 +238,7 @@
 - **Images and media & Images and media previews.** The toast degrades gracefully without imagery while leaving room for future timeline screenshots or charts via the meta grid.
 - **Button styling.** Action variants share rounded-full capsules, focus rings, and gradient/ghost treatments with other system CTAs to avoid bespoke styling.
 - **Interactiveness.** Dismiss, acknowledge, and CTA interactions support keyboard and pointer flows, with analytics capture verifying usage.
+- **Testing.** Service, API client, and component suites cover event hydration and acknowledgement flows to ensure the persisted status feed stays regression-proof across API and UI layers.【F:gigvora-backend-nodejs/src/services/__tests__/systemMessagingService.test.js†L1-L155】【F:gigvora-frontend-reactjs/src/services/__tests__/systemMessaging.test.js†L1-L86】【F:gigvora-frontend-reactjs/src/components/system/__tests__/SystemStatusToast.test.jsx†L1-L84】
 - **Missing Components.** Backlog notes flag incident timeline overlays and SLA countdowns as future modules, keeping momentum without blocking today’s release.
 - **Design Changes.** The component reshapes basic alerts into a premium incident panel with chips, metadata, and guided response rails demanded by operators.
 - **Design Duplication.** Shared helpers allow dashboards, status centers, and onboarding tours to reuse the toast without reimplementing severity logic.
@@ -247,6 +249,7 @@
 ### FeedbackPulse.jsx
 - **Appraisal.** Gradient cards, dual-column highlights, and executive-ready typography transform the feedback widget into a polished insights surface reminiscent of leading professional networks.
 - **Functionality.** Five-point sentiment scoring, tag toggles, comment capture, trend summaries, segment breakdowns, and insight callouts cover every interaction promised in the blueprint.
+- **Platform Integration.** The pulse reads and writes through the `/system/feedback-pulses` service backed by `FeedbackPulseSurvey` models, migrations, and seeders so the widget surfaces executive sentiment from persisted cohorts rather than placeholder arrays.【F:gigvora-backend-nodejs/src/services/systemMessagingService.js†L143-L215】【F:gigvora-backend-nodejs/src/routes/systemMessagingRoutes.js†L18-L33】【F:gigvora-backend-nodejs/database/migrations/20250327150000-system-messaging-feedback.cjs†L92-L189】【F:gigvora-backend-nodejs/database/seeders/20250327151000-system-messaging-foundation.cjs†L65-L171】【F:gigvora-frontend-reactjs/src/services/systemMessaging.js†L73-L107】
 - **Logic Usefulness.** Analytics events, segment deltas, and insight summaries tie each response to measurable programmes so product, ops, and leadership teams can act on the signal immediately.
 - **Redundancies.** Score definitions, tag normalisers, and highlight layouts are centralised so future feedback forms reuse the same primitives instead of forking logic.
 - **Placeholders Or non-working functions or stubs.** Live analytics hooks, thank-you states, and asynchronous submission handling replace placeholder copy or inert buttons from earlier prototypes.
@@ -266,6 +269,7 @@
 - **Images and media & Images and media previews.** Insight list items and highlight cards accommodate future rich media while current copy fills gracefully when no assets exist.
 - **Button styling.** Submit and tag buttons reuse rounded-full shells, focus-visible rings, and token-aligned treatments for parity with the system kit.
 - **Interactiveness.** Keyboard-friendly score selection, tag toggling, textarea focus, and async submission ensure inclusive, multi-modal feedback capture.
+- **Testing.** Dedicated backend and frontend suites validate payload sanitisation, aggregation math, and UI submission flows so the insights remain trustworthy at scale.【F:gigvora-backend-nodejs/src/services/__tests__/systemMessagingService.test.js†L84-L155】【F:gigvora-frontend-reactjs/src/services/__tests__/systemMessaging.test.js†L42-L86】【F:gigvora-frontend-reactjs/src/components/system/__tests__/FeedbackPulse.test.jsx†L1-L88】
 - **Missing Components.** Upcoming backlog items cover weekly trend digests and benchmark overlays; placeholders document future enhancements without blocking today’s release.
 - **Design Changes.** The widget evolves from a basic form into a storytelling insights panel with dual columns, trend cards, and highlight callouts.
 - **Design Duplication.** Shared helpers and styling tokens prevent future survey surfaces from duplicating scoring logic or layout primitives.

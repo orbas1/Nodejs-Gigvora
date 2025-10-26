@@ -1,0 +1,155 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://gigvora.shared-contracts/platform/system-messaging.json",
+  "title": "System Messaging Contracts",
+  "type": "object",
+  "definitions": {
+    "SystemStatusEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "eventKey": { "type": "string", "minLength": 3, "maxLength": 120 },
+        "status": {
+          "type": "string",
+          "enum": ["operational", "degraded", "maintenance", "incident", "outage"]
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["low", "medium", "notice", "high", "critical"]
+        },
+        "title": { "type": "string", "maxLength": 255 },
+        "message": { "type": ["string", "null"] },
+        "impactedServices": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 120 }
+        },
+        "meta": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": ["string", "null"] },
+              "label": { "type": "string" },
+              "value": { "type": "string" }
+            },
+            "required": ["label", "value"]
+          }
+        },
+        "nextSteps": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 500 }
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "label": { "type": "string", "maxLength": 160 },
+              "href": { "type": ["string", "null"], "format": "uri" },
+              "variant": {
+                "type": "string",
+                "enum": ["primary", "secondary", "ghost"],
+                "default": "primary"
+              }
+            },
+            "required": ["label"]
+          }
+        },
+        "acknowledgementRequired": { "type": "boolean" },
+        "acknowledged": {
+          "$ref": "#/definitions/SystemStatusAcknowledgement"
+        },
+        "publishedAt": { "type": ["string", "null"], "format": "date-time" },
+        "expiresAt": { "type": ["string", "null"], "format": "date-time" },
+        "resolvedAt": { "type": ["string", "null"], "format": "date-time" }
+      },
+      "required": ["id", "eventKey", "status", "severity", "title", "impactedServices", "meta", "nextSteps", "actions", "acknowledgementRequired"]
+    },
+    "SystemStatusAcknowledgement": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "statusEventId": { "type": "string", "format": "uuid" },
+        "userId": { "type": ["integer", "string", "null"] },
+        "acknowledgedAt": { "type": ["string", "null"], "format": "date-time" },
+        "channel": { "type": ["string", "null"] },
+        "metadata": { "type": "object" }
+      }
+    },
+    "FeedbackPulse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "pulseKey": { "type": "string", "minLength": 3, "maxLength": 120 },
+        "status": { "type": "string", "enum": ["draft", "active", "archived"] },
+        "question": { "type": "string", "maxLength": 500 },
+        "description": { "type": ["string", "null"] },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 120 }
+        },
+        "segments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": ["string", "null"] },
+              "label": { "type": "string" },
+              "value": { "type": "number" },
+              "delta": { "type": ["number", "null"] }
+            },
+            "required": ["label", "value"]
+          }
+        },
+        "insights": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": ["string", "null"] },
+              "title": { "type": "string" },
+              "description": { "type": ["string", "null"] }
+            },
+            "required": ["title"]
+          }
+        },
+        "trend": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "label": { "type": ["string", "null"] },
+            "value": { "type": ["number", "null"] },
+            "delta": { "type": ["number", "null"] },
+            "sampleSize": { "type": ["integer", "null"] }
+          }
+        },
+        "responseCount": { "type": "integer", "minimum": 0 },
+        "lastResponseAt": { "type": ["string", "null"], "format": "date-time" },
+        "metadata": { "type": "object" }
+      },
+      "required": ["id", "pulseKey", "status", "question", "tags", "segments", "insights", "trend", "responseCount", "metadata"]
+    },
+    "FeedbackPulseSubmission": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "score": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 120 }
+        },
+        "comment": { "type": ["string", "null"], "maxLength": 2000 },
+        "channel": { "type": ["string", "null"], "maxLength": 80 },
+        "metadata": { "type": "object" }
+      },
+      "required": ["score"]
+    }
+  }
+}

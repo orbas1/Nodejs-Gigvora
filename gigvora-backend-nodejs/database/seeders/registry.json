@@ -40,5 +40,12 @@
     "personas": ["freelancer", "trust", "marketing"],
     "domains": ["reputation", "testimonials", "reviews"],
     "tags": ["reputation", "social-proof", "demo-data"]
+  },
+  "20250327151000-system-messaging-foundation": {
+    "title": "System status and executive feedback foundation",
+    "summary": "Populates platform status events and executive feedback pulse data so dashboards surface live readiness signals.",
+    "personas": ["platform-ops", "executive", "product"],
+    "domains": ["observability", "feedback", "analytics"],
+    "tags": ["system-status", "executive-feedback", "foundational"]
   }
 }

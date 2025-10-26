@@ -1,7 +1,7 @@
 {
   "version": "1.1.0",
   "lastGeneratedAt": "2025-10-27T00:00:00.000Z",
-  "pendingChanges": false,
+  "pendingChanges": true,
   "artifacts": {
     "auth/user": {
       "schemaHash": "360ca8371a7acba501005e1ae88bfbda2ab69f83e1cff09e9e491309c78bf788",
@@ -37,6 +37,11 @@
       "schemaHash": "39387215944665044e68949ae286b39ee4125e6df1f7884ee5a0c7d9a61ed432",
       "typesHash": "4714cee75f42816a77156151cd8bc4910acce8a86a35a9dc58c0da5fea224b4f",
       "generatedAt": "2025-10-25T00:36:52.906Z"
+    },
+    "platform/system-messaging": {
+      "schemaHash": null,
+      "typesHash": null,
+      "generatedAt": null
     },
     "index": {
       "schemaHash": null,
