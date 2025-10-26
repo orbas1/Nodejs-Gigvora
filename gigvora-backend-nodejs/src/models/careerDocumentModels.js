@@ -4,6 +4,10 @@ import sequelize from './sequelizeClient.js';
 const dialect = sequelize.getDialect();
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
 
+const USER_STATUSES = ['invited', 'active', 'suspended', 'archived', 'deleted'];
+const USER_TYPES = ['user', 'company', 'freelancer', 'agency', 'admin'];
+const TWO_FACTOR_METHODS = ['email', 'app', 'sms'];
+
 function ensureModel(name, factory) {
   return sequelize.models[name] ?? factory();
 }
@@ -20,23 +24,39 @@ export const User = ensureModel('User', () =>
       location: { type: DataTypes.STRING(255), allowNull: true },
       geoLocation: { type: jsonType, allowNull: true },
       age: { type: DataTypes.INTEGER, allowNull: true, validate: { min: 13 } },
+      phoneNumber: { type: DataTypes.STRING(30), allowNull: true },
+      jobTitle: { type: DataTypes.STRING(120), allowNull: true },
+      avatarUrl: { type: DataTypes.STRING(2048), allowNull: true },
+      status: { type: DataTypes.ENUM(...USER_STATUSES), allowNull: false, defaultValue: 'active' },
+      lastSeenAt: { type: DataTypes.DATE, allowNull: true },
       userType: {
-        type: DataTypes.ENUM('user', 'company', 'freelancer', 'agency', 'admin'),
+        type: DataTypes.ENUM(...USER_TYPES),
         allowNull: false,
         defaultValue: 'user',
       },
       twoFactorEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
       twoFactorMethod: {
-        type: DataTypes.ENUM('email', 'app', 'sms'),
+        type: DataTypes.ENUM(...TWO_FACTOR_METHODS),
         allowNull: false,
         defaultValue: 'email',
       },
       lastLoginAt: { type: DataTypes.DATE, allowNull: true },
       googleId: { type: DataTypes.STRING(255), allowNull: true },
+      appleId: { type: DataTypes.STRING(255), allowNull: true },
+      linkedinId: { type: DataTypes.STRING(255), allowNull: true },
+      memberships: { type: jsonType, allowNull: false, defaultValue: [] },
+      primaryDashboard: { type: DataTypes.STRING(60), allowNull: true },
     },
     {
       tableName: 'users',
-      indexes: [{ fields: ['email'] }],
+      indexes: [
+        { fields: ['email'] },
+        { fields: ['status'] },
+        { fields: ['userType'] },
+        { fields: ['googleId'], unique: true },
+        { fields: ['appleId'], unique: true },
+        { fields: ['linkedinId'], unique: true },
+      ],
     },
   ),
 );

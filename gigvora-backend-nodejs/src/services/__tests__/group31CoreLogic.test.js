@@ -106,7 +106,7 @@ jest.unstable_mockModule(modelsIndexModule, () => {
     APPLICATION_STATUSES: ['submitted', 'withdrawn', 'rejected', 'hired', 'offer'],
     LAUNCHPAD_APPLICATION_STATUSES: ['screening', 'interview', 'accepted', 'waitlisted'],
     LAUNCHPAD_PLACEMENT_STATUSES: ['active', 'completed'],
-    LAUNCHPAD_TARGET_TYPES: ['job', 'project'],
+    LAUNCHPAD_TARGET_TYPES: ['job', 'project', 'volunteering'],
     LAUNCHPAD_OPPORTUNITY_SOURCES: ['internal', 'partner'],
     LEARNING_ENROLLMENT_STATUSES: ['not_started', 'in_progress', 'completed'],
     NOTIFICATION_CATEGORIES: ['system', 'marketing'],

@@ -11,6 +11,7 @@ const TEST_DIRECTORIES = [
   '<rootDir>/tests/lifecycle/**/*.test.js',
   '<rootDir>/tests/migrations/**/*.test.js',
   '<rootDir>/tests/services/**/*.test.js',
+  '<rootDir>/src/__tests__/**/*.test.js',
   '<rootDir>/src/services/__tests__/**/*.test.js',
   '<rootDir>/src/controllers/__tests__/**/*.test.js',
 ];
