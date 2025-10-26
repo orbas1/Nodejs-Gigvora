@@ -16,11 +16,43 @@ function classNames(...classes) {
   return classes.filter(Boolean).join(' ');
 }
 
+function formatDateTime(value, fallback = null) {
+  if (!value) {
+    return fallback;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return fallback ?? value;
+  }
+  try {
+    return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+  } catch (error) {
+    if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'production') {
+      console.warn('Failed to format datetime value', value, error);
+    }
+    return date.toLocaleString();
+  }
+}
+
 const SEVERITY_STYLES = {
   critical: 'border-red-200/70 bg-red-50 text-red-600',
   high: 'border-amber-200/70 bg-amber-50 text-amber-600',
   medium: 'border-sky-200/70 bg-sky-50 text-sky-600',
   low: 'border-emerald-200/70 bg-emerald-50 text-emerald-600',
+};
+
+const RISK_BADGE_STYLES = {
+  critical: 'border-red-300 bg-red-50 text-red-700',
+  high: 'border-red-200 bg-red-50 text-red-600',
+  medium: 'border-amber-200 bg-amber-50 text-amber-600',
+  low: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+};
+
+const RISK_LEVEL_LABELS = {
+  critical: 'Critical risk',
+  high: 'High risk',
+  medium: 'Review',
+  low: 'Trusted',
 };
 
 function SummaryStat({ label, value, hint }) {
@@ -83,32 +115,72 @@ InsightCard.propTypes = {
 };
 
 function SessionRow({ session, onTerminate }) {
+  const riskLevel = (session.riskLevel ?? 'low').toLowerCase();
+  const riskBadgeStyle = RISK_BADGE_STYLES[riskLevel] ?? RISK_BADGE_STYLES.low;
+  const RiskIcon = ['high', 'critical'].includes(riskLevel) ? ExclamationTriangleIcon : ShieldCheckIcon;
+  const riskScoreValue = Number.isFinite(Number(session.riskScore))
+    ? Math.max(0, Math.round(Number(session.riskScore)))
+    : null;
+  const locationParts = [];
+  if (session.location) {
+    locationParts.push(session.location);
+  }
+  if (session.timezone) {
+    locationParts.push(session.timezone);
+  }
+  const locationLabel = locationParts.length ? locationParts.join(' • ') : 'Unknown location';
+  const lastActiveLabel = session.current ? 'Active now' : formatDateTime(session.lastActiveAt, 'Last active unknown');
+  const expiryLabel = session.expiresAt
+    ? `Expires ${formatDateTime(session.expiresAt, session.expiresAt)}`
+    : 'No automatic expiry';
+
   return (
     <div
       className={classNames(
-        'grid gap-2 rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 text-sm text-slate-600 shadow-sm transition hover:border-slate-300 hover:shadow-md',
-        session.current ? 'ring-2 ring-emerald-200' : '',
-        'md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-center',
+        'grid gap-3 rounded-2xl border bg-white/90 px-4 py-3 text-sm text-slate-600 shadow-sm transition hover:border-slate-300 hover:shadow-md',
+        session.current
+          ? 'border-emerald-200/80 bg-emerald-50/70 ring-1 ring-emerald-200/70'
+          : ['high', 'critical'].includes(riskLevel)
+            ? 'border-red-200/80 bg-red-50/70'
+            : riskLevel === 'medium'
+              ? 'border-amber-200/80 bg-amber-50/60'
+              : 'border-slate-200/80',
+        'md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto] md:items-center',
       )}
     >
-      <div className="flex items-center gap-3">
-        <DevicePhoneMobileIcon className="h-5 w-5 text-slate-400" />
-        <div>
-          <p className="font-semibold text-slate-900">{session.device}</p>
-          <p className="text-xs text-slate-500">{session.location ?? 'Unknown location'}</p>
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
+          <DevicePhoneMobileIcon className="h-5 w-5" />
+        </div>
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-semibold text-slate-900">{session.device}</p>
+            <span
+              className={classNames(
+                'inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide',
+                riskBadgeStyle,
+              )}
+            >
+              <RiskIcon className="h-3.5 w-3.5" />
+              {RISK_LEVEL_LABELS[riskLevel] ?? RISK_LEVEL_LABELS.low}
+              {riskScoreValue > 0 ? (
+                <span className="font-normal text-[10px] lowercase opacity-70">score {riskScoreValue}</span>
+              ) : null}
+            </span>
+          </div>
+          <p className="text-xs text-slate-500">{locationLabel}</p>
+          {session.ipAddress ? <p className="text-[11px] text-slate-400">IP {session.ipAddress}</p> : null}
         </div>
       </div>
-      <div>
+      <div className="space-y-1 text-sm text-slate-700">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Last active</p>
-        <p className="text-sm text-slate-700">
-          {session.lastActiveAt ? new Date(session.lastActiveAt).toLocaleString() : 'Active now'}
-        </p>
-        {session.ipAddress ? <p className="text-xs text-slate-400">IP {session.ipAddress}</p> : null}
+        <p>{lastActiveLabel}</p>
+        <p className="text-xs text-slate-500">{expiryLabel}</p>
       </div>
-      <div className="flex items-center justify-end gap-2">
+      <div className="flex items-center justify-end">
         {session.current ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
-            <ShieldCheckIcon className="h-3.5 w-3.5" /> Current
+          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-white/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-700 shadow-sm">
+            <ShieldCheckIcon className="h-3.5 w-3.5" /> Current session
           </span>
         ) : (
           <button
@@ -116,7 +188,7 @@ function SessionRow({ session, onTerminate }) {
             onClick={() => onTerminate?.(session.id)}
             className="inline-flex items-center gap-1 rounded-full border border-slate-300 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600 transition hover:border-red-300 hover:text-red-600"
           >
-            Revoke
+            Revoke access
           </button>
         )}
       </div>
@@ -132,6 +204,10 @@ SessionRow.propTypes = {
     lastActiveAt: PropTypes.string,
     ipAddress: PropTypes.string,
     current: PropTypes.bool,
+    riskLevel: PropTypes.oneOf(['low', 'medium', 'high', 'critical']),
+    riskScore: PropTypes.number,
+    timezone: PropTypes.string,
+    expiresAt: PropTypes.string,
   }).isRequired,
   onTerminate: PropTypes.func,
 };
@@ -487,6 +563,10 @@ AccountSettingsForm.propTypes = {
       lastActiveAt: PropTypes.string,
       ipAddress: PropTypes.string,
       current: PropTypes.bool,
+      riskLevel: PropTypes.oneOf(['low', 'medium', 'high', 'critical']),
+      riskScore: PropTypes.number,
+      timezone: PropTypes.string,
+      expiresAt: PropTypes.string,
     }),
   ),
   onTerminateSession: PropTypes.func,

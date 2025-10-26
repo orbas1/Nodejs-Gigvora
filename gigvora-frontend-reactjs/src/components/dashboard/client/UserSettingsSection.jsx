@@ -11,6 +11,7 @@ import {
   updateUserAiSettings,
   testUserAiSettingsConnection,
 } from '../../../services/userAiSettings.js';
+import { listUserSessions, revokeUserSession } from '../../../services/userSessions.js';
 import AccountSettingsForm from '../../profileSettings/preferences/AccountSettingsForm.jsx';
 import NotificationPreferences from '../../profileSettings/preferences/NotificationPreferences.jsx';
 
@@ -71,6 +72,45 @@ const DEFAULT_AI = {
   connection: { baseUrl: 'https://api.openai.com/v1', lastTestedAt: null },
   workspaceId: null,
 };
+
+function computeSessionSummary(entries) {
+  if (!Array.isArray(entries) || !entries.length) {
+    return { totalActive: 0, highRiskCount: 0, mediumRiskCount: 0, expiringSoonCount: 0, lastActiveAt: null };
+  }
+  const now = Date.now();
+  let highRiskCount = 0;
+  let mediumRiskCount = 0;
+  let expiringSoonCount = 0;
+  let latestActivity = null;
+
+  entries.forEach((entry) => {
+    if (entry.riskLevel === 'high') {
+      highRiskCount += 1;
+    } else if (entry.riskLevel === 'medium') {
+      mediumRiskCount += 1;
+    }
+    if (entry.expiresAt) {
+      const expiresAt = Date.parse(entry.expiresAt);
+      if (Number.isFinite(expiresAt) && expiresAt - now <= 1000 * 60 * 60 * 24 * 3) {
+        expiringSoonCount += 1;
+      }
+    }
+    if (entry.lastActiveAt) {
+      const activity = Date.parse(entry.lastActiveAt);
+      if (Number.isFinite(activity) && (latestActivity == null || activity > latestActivity)) {
+        latestActivity = activity;
+      }
+    }
+  });
+
+  return {
+    totalActive: entries.length,
+    highRiskCount,
+    mediumRiskCount,
+    expiringSoonCount,
+    lastActiveAt: latestActivity ? new Date(latestActivity).toISOString() : null,
+  };
+}
 
 function mergeAccount(payload) {
   if (!payload) return { ...DEFAULT_ACCOUNT };
@@ -267,7 +307,86 @@ ChannelCheckbox.defaultProps = {
 };
 
 
-function normaliseSessions(sessionContext, accountPayload) {
+function normaliseSessions(sessionContext, accountPayload, sessionPayload = null) {
+  const fetchedSessions = Array.isArray(sessionPayload)
+    ? sessionPayload
+    : Array.isArray(sessionPayload?.items)
+      ? sessionPayload.items
+      : null;
+
+  if (fetchedSessions && fetchedSessions.length) {
+    const normalized = fetchedSessions.map((sessionEntry, index) => {
+      const baseId = sessionEntry.id ?? sessionEntry.sessionId ?? sessionEntry.tokenHash ?? `session-${index}`;
+      const deviceLabel = sessionEntry.deviceLabel ?? sessionEntry.device ?? sessionEntry.label ?? sessionEntry.userAgent;
+      const locationParts = [];
+      if (sessionEntry.locationLabel) {
+        locationParts.push(sessionEntry.locationLabel);
+      } else if (sessionEntry.location) {
+        if (typeof sessionEntry.location === 'string') {
+          locationParts.push(sessionEntry.location);
+        } else if (sessionEntry.location.label) {
+          locationParts.push(sessionEntry.location.label);
+        } else {
+          const composite = [sessionEntry.location.city, sessionEntry.location.region, sessionEntry.location.country]
+            .filter(Boolean)
+            .join(', ');
+          if (composite) {
+            locationParts.push(composite);
+          }
+        }
+      }
+
+      const lastActiveAt =
+        sessionEntry.lastActiveAt ?? sessionEntry.updatedAt ?? sessionEntry.createdAt ?? sessionEntry.seenAt ?? null;
+      const riskLevel = (sessionEntry.riskLevel ?? 'low').toLowerCase();
+      const riskScore = Number.isFinite(Number(sessionEntry.riskScore))
+        ? Math.max(0, Math.round(Number(sessionEntry.riskScore)))
+        : 0;
+
+      return {
+        id: `${baseId}`,
+        device: deviceLabel ?? 'Unknown device',
+        location: locationParts.filter(Boolean).join(' • ') || null,
+        lastActiveAt,
+        ipAddress: sessionEntry.ipAddress ?? sessionEntry.ip ?? null,
+        current: Boolean(sessionEntry.current),
+        riskLevel,
+        riskScore,
+        timezone: sessionEntry.timezone ?? sessionEntry.location?.timezone ?? null,
+        expiresAt: sessionEntry.expiresAt ?? null,
+      };
+    });
+
+    normalized.sort((a, b) => {
+      const aTime = Number.isFinite(Date.parse(a.lastActiveAt)) ? Date.parse(a.lastActiveAt) : 0;
+      const bTime = Number.isFinite(Date.parse(b.lastActiveAt)) ? Date.parse(b.lastActiveAt) : 0;
+      return bTime - aTime;
+    });
+
+    const currentSession = sessionContext?.currentSession ?? sessionContext?.session ?? null;
+    if (!normalized.some((entry) => entry.current) && currentSession) {
+      const ipMatchIndex = normalized.findIndex(
+        (entry) => entry.ipAddress && currentSession.ipAddress && entry.ipAddress === currentSession.ipAddress,
+      );
+      if (ipMatchIndex >= 0) {
+        normalized[ipMatchIndex] = { ...normalized[ipMatchIndex], current: true };
+      } else {
+        const deviceMatchIndex = normalized.findIndex(
+          (entry) => entry.device && currentSession.device && entry.device === currentSession.device,
+        );
+        if (deviceMatchIndex >= 0) {
+          normalized[deviceMatchIndex] = { ...normalized[deviceMatchIndex], current: true };
+        }
+      }
+    }
+
+    if (!normalized.some((entry) => entry.current) && normalized.length) {
+      normalized[0] = { ...normalized[0], current: true };
+    }
+
+    return normalized;
+  }
+
   const baseSessions = Array.isArray(accountPayload?.sessions)
     ? accountPayload.sessions
     : Array.isArray(sessionContext?.activeSessions)
@@ -284,6 +403,12 @@ function normaliseSessions(sessionContext, accountPayload) {
       sessionEntry.lastActiveAt ?? sessionEntry.updatedAt ?? sessionEntry.seenAt ?? sessionContext?.lastActiveAt ?? null,
     ipAddress: sessionEntry.ipAddress ?? sessionEntry.ip ?? null,
     current: Boolean(sessionEntry.current ?? sessionEntry.isCurrent ?? sessionEntry.active ?? false),
+    riskLevel: (sessionEntry.riskLevel ?? 'low').toLowerCase(),
+    riskScore: Number.isFinite(Number(sessionEntry.riskScore))
+      ? Math.max(0, Math.round(Number(sessionEntry.riskScore)))
+      : 0,
+    timezone: sessionEntry.timezone ?? null,
+    expiresAt: sessionEntry.expiresAt ?? null,
   }));
 
   if (!mapped.some((entry) => entry.current)) {
@@ -294,6 +419,10 @@ function normaliseSessions(sessionContext, accountPayload) {
       lastActiveAt: sessionContext?.currentSession?.lastActiveAt ?? sessionContext?.lastActiveAt ?? new Date().toISOString(),
       ipAddress: sessionContext?.currentSession?.ipAddress ?? null,
       current: true,
+      riskLevel: 'low',
+      riskScore: 0,
+      timezone: sessionContext?.currentSession?.timezone ?? null,
+      expiresAt: null,
     });
   }
 
@@ -317,6 +446,7 @@ export default function UserSettingsSection({
   const [accountBaseline, setAccountBaseline] = useState(mergedInitialAccount);
   const [account, setAccount] = useState(mergedInitialAccount);
   const [sessions, setSessions] = useState(() => normaliseSessions(session, null));
+  const [sessionSummary, setSessionSummary] = useState(() => computeSessionSummary(normaliseSessions(session, null)));
   const [notifications, setNotifications] = useState(mergedInitialNotifications);
   const [notificationPresetApplying, setNotificationPresetApplying] = useState(false);
   const [aiSettings, setAiSettings] = useState(() => mergeAi(null));
@@ -348,8 +478,41 @@ export default function UserSettingsSection({
   }, [mergedInitialNotifications]);
 
   useEffect(() => {
-    setSessions(normaliseSessions(session, null));
+    const nextSessions = normaliseSessions(session, null);
+    setSessions(nextSessions);
+    setSessionSummary(computeSessionSummary(nextSessions));
   }, [session]);
+
+  const mapSessionPayload = useCallback(
+    (payload, accountPayload = null) => {
+      const nextSessions = normaliseSessions(session, accountPayload, payload);
+      setSessions(nextSessions);
+      const summary = payload?.stats ?? computeSessionSummary(nextSessions);
+      setSessionSummary(summary);
+      return nextSessions;
+    },
+    [session],
+  );
+
+  const refreshSessions = useCallback(
+    async ({ signal } = {}) => {
+      if (!userId) {
+        return null;
+      }
+      try {
+        const response = await listUserSessions(userId, { signal });
+        mapSessionPayload(response);
+        return response;
+      } catch (loadError) {
+        if (signal?.aborted) {
+          return null;
+        }
+        console.error('Failed to load user sessions', loadError);
+        return null;
+      }
+    },
+    [mapSessionPayload, userId],
+  );
 
   const refreshAll = useCallback(() => {
     if (!userId) return () => {};
@@ -361,16 +524,21 @@ export default function UserSettingsSection({
       setAiTestFeedback('');
       setAiTestError('');
       try {
-        const [accountResponse, notificationResponse, aiResponse] = await Promise.all([
+        const [accountResponse, notificationResponse, aiResponse, sessionResponse] = await Promise.all([
           fetchUser(userId, { signal: controller.signal }).catch(() => null),
           fetchNotificationPreferences(userId, { signal: controller.signal }).catch(() => null),
           fetchUserAiSettings(userId, { signal: controller.signal }).catch(() => null),
+          listUserSessions(userId, { signal: controller.signal }).catch(() => null),
         ]);
         if (!controller.signal.aborted) {
           const nextAccount = mergeAccount(accountResponse);
           setAccount(nextAccount);
           setAccountBaseline(nextAccount);
-          setSessions(normaliseSessions(session, accountResponse));
+          if (sessionResponse) {
+            mapSessionPayload(sessionResponse, accountResponse);
+          } else if (!sessions.length) {
+            mapSessionPayload(null, accountResponse);
+          }
           const nextNotifications = mergeNotifications(notificationResponse?.preferences ?? notificationResponse);
           setNotifications(nextNotifications);
           setNotificationStats(notificationResponse?.stats ?? null);
@@ -388,7 +556,7 @@ export default function UserSettingsSection({
       }
     })();
     return () => controller.abort();
-  }, [session, userId]);
+  }, [mapSessionPayload, session, sessions.length, userId]);
 
   useEffect(() => {
     const abort = refreshAll();
@@ -458,10 +626,24 @@ export default function UserSettingsSection({
     [persistAccount],
   );
 
-  const handleTerminateSession = useCallback((sessionId) => {
-    setSessions((previous) => previous.filter((entry) => entry.id !== sessionId || entry.current));
-    setAccountFeedback('Session revoked. It will sign out within 30 seconds.');
-  }, []);
+  const handleTerminateSession = useCallback(
+    async (sessionId) => {
+      if (!userId) {
+        return;
+      }
+      setAccountFeedback('');
+      setAccountError('');
+      try {
+        await revokeUserSession(userId, sessionId, { reason: 'user_revoked' });
+        await refreshSessions();
+        setAccountFeedback('Session revoked. It will sign out within 30 seconds.');
+        setLastUpdated(new Date());
+      } catch (err) {
+        setAccountError(err?.message ?? 'Unable to revoke the selected session.');
+      }
+    },
+    [refreshSessions, userId],
+  );
 
   const handleNotificationChannelToggle = useCallback((key, value) => {
     setNotifications((previous) => {
@@ -611,6 +793,41 @@ export default function UserSettingsSection({
 
   const securityInsights = useMemo(() => {
     const insights = [];
+    if (sessionSummary?.highRiskCount > 0) {
+      insights.push({
+        id: 'high-risk-sessions',
+        title:
+          sessionSummary.highRiskCount === 1
+            ? 'High-risk device detected'
+            : `${sessionSummary.highRiskCount} high-risk devices detected`,
+        description: 'We flagged unusual sign-ins. Review trusted devices and revoke anything unfamiliar.',
+        severity: 'critical',
+        cta: 'Review sessions',
+        onAction: refreshSessions,
+      });
+    } else if (sessionSummary?.mediumRiskCount > 0) {
+      insights.push({
+        id: 'monitor-sessions',
+        title: 'Monitor session signals',
+        description: 'Recent device activity triggered safety checks. Validate expected devices to keep momentum.',
+        severity: 'medium',
+        cta: 'Review sessions',
+        onAction: refreshSessions,
+      });
+    }
+    if (sessionSummary?.expiringSoonCount > 0) {
+      insights.push({
+        id: 'expiring-sessions',
+        title:
+          sessionSummary.expiringSoonCount === 1
+            ? 'One session expiring soon'
+            : `${sessionSummary.expiringSoonCount} sessions expiring soon`,
+        description: 'Devices will require sign-in again shortly. Confirm they belong to you to avoid downtime.',
+        severity: 'low',
+        cta: 'Refresh sessions',
+        onAction: refreshSessions,
+      });
+    }
     if (session?.user && session.user.twoFactorEnabled !== true) {
       insights.push({
         id: 'mfa',
@@ -634,6 +851,8 @@ export default function UserSettingsSection({
         title: 'Review trusted devices',
         description: 'You have multiple active sessions. Revoke unused devices to maintain compliance posture.',
         severity: 'medium',
+        cta: 'Review sessions',
+        onAction: refreshSessions,
       });
     }
     if (session?.user && !session.user.emailVerifiedAt) {
@@ -645,7 +864,7 @@ export default function UserSettingsSection({
       });
     }
     return insights;
-  }, [account.phoneNumber, session, sessions]);
+  }, [account.phoneNumber, refreshSessions, session, sessionSummary, sessions]);
 
   const accountMetrics = useMemo(
     () => ({
@@ -653,9 +872,9 @@ export default function UserSettingsSection({
       profileUpdatedAt: session?.user?.updatedAt ?? null,
       securityScore: session?.security?.score ?? null,
       recommendedActions: securityInsights.filter((insight) => insight.severity === 'critical' || insight.severity === 'high').length,
-      lastLoginAt: session?.lastActiveAt ?? session?.user?.lastLoginAt ?? null,
+      lastLoginAt: sessionSummary?.lastActiveAt ?? session?.lastActiveAt ?? session?.user?.lastLoginAt ?? null,
     }),
-    [securityInsights, session],
+    [securityInsights, session, sessionSummary],
   );
 
   const accountDirty = useMemo(() => {
