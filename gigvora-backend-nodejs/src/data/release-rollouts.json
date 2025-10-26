@@ -1,0 +1,95 @@
+{
+  "rollouts": [
+    {
+      "version": "2025.04.15",
+      "status": "blocked",
+      "generatedAt": "2025-10-26T23:40:19.909Z",
+      "pipeline": {
+        "id": "web-release",
+        "name": "Web Release Pipeline",
+        "status": "failed",
+        "finishedAt": "2025-10-26T23:36:17.465Z",
+        "durationMs": 374,
+        "steps": [
+          {
+            "id": "frontend-quality",
+            "name": "Frontend quality gates",
+            "status": "failed",
+            "durationMs": 369.589097
+          }
+        ]
+      },
+      "quality": {
+        "status": "blocked",
+        "gates": [
+          {
+            "name": "Frontend quality",
+            "status": "pass",
+            "evidence": "npm run check"
+          },
+          {
+            "name": "Backend reliability",
+            "status": "pass",
+            "evidence": "npm run lint && npm run test"
+          },
+          {
+            "name": "Contracts integrity",
+            "status": "pass",
+            "evidence": "npm run test (shared-contracts)"
+          }
+        ]
+      },
+      "cohorts": [
+        {
+          "name": "Internal champions",
+          "targetPercentage": 0.05,
+          "currentPercentage": 0.010000000000000002,
+          "errorBudgetRemaining": 0.198,
+          "health": "blocked",
+          "notes": [
+            "Feature toggled for platform leads and reliability guild."
+          ]
+        },
+        {
+          "name": "Mentor beta",
+          "targetPercentage": 0.25,
+          "currentPercentage": 0.04000000000000001,
+          "errorBudgetRemaining": 0.194,
+          "health": "blocked",
+          "notes": [
+            "Monitors mentorship activation funnels and release sentiment."
+          ]
+        },
+        {
+          "name": "Agency rollout",
+          "targetPercentage": 0.6,
+          "currentPercentage": 0.09000000000000001,
+          "errorBudgetRemaining": 0.188,
+          "health": "blocked",
+          "notes": [
+            "Tracks high-volume recruiting agencies and partner workflows."
+          ]
+        },
+        {
+          "name": "Global enablement",
+          "targetPercentage": 1,
+          "currentPercentage": 0.12,
+          "errorBudgetRemaining": 0.18000000000000002,
+          "health": "blocked",
+          "notes": [
+            "Held until telemetry clears guardrails for all personas."
+          ]
+        }
+      ],
+      "telemetry": {
+        "errorBudgetRemaining": 0.75,
+        "p0Incidents": 1,
+        "latencyP99Ms": 210,
+        "regressionAlerts": [
+          "Pause rollout until availability stabilises."
+        ]
+      },
+      "releaseNotesPath": "update_docs/release-notes/2025.04.15.md"
+    }
+  ]
+}
