@@ -77,6 +77,10 @@ function sanitizeUser(userInstance) {
     memberships.add('user');
   }
   const fullName = [plain.firstName, plain.lastName].filter(Boolean).join(' ').trim() || plain.email;
+  const normalizedPrimaryDashboard = normalizeRoleName(plain.primaryDashboard) || normalizeRoleName(plain.userType) || 'user';
+  const normalizedPreferredRoles = Array.isArray(plain.preferredRoles)
+    ? plain.preferredRoles.map(normalizeRoleName).filter(Boolean)
+    : [];
   const profileSnapshot = profile
     ? {
         id: profile.id,
@@ -117,12 +121,67 @@ function sanitizeUser(userInstance) {
     googleId: plain.googleId || null,
     appleId: plain.appleId || null,
     linkedinId: plain.linkedinId || null,
+    dateOfBirth:
+      plain.dateOfBirth instanceof Date
+        ? plain.dateOfBirth.toISOString().slice(0, 10)
+        : typeof plain.dateOfBirth === 'string' && plain.dateOfBirth
+          ? plain.dateOfBirth.slice(0, 10)
+          : null,
     memberships: Array.from(memberships),
     roles: Array.from(roleSet),
-    primaryDashboard: plain.primaryDashboard || plain.userType || 'user',
+    preferredRoles: normalizedPreferredRoles,
+    primaryDashboard: normalizedPrimaryDashboard,
+    marketingOptIn: plain.marketingOptIn !== false,
     timezone: profile?.timezone ?? plain.timezone ?? null,
     profile: profileSnapshot,
   };
+}
+
+function coerceBirthDate(value) {
+  if (!value) {
+    return null;
+  }
+  if (value instanceof Date) {
+    const iso = value.toISOString();
+    return iso.slice(0, 10);
+  }
+  const text = `${value}`.trim();
+  if (!text) {
+    return null;
+  }
+  const match = /^(19|20)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/u.exec(text);
+  if (!match) {
+    throw new ValidationError('dateOfBirth must use the YYYY-MM-DD format.');
+  }
+  const [year, month, day] = text.split('-').map((part) => Number.parseInt(part, 10));
+  const candidate = new Date(Date.UTC(year, month - 1, day));
+  if (
+    candidate.getUTCFullYear() !== year ||
+    candidate.getUTCMonth() !== month - 1 ||
+    candidate.getUTCDate() !== day
+  ) {
+    throw new ValidationError('dateOfBirth must reference a valid calendar day.');
+  }
+  const today = new Date();
+  if (candidate.getTime() > today.getTime()) {
+    throw new ValidationError('dateOfBirth cannot be in the future.');
+  }
+  return text;
+}
+
+function calculateAgeFromBirthDate(dateOfBirth) {
+  if (!dateOfBirth) {
+    return null;
+  }
+  const [year, month, day] = dateOfBirth.split('-').map((part) => Number.parseInt(part, 10));
+  const today = new Date();
+  let age = today.getUTCFullYear() - year;
+  const currentMonth = today.getUTCMonth() + 1;
+  const currentDay = today.getUTCDate();
+  if (currentMonth < month || (currentMonth === month && currentDay < day)) {
+    age -= 1;
+  }
+  return age;
 }
 
 function normalizeRoleName(value) {
@@ -280,6 +339,45 @@ export class AuthDomainService {
       geoLocation: payload.geoLocation,
     });
 
+    const normalizedMemberships = this.normalizeRoles(payload.memberships ?? []);
+    const normalizedPreferredRoles = this.normalizeRoles(payload.preferredRoles ?? normalizedMemberships);
+    const membershipSet = new Set(normalizedMemberships);
+    const canonicalUserType = payload.userType || 'user';
+    membershipSet.add(canonicalUserType);
+    normalizedPreferredRoles.forEach((role) => membershipSet.add(role));
+    if (membershipSet.size === 0) {
+      membershipSet.add('user');
+    }
+
+    const birthDate = coerceBirthDate(payload.dateOfBirth);
+    const derivedAge = birthDate ? calculateAgeFromBirthDate(birthDate) : null;
+    const declaredAge = payload.age ?? null;
+    const age = derivedAge ?? declaredAge;
+    if (age != null && age < 13) {
+      throw new ValidationError('Users must be at least 13 years old to register.');
+    }
+
+    let primaryDashboard = null;
+    const primaryCandidates = [
+      payload.primaryDashboard,
+      normalizedPreferredRoles.find((role) => role !== 'user'),
+      normalizedMemberships.find((role) => role !== 'user'),
+      canonicalUserType,
+    ].filter(Boolean);
+    for (const candidate of primaryCandidates) {
+      try {
+        primaryDashboard = this.normalizeRole(candidate);
+        break;
+      } catch (error) {
+        continue;
+      }
+    }
+    if (!primaryDashboard) {
+      primaryDashboard = 'user';
+    }
+
+    const marketingOptIn = payload.marketingOptIn !== false;
+
     const createUser = async (transaction) => {
       await this.ensureUniqueEmail(email, { transaction });
       const user = await this.User.create(
@@ -291,7 +389,8 @@ export class AuthDomainService {
           address: payload.address,
           location: locationPayload.location,
           geoLocation: locationPayload.geoLocation,
-          age: payload.age,
+          age,
+          dateOfBirth: birthDate,
           phoneNumber: payload.phoneNumber ?? null,
           jobTitle: payload.jobTitle ?? null,
           avatarUrl: payload.avatarUrl ?? null,
@@ -303,6 +402,10 @@ export class AuthDomainService {
           googleId: payload.googleId || null,
           appleId: payload.appleId || null,
           linkedinId: payload.linkedinId || null,
+          memberships: Array.from(membershipSet),
+          preferredRoles: normalizedPreferredRoles,
+          primaryDashboard,
+          marketingOptIn,
         },
         { transaction },
       );

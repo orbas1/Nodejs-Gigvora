@@ -678,6 +678,7 @@ export const User = sequelize.define(
     timezone: { type: DataTypes.STRING(120), allowNull: true },
     geoLocation: { type: jsonType, allowNull: true },
     age: { type: DataTypes.INTEGER, allowNull: true, validate: { min: 13 } },
+    dateOfBirth: { type: DataTypes.DATEONLY, allowNull: true },
     phoneNumber: { type: DataTypes.STRING(30), allowNull: true },
     jobTitle: { type: DataTypes.STRING(120), allowNull: true },
     avatarUrl: { type: DataTypes.STRING(2048), allowNull: true },
@@ -699,7 +700,9 @@ export const User = sequelize.define(
     appleId: { type: DataTypes.STRING(255), allowNull: true },
     linkedinId: { type: DataTypes.STRING(255), allowNull: true },
     memberships: { type: jsonType, allowNull: false, defaultValue: [] },
+    preferredRoles: { type: jsonType, allowNull: false, defaultValue: [] },
     primaryDashboard: { type: DataTypes.STRING(60), allowNull: true },
+    marketingOptIn: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
   },
   {
     tableName: 'users',

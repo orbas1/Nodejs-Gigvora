@@ -210,6 +210,15 @@ export default function RegisterPage() {
     return labels.join(' • ');
   }, [membershipPayload, roleTitleMap]);
 
+  const primaryDashboard = useMemo(() => {
+    if (selectedRoles.length) {
+      const prioritized = selectedRoles.find((role) => role !== DEFAULT_MEMBERSHIP);
+      return prioritized ?? selectedRoles[0];
+    }
+    const fallback = membershipPayload.find((role) => role !== DEFAULT_MEMBERSHIP);
+    return fallback ?? DEFAULT_MEMBERSHIP;
+  }, [membershipPayload, selectedRoles]);
+
   const disableSubmit = status !== 'idle' || !acceptTerms;
 
   const handleRoleToggle = (value) => {
@@ -273,6 +282,7 @@ export default function RegisterPage() {
         twoFactorEnabled: false,
         preferredRoles: selectedRoles,
         memberships: membershipPayload,
+        primaryDashboard,
         marketingOptIn: communicationsOptIn,
       };
       await registerUser(payload);

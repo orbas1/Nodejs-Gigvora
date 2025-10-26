@@ -220,7 +220,7 @@
 #### 2.B.2 PersonaSelection.jsx
 1. **Appraisal.** Gradient persona badges, capsule summaries, and premium runtime cues deliver a first impression that matches the aspirational onboarding goals for LinkedIn-class cohorts.
 2. **Functionality.** Role toggles, selection summaries, helper copy, and runtime estimates cover every state from zero to many personas without relying on out-of-band forms.
-3. **Logic Usefulness.** The component normalises selection state into a Set, computes counts, and surfaces persona insights so downstream onboarding flows can pre-provision dashboards and analytics.
+3. **Logic Usefulness.** The component normalises selection state into a Set, computes counts, and surfaces persona insights so downstream onboarding flows can pre-provision dashboards and analytics while the auth schema, domain service, and onboarding migration persist those memberships for real accounts during registration.【F:gigvora-frontend-reactjs/src/components/onboarding/PersonaSelection.jsx†L34-L109】【F:gigvora-backend-nodejs/src/validation/schemas/authSchemas.js†L40-L88】【F:gigvora-backend-nodejs/src/domains/auth/authDomainService.js†L305-L383】【F:gigvora-backend-nodejs/database/migrations/20250330101500-onboarding-journey-alignment.cjs†L1-L86】
 4. **Redundancies.** Consolidated toggles and insights retire bespoke role pickers scattered across registration, admin, and invitation flows.
 5. **Placeholders Or non-working functions or stubs.** Real persona copy, insights, and icons replace lorem ipsum and TODO badges so launch builds never ship placeholder text.
 6. **Duplicate Functions.** `PersonaSelection` owns toggle orchestration and helper messaging, preventing repeated checkbox logic across onboarding surfaces.
@@ -248,8 +248,8 @@
 
 #### 2.B.3 ProfileBasicsForm.jsx
 1. **Appraisal.** The two-column layout, premium spacing, and security panel deliver a polished first impression while collecting essential account details.
-2. **Functionality.** Controlled inputs, password visibility toggles, date limits, and strength meters cover every functional requirement for baseline profile capture.
-3. **Logic Usefulness.** Password rules, strength scoring, and recommendation copy give users immediate feedback that ties directly to security goals.
+2. **Functionality.** Controlled inputs, password visibility toggles, date limits, and strength meters cover every functional requirement for baseline profile capture, backed by new request validation that enforces ISO birth dates and persona arrays.【F:gigvora-frontend-reactjs/src/components/onboarding/ProfileBasicsForm.jsx†L29-L210】【F:gigvora-backend-nodejs/src/validation/schemas/authSchemas.js†L40-L88】
+3. **Logic Usefulness.** Password rules, strength scoring, and recommendation copy give users immediate feedback tied to security goals while the domain layer now derives compliant ages, records birth dates, and stores onboarding preferences for downstream governance flows with schema updates and migrations to backfill production data.【F:gigvora-frontend-reactjs/src/components/onboarding/ProfileBasicsForm.jsx†L22-L208】【F:gigvora-backend-nodejs/src/domains/auth/authDomainService.js†L305-L383】【F:gigvora-backend-nodejs/src/models/index.js†L678-L709】【F:gigvora-backend-nodejs/database/migrations/20250330101500-onboarding-journey-alignment.cjs†L1-L86】
 4. **Redundancies.** Centralising profile basics into one form prevents duplicated input markup across Register, Profile Editor, and Admin onboarding.
 5. **Placeholders Or non-working functions or stubs.** Live helper copy and strength messaging replace placeholder security text and TODO banners.
 6. **Duplicate Functions.** The shared `onFieldChange` contract and memoised helpers eliminate bespoke change handlers across onboarding fields.
@@ -278,7 +278,7 @@
 #### 2.B.4 WorkspacePrimerCarousel.jsx
 1. **Appraisal.** Gradient wrappers, persona badges, and premium typography create a hero-level preview of the workspaces users unlock.
 2. **Functionality.** Slide controls, indicators, persona slides, and onboarding highlight cards deliver a complete carousel experience without external dependencies.
-3. **Logic Usefulness.** The carousel synthesises persona selections and onboarding highlights into actionable launch assets that set expectations for new members.
+3. **Logic Usefulness.** The carousel synthesises persona selections and onboarding highlights into actionable launch assets while feature flag evaluation now receives the chosen dashboard, memberships, and marketing opt-in to tailor first-run journeys immediately after account creation.【F:gigvora-frontend-reactjs/src/components/onboarding/WorkspacePrimerCarousel.jsx†L36-L162】【F:gigvora-backend-nodejs/src/services/authService.js†L558-L605】
 4. **Redundancies.** Centralising primers inside the carousel retires bespoke sidebar copy blocks and ad-hoc highlight lists across onboarding surfaces.
 5. **Placeholders Or non-working functions or stubs.** Real copy, metrics, and icons replace placeholder bullet lists so the primer feels production ready.
 6. **Duplicate Functions.** Slide orchestration, navigation, and indicator rendering live in one component to stop repeated carousel logic elsewhere.

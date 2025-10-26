@@ -4,6 +4,7 @@ import {
   optionalGeoLocation,
   optionalLocationString,
   optionalNumber,
+  optionalStringArray,
   optionalTrimmedString,
   requiredEmail,
   requiredTrimmedString,
@@ -24,6 +25,45 @@ const optionalTwoFactorMethod = optionalTrimmedString({ max: 32 }).transform((va
 });
 const resetTokenSchema = requiredTrimmedString({ min: 32, max: 256 });
 
+const birthDateSchema = z
+  .string()
+  .regex(/^(19|20)\d{2}-\d{2}-\d{2}$/u, 'dateOfBirth must use the YYYY-MM-DD format.')
+  .refine((value) => {
+    const [year, month, day] = value.split('-').map((part) => Number.parseInt(part, 10));
+    if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+      return false;
+    }
+    const candidate = new Date(Date.UTC(year, month - 1, day));
+    return (
+      candidate.getUTCFullYear() === year &&
+      candidate.getUTCMonth() === month - 1 &&
+      candidate.getUTCDate() === day
+    );
+  }, 'dateOfBirth must reference a valid calendar day.');
+
+const optionalBirthDate = z
+  .preprocess((value) => {
+    if (value == null || value === '') {
+      return undefined;
+    }
+    if (value instanceof Date) {
+      return value.toISOString().slice(0, 10);
+    }
+    return `${value}`.trim();
+  }, birthDateSchema)
+  .optional();
+
+const personaRoleArray = optionalStringArray({ maxItemLength: 60, maxLength: 16 }).transform((values) => {
+  if (!values) {
+    return undefined;
+  }
+  return values.map((value) => value.toLowerCase());
+});
+
+const optionalRoleKey = optionalTrimmedString({ max: 60 }).transform((value) =>
+  value ? value.toLowerCase() : undefined,
+);
+
 const baseRegistrationSchema = z
   .object({
     email: emailSchema,
@@ -37,6 +77,11 @@ const baseRegistrationSchema = z
     signupChannel: optionalSignupChannel,
     twoFactorEnabled: optionalBoolean(),
     twoFactorMethod: optionalTwoFactorMethod,
+    dateOfBirth: optionalBirthDate,
+    memberships: personaRoleArray,
+    preferredRoles: personaRoleArray,
+    primaryDashboard: optionalRoleKey,
+    marketingOptIn: optionalBoolean(),
   })
   .strip();
 

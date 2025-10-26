@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 
 function SlideIndicators({ total, activeIndex, onSelect }) {
@@ -68,6 +68,14 @@ export default function WorkspacePrimerCarousel({
     [personaHighlights, onboardingHighlights],
   );
   const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    if (!slides.length) {
+      setActiveIndex(0);
+      return;
+    }
+    setActiveIndex((current) => (current >= slides.length ? 0 : current));
+  }, [slides.length]);
 
   const showPrevious = () => {
     setActiveIndex((current) => {

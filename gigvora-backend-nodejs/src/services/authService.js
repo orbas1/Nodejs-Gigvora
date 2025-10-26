@@ -561,7 +561,12 @@ async function register(data) {
 
   const sanitizedUser = await authDomainService.registerUser(data);
   const featureFlags = await featureFlagService.evaluateForUser(sanitizedUser, {
-    traits: { signupChannel: data.signupChannel || 'api', persona: sanitizedUser.userType },
+    traits: {
+      signupChannel: data.signupChannel || 'web_onboarding',
+      persona: sanitizedUser.primaryDashboard ?? sanitizedUser.userType,
+      memberships: sanitizedUser.memberships ?? [],
+      marketingOptIn: sanitizedUser.marketingOptIn !== false,
+    },
   });
   return { ...sanitizedUser, featureFlags };
 }
