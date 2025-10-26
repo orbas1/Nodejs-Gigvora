@@ -9,6 +9,8 @@ import AdminFreelancerManagementSection from '../../components/admin/freelancer-
 import AdminUserManagementSection from '../../components/admin/user-management/AdminUserManagementSection.jsx';
 import AdminSettingsSection from '../../components/admin/settings/AdminSettingsSection.jsx';
 import AdminOperationsHubSection from '../../components/admin/hub/AdminOperationsHubSection.jsx';
+import AdminComplianceHealthPanel from '../../components/admin/governance/AdminComplianceHealthPanel.jsx';
+import AdminGovernanceTimeline from '../../components/admin/governance/AdminGovernanceTimeline.jsx';
 import AccessDeniedPanel from '../../components/dashboard/AccessDeniedPanel.jsx';
 import useSession from '../../hooks/useSession.js';
 import { fetchAdminDashboard, updateAdminOverview } from '../../services/admin.js';
@@ -20,6 +22,8 @@ const MENU_SECTIONS = [
     items: [
       { id: 'overview-home', name: 'Home', sectionId: 'overview-home' },
       { id: 'overview-profile', name: 'Profile', sectionId: 'overview-profile' },
+      { id: 'governance-timeline', name: 'Governance runway', sectionId: 'admin-governance-timeline' },
+      { id: 'compliance-health', name: 'Compliance health', sectionId: 'admin-compliance' },
     ],
   },
   {
@@ -48,6 +52,8 @@ export const ADMIN_MENU_SECTIONS = MENU_SECTIONS.map((section) => ({
 
 const SECTIONS = [
   { id: 'overview-home', title: 'Start' },
+  { id: 'admin-governance-timeline', title: 'Governance runway' },
+  { id: 'admin-compliance', title: 'Compliance health' },
   { id: 'admin-agency-management', title: 'Agency management' },
   { id: 'admin-company-management', title: 'Company management' },
   { id: 'admin-mentors', title: 'Mentors' },
@@ -170,6 +176,13 @@ export default function AdminDashboardPage() {
     />
   );
 
+  const governance = overview?.governance ?? {};
+  const governanceTimeline = governance.timeline ?? governance.events ?? [];
+  const auditSummary = governance.audits ?? governance.audit ?? null;
+  const complianceHealth = governance.health ?? governance.compliance ?? null;
+  const governanceIncidents = governance.incidents ?? governance.alerts ?? null;
+  const governancePolicies = governance.policies ?? governance.policyCoverage ?? null;
+
   return (
     <DashboardLayout
       currentDashboard="admin"
@@ -183,6 +196,12 @@ export default function AdminDashboardPage() {
     >
       <div className="space-y-16">
         {overviewContent}
+        <AdminGovernanceTimeline events={governanceTimeline} audits={auditSummary} />
+        <AdminComplianceHealthPanel
+          health={complianceHealth}
+          incidents={governanceIncidents}
+          policies={governancePolicies}
+        />
         <AdminAgencyManagementSection />
         <AdminCompanyManagementSection />
         <AdminMentorManagementSection />

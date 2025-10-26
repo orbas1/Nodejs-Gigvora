@@ -29,6 +29,7 @@ import {
   archiveAdminLegalPolicyVersion,
 } from '../../../services/legalPolicies.js';
 import DataStatus from '../../DataStatus.jsx';
+import LegalPolicySummaryBoard from './LegalPolicySummaryBoard.jsx';
 
 const CATEGORY_ORDER = [
   { id: 'terms', label: 'Terms', icon: DocumentTextIcon },
@@ -117,6 +118,47 @@ export default function PolicyManager() {
     });
 
     return groups;
+  }, [policies]);
+
+  const policySummary = useMemo(() => {
+    const locales = new Set();
+    let active = 0;
+    const upcomingReviews = [];
+    policies.forEach((policy) => {
+      const status = (policy.status ?? policy.lifecycle ?? '').toLowerCase();
+      if (status === 'active' || status === 'published') {
+        active += 1;
+      }
+      if (Array.isArray(policy.locales)) {
+        policy.locales.forEach((locale) => locales.add(locale));
+      } else if (policy.locale) {
+        locales.add(policy.locale);
+      }
+      (policy.versions ?? []).forEach((version) => {
+        const reviewDate = version.reviewDueAt ?? version.nextReviewAt ?? version.updatedAt;
+        if (!reviewDate) {
+          return;
+        }
+        const date = new Date(reviewDate);
+        if (!Number.isNaN(date.getTime())) {
+          upcomingReviews.push({
+            id: `${policy.slug ?? policy.id}-${version.id ?? version.locale ?? date.getTime()}`,
+            title: policy.title ?? policy.name,
+            reviewDate: date,
+          });
+        }
+      });
+    });
+    upcomingReviews.sort((a, b) => a.reviewDate.getTime() - b.reviewDate.getTime());
+    const dueForReview = upcomingReviews.filter((entry) => entry.reviewDate.getTime() < Date.now() + 30 * 24 * 60 * 60 * 1000)
+      .length;
+    return {
+      active,
+      total: policies.length,
+      locales: Array.from(locales),
+      dueForReview,
+      upcomingReviews,
+    };
   }, [policies]);
 
   const sortedVersions = useMemo(() => {
@@ -333,6 +375,8 @@ export default function PolicyManager() {
 
   return (
     <div className="mx-auto flex h-full max-w-[1600px] flex-col gap-6">
+      <LegalPolicySummaryBoard summary={policySummary} />
+
       <div className="flex min-h-[720px] flex-1 gap-6">
         <PolicySidebar
           categories={CATEGORY_ORDER}

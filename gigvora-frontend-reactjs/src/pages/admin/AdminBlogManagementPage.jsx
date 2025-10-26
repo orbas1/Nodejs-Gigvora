@@ -22,6 +22,7 @@ import {
   updateAdminBlogComment,
   deleteAdminBlogComment,
 } from '../../services/blog.js';
+import { fetchAdminLegalPolicies } from '../../services/legalPolicies.js';
 import { ADMIN_BLOG_MENU_SECTIONS } from '../../constants/adminBlogMenu.js';
 import BlogPostEditor from '../../components/admin/blog/BlogPostEditor.jsx';
 import BlogPostLibrary from '../../components/admin/blog/BlogPostLibrary.jsx';
@@ -29,6 +30,7 @@ import BlogCategoryManager from '../../components/admin/blog/BlogCategoryManager
 import BlogTagManager from '../../components/admin/blog/BlogTagManager.jsx';
 import BlogMetricsPanel from '../../components/admin/blog/BlogMetricsPanel.jsx';
 import BlogCommentsPanel from '../../components/admin/blog/BlogCommentsPanel.jsx';
+import EditorialGovernancePanel from '../../components/admin/blog/EditorialGovernancePanel.jsx';
 import useSession from '../../hooks/useSession.js';
 
 const DEFAULT_FORM = Object.freeze({
@@ -115,6 +117,8 @@ export default function AdminBlogManagementPage() {
   const [comments, setComments] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(true);
   const [commentPagination, setCommentPagination] = useState(null);
+  const [legalSummary, setLegalSummary] = useState(null);
+  const [legalLoading, setLegalLoading] = useState(true);
 
   const membershipSet = useMemo(() => {
     if (!Array.isArray(session?.memberships)) {
@@ -207,6 +211,53 @@ export default function AdminBlogManagementPage() {
     }
   }, [isAdmin]);
 
+  const loadLegalSummary = useCallback(async () => {
+    if (!isAdmin) {
+      setLegalSummary(null);
+      setLegalLoading(false);
+      return;
+    }
+    setLegalLoading(true);
+    try {
+      const payload = await fetchAdminLegalPolicies({ includeVersions: true });
+      const documents = payload?.data?.documents ?? payload?.documents ?? payload ?? [];
+      const locales = new Set();
+      let active = 0;
+      let dueForReview = 0;
+      documents.forEach((document) => {
+        const status = (document.status ?? document.lifecycle ?? '').toLowerCase();
+        if (status === 'active' || status === 'published') {
+          active += 1;
+        }
+        if (Array.isArray(document.locales)) {
+          document.locales.forEach((locale) => locales.add(locale));
+        } else if (document.locale) {
+          locales.add(document.locale);
+        }
+        (document.versions ?? []).forEach((version) => {
+          const reviewDate = version.reviewDueAt ?? version.nextReviewAt;
+          if (reviewDate) {
+            const dueDate = new Date(reviewDate);
+            if (!Number.isNaN(dueDate.getTime()) && dueDate.getTime() < Date.now() + 30 * 24 * 60 * 60 * 1000) {
+              dueForReview += 1;
+            }
+          }
+        });
+      });
+      setLegalSummary({
+        active,
+        total: Array.isArray(documents) ? documents.length : 0,
+        locales: Array.from(locales),
+        dueForReview,
+      });
+    } catch (error) {
+      setGlobalError(error);
+      setLegalSummary(null);
+    } finally {
+      setLegalLoading(false);
+    }
+  }, [isAdmin]);
+
   const loadMetrics = useCallback(async () => {
     if (!isAdmin) {
       setMetricsOverview(null);
@@ -258,7 +309,8 @@ export default function AdminBlogManagementPage() {
     loadCategories();
     loadTags();
     loadMetrics();
-  }, [isAdmin, loadPosts, loadCategories, loadTags, loadMetrics]);
+    loadLegalSummary();
+  }, [isAdmin, loadPosts, loadCategories, loadTags, loadMetrics, loadLegalSummary]);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -625,6 +677,13 @@ export default function AdminBlogManagementPage() {
                 </div>
               </div>
             </section>
+
+            <EditorialGovernancePanel
+              posts={posts}
+              metrics={metricsOverview}
+              legalSummary={legalSummary}
+              legalLoading={legalLoading}
+            />
 
             <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
               <div className="flex items-center justify-between">

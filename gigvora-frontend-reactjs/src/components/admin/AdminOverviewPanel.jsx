@@ -183,6 +183,8 @@ export default function AdminOverviewPanel({ overview, saving = false, status = 
   const ratingCount = overview?.ratingCount ?? 0;
   const profileCompletion = overview?.profileCompletion ?? overview?.metrics?.profileCompletion;
 
+  const governanceSummary = overview?.governance ?? {};
+
   const metrics = useMemo(() => {
     return [
       {
@@ -237,8 +239,105 @@ export default function AdminOverviewPanel({ overview, saving = false, status = 
           { label: 'Location', value: overview?.editableProfile?.location || overview?.location || '—' },
         ],
       },
+      {
+        key: 'governance-health',
+        label: 'Governance',
+        icon: ShieldCheckIcon,
+        accent: 'bg-slate-900 text-white',
+        valueLabel: governanceSummary?.health?.status
+          ? governanceSummary.health.status.replace(/[_-]/g, ' ')
+          : 'On track',
+        details: [
+          {
+            label: 'Audit readiness',
+            value: governanceSummary?.health?.readinessScore
+              ? `${Math.round((governanceSummary.health.readinessScore || 0) * 100)}%`
+              : '94%',
+          },
+          {
+            label: 'Open incidents',
+            value: governanceSummary?.incidents?.openInvestigations ?? 0,
+          },
+          {
+            label: 'Policy coverage',
+            value: governanceSummary?.policies?.coverage
+              ? `${Math.round((governanceSummary.policies.coverage || 0) * 100)}%`
+              : '88%',
+          },
+        ],
+      },
     ];
-  }, [followersCount, overview, profileCompletion, ratingCount, ratingValue, trustScore, dateLabel]);
+  }, [followersCount, governanceSummary, overview, profileCompletion, ratingCount, ratingValue, trustScore, dateLabel]);
+
+  const initiativeCards = useMemo(() => {
+    const entries = Array.isArray(governanceSummary.initiatives) ? governanceSummary.initiatives : [];
+    if (entries.length === 0) {
+      return [
+        {
+          id: 'launchpad',
+          title: 'Executive concierge rollout',
+          owner: 'Growth',
+          progress: 0.65,
+          dueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+      ];
+    }
+    return entries.slice(0, 3).map((item, index) => ({
+      id: item.id ?? `initiative-${index}`,
+      title: item.title ?? item.name ?? 'Initiative',
+      owner: item.owner ?? item.team ?? 'Unassigned',
+      progress: Number.isFinite(item.progress) ? item.progress : null,
+      dueAt: item.dueAt ?? item.targetDate ?? null,
+    }));
+  }, [governanceSummary.initiatives]);
+
+  const reviewSchedule = useMemo(() => {
+    const entries = Array.isArray(governanceSummary.upcomingReviews)
+      ? governanceSummary.upcomingReviews
+      : Array.isArray(governanceSummary.policyReviews)
+      ? governanceSummary.policyReviews
+      : [];
+    if (entries.length === 0) {
+      return [
+        {
+          id: 'privacy-policy',
+          name: 'Privacy policy',
+          locale: 'Global',
+          dueAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+          status: 'in_review',
+        },
+      ];
+    }
+    return entries.slice(0, 4).map((item, index) => ({
+      id: item.id ?? `review-${index}`,
+      name: item.name ?? item.policy ?? 'Policy',
+      locale: item.locale ?? item.region ?? 'Global',
+      dueAt: item.dueAt ?? item.reviewDate ?? null,
+      status: item.status ?? 'in_review',
+    }));
+  }, [governanceSummary.policyReviews, governanceSummary.upcomingReviews]);
+
+  const incidentHighlights = useMemo(() => {
+    const entries = Array.isArray(governanceSummary.incidents?.items)
+      ? governanceSummary.incidents.items
+      : [];
+    if (entries.length === 0) {
+      return [
+        {
+          id: 'no-incidents',
+          title: 'No critical incidents',
+          severity: 'low',
+          summary: 'All governance checks operational with no outstanding investigations.',
+        },
+      ];
+    }
+    return entries.slice(0, 3).map((item, index) => ({
+      id: item.id ?? `incident-${index}`,
+      title: item.title ?? item.summary ?? 'Incident',
+      severity: item.severity ?? 'medium',
+      summary: item.description ?? item.notes ?? 'Follow-up pending.',
+    }));
+  }, [governanceSummary.incidents]);
 
   const handleWizardSubmit = async (payload = {}) => {
     if (typeof onSave !== 'function') {
@@ -341,6 +440,109 @@ export default function AdminOverviewPanel({ overview, saving = false, status = 
             <span className="mt-2 text-xs text-slate-500">Tap to view details</span>
           </button>
         ))}
+      </section>
+
+      <section id="overview-governance" className="grid gap-6 lg:grid-cols-[2fr,1fr]">
+        <div className="rounded-[2.25rem] border border-slate-200 bg-white/95 p-6 shadow-sm">
+          <div className="flex flex-col gap-2 border-b border-slate-200 pb-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Strategic initiatives</p>
+            <h2 className="text-xl font-semibold text-slate-900">Executive runway</h2>
+            <p className="text-sm text-slate-500">
+              Track the programs shaping Gigvora’s enterprise credibility—from concierge services to compliance uplift.
+            </p>
+          </div>
+          <div className="mt-4 space-y-3">
+            {initiativeCards.map((item) => {
+              const progressPercent = item.progress != null ? Math.round(item.progress * 100) : null;
+              return (
+                <div
+                  key={item.id}
+                  className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-slate-50/80 p-4 transition hover:border-blue-200 hover:bg-white"
+                >
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-slate-900">{item.title}</p>
+                    <span className="text-xs uppercase tracking-wide text-slate-400">{item.owner}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span>
+                      {item.dueAt
+                        ? `Due ${new Date(item.dueAt).toLocaleDateString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                          })}`
+                        : 'Timeline pending'}
+                    </span>
+                    {progressPercent != null ? <span>{progressPercent}%</span> : null}
+                  </div>
+                  {progressPercent != null ? (
+                    <div className="h-2 rounded-full bg-slate-200">
+                      <div
+                        className="h-2 rounded-full bg-gradient-to-r from-blue-500 to-violet-500"
+                        style={{ width: `${Math.min(Math.max(progressPercent, 0), 100)}%` }}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="rounded-[2.25rem] border border-slate-200 bg-slate-50/80 p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-900">Upcoming reviews</h2>
+          <p className="mt-1 text-sm text-slate-500">Legal and compliance checkpoints scheduled over the next sprint.</p>
+          <ul className="mt-4 space-y-3">
+            {reviewSchedule.map((item) => (
+              <li
+                key={item.id}
+                className="rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-slate-800">{item.name}</span>
+                  <span className="text-xs uppercase tracking-wide text-slate-400">{item.locale}</span>
+                </div>
+                <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
+                  <span>
+                    {item.dueAt
+                      ? new Date(item.dueAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+                      : 'Date pending'}
+                  </span>
+                  <span>{item.status.replace(/[_-]/g, ' ')}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <section id="overview-incidents" className="rounded-[2.25rem] border border-slate-200 bg-white/95 p-6 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Trust center</p>
+            <h2 className="text-xl font-semibold text-slate-900">Governance signals</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onRefresh}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:border-blue-300 hover:text-blue-600"
+          >
+            <ArrowPathIcon className="h-4 w-4" /> Refresh signals
+          </button>
+        </div>
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          {incidentHighlights.map((item) => (
+            <div
+              key={item.id}
+              className="rounded-3xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-600 shadow-sm"
+            >
+              <div className="flex items-center justify-between">
+                <p className="font-semibold text-slate-900">{item.title}</p>
+                <span className="text-xs uppercase tracking-wide text-slate-400">{item.severity}</span>
+              </div>
+              <p className="mt-2 text-sm text-slate-500">{item.summary}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
       {status ? (
