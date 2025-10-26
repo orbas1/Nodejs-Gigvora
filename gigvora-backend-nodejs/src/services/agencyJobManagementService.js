@@ -7,6 +7,7 @@ import {
   AgencyApplicationResponse,
   AGENCY_JOB_STATUSES,
   AGENCY_EMPLOYMENT_TYPES,
+  AGENCY_JOB_COMPENSATION_CURRENCIES,
   AGENCY_JOB_SENIORITIES,
   AGENCY_JOB_APPLICATION_STATUSES,
   AGENCY_JOB_INTERVIEW_STATUSES,
@@ -156,6 +157,9 @@ function normalizeJobPayload(payload = {}) {
   }
   if (data.employmentType && !AGENCY_EMPLOYMENT_TYPES.includes(data.employmentType)) {
     throw new ValidationError('Invalid employment type provided');
+  }
+  if (data.compensationCurrency && !AGENCY_JOB_COMPENSATION_CURRENCIES.includes(data.compensationCurrency)) {
+    throw new ValidationError('Invalid compensation currency provided');
   }
   if (data.seniority && !AGENCY_JOB_SENIORITIES.includes(data.seniority)) {
     throw new ValidationError('Invalid seniority level provided');
@@ -534,6 +538,7 @@ export function getJobManagementMetadata() {
   return {
     jobStatuses: AGENCY_JOB_STATUSES,
     employmentTypes: AGENCY_EMPLOYMENT_TYPES,
+    compensationCurrencies: AGENCY_JOB_COMPENSATION_CURRENCIES,
     seniorities: AGENCY_JOB_SENIORITIES,
     applicationStatuses: AGENCY_JOB_APPLICATION_STATUSES,
     interviewStatuses: AGENCY_JOB_INTERVIEW_STATUSES,

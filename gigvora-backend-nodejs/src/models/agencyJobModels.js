@@ -11,6 +11,16 @@ const AGENCY_JOB_PUBLISHABLE_STATUSES = ['open', 'paused', 'filled'];
 
 export const AGENCY_JOB_STATUSES = ['draft', 'open', 'paused', 'closed', 'filled'];
 export const AGENCY_EMPLOYMENT_TYPES = ['full_time', 'part_time', 'contract', 'temporary', 'internship', 'fractional'];
+export const AGENCY_JOB_COMPENSATION_CURRENCIES = [
+  'USD',
+  'EUR',
+  'GBP',
+  'CAD',
+  'AUD',
+  'INR',
+  'SGD',
+  'JPY',
+];
 export const AGENCY_JOB_SENIORITIES = ['junior', 'mid', 'senior', 'lead', 'director', 'executive'];
 export const AGENCY_JOB_APPLICATION_STATUSES = [
   'new',
@@ -45,7 +55,11 @@ export const AgencyJob = sequelize.define(
     remoteAvailable: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
     compensationMin: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
     compensationMax: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
-    compensationCurrency: { type: DataTypes.STRING(6), allowNull: false, defaultValue: 'USD' },
+    compensationCurrency: {
+      type: DataTypes.ENUM(...AGENCY_JOB_COMPENSATION_CURRENCIES),
+      allowNull: false,
+      defaultValue: 'USD',
+    },
     status: { type: DataTypes.ENUM(...AGENCY_JOB_STATUSES), allowNull: false, defaultValue: 'draft' },
     summary: { type: DataTypes.TEXT, allowNull: true },
     responsibilities: { type: DataTypes.TEXT, allowNull: true },
@@ -205,14 +219,37 @@ function sanitiseJobTags(value) {
       if (!trimmed) {
         return null;
       }
-      return trimmed.toLowerCase();
+      return trimmed.toLowerCase().slice(0, 60);
     })
     .filter(Boolean);
 
   if (normalised.length === 0) {
     return null;
   }
-  return Array.from(new Set(normalised));
+  return Array.from(new Set(normalised)).slice(0, 25);
+}
+
+function normaliseWorkspaceId(value) {
+  if (!value) {
+    return value;
+  }
+  const trimmed = String(value).trim();
+  return trimmed.length ? trimmed : null;
+}
+
+function mergeJobMetadata(existingMetadata = {}, metricsPatch = {}) {
+  const nextMetrics = {
+    applicationCount: 0,
+    favoriteCount: 0,
+    lastInteractionAt: null,
+    ...(existingMetadata.metrics ?? {}),
+    ...metricsPatch,
+  };
+
+  return {
+    ...existingMetadata,
+    metrics: nextMetrics,
+  };
 }
 
 async function updateJobEngagementMetrics(jobId, options = {}) {
@@ -257,16 +294,11 @@ async function updateJobEngagementMetrics(jobId, options = {}) {
       return null;
     }
 
-    const existingMetadata = job.metadata ?? {};
-    const nextMetadata = {
-      ...existingMetadata,
-      metrics: {
-        ...(existingMetadata.metrics ?? {}),
-        applicationCount,
-        favoriteCount,
-        lastInteractionAt,
-      },
-    };
+    const nextMetadata = mergeJobMetadata(job.metadata, {
+      applicationCount,
+      favoriteCount,
+      lastInteractionAt,
+    });
 
     job.set('metadata', nextMetadata);
     await job.save({ transaction, hooks: false, silent: false });
@@ -324,6 +356,10 @@ AgencyJob.addHook('beforeValidate', (job) => {
   if (job.hiringManagerEmail) {
     job.hiringManagerEmail = normaliseEmail(job.hiringManagerEmail);
   }
+
+  if (job.workspaceId) {
+    job.workspaceId = normaliseWorkspaceId(job.workspaceId);
+  }
 });
 
 AgencyJob.addHook('beforeSave', (job) => {
@@ -336,6 +372,10 @@ AgencyJob.addHook('beforeSave', (job) => {
   if (job.changed('tags')) {
     const sanitised = sanitiseJobTags(job.tags);
     job.set('tags', sanitised);
+  }
+
+  if (job.changed('metadata')) {
+    job.set('metadata', mergeJobMetadata(job.metadata));
   }
 });
 

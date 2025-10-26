@@ -15,6 +15,7 @@ import {
   AgencyApplicationResponse,
   AGENCY_JOB_STATUSES,
   AGENCY_EMPLOYMENT_TYPES,
+  AGENCY_JOB_COMPENSATION_CURRENCIES,
   AGENCY_JOB_APPLICATION_STATUSES,
   AGENCY_JOB_INTERVIEW_STATUSES,
   AGENCY_INTERVIEW_MODES,
@@ -117,6 +118,8 @@ describe('agency job marketplace models', () => {
       tags: ['design', 'leadership'],
       metadata: { distribution: 'global' },
     });
+
+    expect(AGENCY_JOB_COMPENSATION_CURRENCIES).toContain(job.compensationCurrency);
 
     const application = await AgencyJobApplication.create({
       workspaceId: 'workspace-1',
