@@ -756,6 +756,178 @@ Components (each individual component):
    - Rollback plan retains legacy payout form and disables automation toggles if regressions appear.
    - Post-launch retro will prioritise tax integration, audit logging, and verification workflows.
 7.B. Escrow & Billing Mechanisms
+    - [x] 7.B.1. EscrowMilestoneTracker.jsx
+    - [x] 7.B.2. InvoiceGenerator.jsx
+    - [x] 7.B.3. SubscriptionManager.jsx
+
+7.B.1. EscrowMilestoneTracker.jsx
+1. Appraisal.
+   - Premium milestone summaries, compliance badges, and documentation rails deliver the finance-grade storytelling promised in the UX plan.【F:gigvora-frontend-reactjs/src/components/commerce/EscrowMilestoneTracker.jsx†L160-L215】【F:user_experience.md†L220-L225】
+2. Functionality.
+   - Compliance checklists, activity feeds, and release/hold workflows run end-to-end through wired callbacks so no escrow path dead-ends.【F:gigvora-frontend-reactjs/src/components/commerce/EscrowMilestoneTracker.jsx†L201-L254】【F:user_experience.md†L222-L228】
+3. Logic Usefulness.
+   - Memoised totals, risk averages, and pending buckets translate milestone states into actionable finance signals.【F:gigvora-frontend-reactjs/src/components/commerce/EscrowMilestoneTracker.jsx†L332-L368】【F:user_experience.md†L226-L228】
+4. Redundancies.
+   - Shared wallet formatters, status pills, and requirement components keep presentation consistent without cloning logic across escrow surfaces.【F:gigvora-frontend-reactjs/src/components/commerce/EscrowMilestoneTracker.jsx†L11-L48】【F:user_experience.md†L221-L228】
+5. Placeholders Or non-working functions or stubs.
+   - Live copy, actionable empty states, and instrumented buttons replace placeholder messaging and dormant CTAs from earlier audits.【F:gigvora-frontend-reactjs/src/components/commerce/EscrowMilestoneTracker.jsx†L228-L250】【F:user_experience.md†L223-L225】
+6. Duplicate Functions.
+   - Centralised release/hold handlers and requirement rendering ensure analytics fan-out and checklist UI stay in one place.【F:gigvora-frontend-reactjs/src/components/commerce/EscrowMilestoneTracker.jsx†L144-L224】【F:user_experience.md†L223-L228】
+7. Improvements need to make.
+   - Memoised progress and risk analytics keep the tracker ready for anomaly overlays and executive dashboards outlined in the roadmap.【F:gigvora-frontend-reactjs/src/components/commerce/EscrowMilestoneTracker.jsx†L332-L368】【F:user_experience.md†L226-L228】
+8. Styling improvements.
+   - Gradient shells, premium typography, and responsive timeline scaffolding echo the finance aesthetic while leaving headroom for dispute visuals.【F:gigvora-frontend-reactjs/src/components/commerce/EscrowMilestoneTracker.jsx†L161-L215】【F:user_experience.md†L227-L228】
+9. Effeciency analysis and improvement.
+   - useMemo caching for totals and trimmed activity feeds prevents unnecessary recalculation as datasets grow.【F:gigvora-frontend-reactjs/src/components/commerce/EscrowMilestoneTracker.jsx†L221-L368】【F:user_experience.md†L226-L228】
+10. Strengths to Keep.
+   - Timeline clarity, compliance visibility, and contextual documentation preserve the trust-building moments stakeholders value.【F:gigvora-frontend-reactjs/src/components/commerce/EscrowMilestoneTracker.jsx†L160-L452】【F:user_experience.md†L220-L225】
+11. Weaknesses to remove.
+   - Instrumented actions and audit-ready feeds close the gaps around dormant CTAs and missing artefact context flagged in prior reviews.【F:gigvora-frontend-reactjs/src/components/commerce/EscrowMilestoneTracker.jsx†L214-L250】【F:user_experience.md†L223-L228】
+12. Styling and Colour review changes.
+   - Status accents and compliance pills reuse finance palette tokens to keep contrast and tone aligned with design governance.【F:gigvora-frontend-reactjs/src/components/commerce/EscrowMilestoneTracker.jsx†L20-L190】【F:user_experience.md†L227-L228】
+13. Css, orientation, placement and arrangement changes.
+   - Responsive grids split compliance, activity, and action clusters so the timeline follows the documented orientation blueprint.【F:gigvora-frontend-reactjs/src/components/commerce/EscrowMilestoneTracker.jsx†L201-L452】【F:user_experience.md†L227-L228】
+14. Text analysis, text placement, text length, text redundancy and quality of text analysis.
+   - Headlines, badge labels, and empty copy stay concise and directive, reinforcing editorial guardrails for financial communications.【F:gigvora-frontend-reactjs/src/components/commerce/EscrowMilestoneTracker.jsx†L165-L230】【F:user_experience.md†L220-L225】
+15. Text Spacing.
+   - space-y groupings, pill padding, and progress gutters maintain the 8/16/24 rhythm across breakpoints.【F:gigvora-frontend-reactjs/src/components/commerce/EscrowMilestoneTracker.jsx†L160-L435】【F:user_experience.md†L227-L228】
+16. Shaping.
+   - Rounded-4xl shells, pill badges, and circular timeline markers uphold the curvature tokens defined for premium finance surfaces.【F:gigvora-frontend-reactjs/src/components/commerce/EscrowMilestoneTracker.jsx†L161-L188】【F:user_experience.md†L227-L228】
+17. Shadow, hover, glow and effects.
+   - Subtle shadows and hover-ready progress treatments provide tactile feedback without overwhelming the ledger aesthetic.【F:gigvora-frontend-reactjs/src/components/commerce/EscrowMilestoneTracker.jsx†L161-L410】【F:user_experience.md†L227-L228】
+18. Thumbnails.
+   - Attachment icons and labelled artefacts replace generic placeholders so reviewers recognise supporting documents instantly.【F:gigvora-frontend-reactjs/src/components/commerce/EscrowMilestoneTracker.jsx†L92-L109】【F:user_experience.md†L225-L228】
+19. Images and media & Images and media previews.
+   - Documentation and activity rails keep artefacts inline today while staying ready for richer previews in future iterations.【F:gigvora-frontend-reactjs/src/components/commerce/EscrowMilestoneTracker.jsx†L92-L228】【F:user_experience.md†L225-L228】
+20. Button styling.
+   - Release and hold controls follow gradient and outline treatments with focus-visible rings per finance accessibility rules.【F:gigvora-frontend-reactjs/src/components/commerce/EscrowMilestoneTracker.jsx†L233-L250】【F:user_experience.md†L223-L228】
+21. Interactiveness.
+   - Permission-aware callbacks and analytics hooks ensure every user action is tracked and authorised as the UX brief requires.【F:gigvora-frontend-reactjs/src/components/commerce/EscrowMilestoneTracker.jsx†L144-L250】【F:user_experience.md†L223-L228】
+22. Missing Components.
+   - Compliance checklists, documentation rails, and activity feeds now occupy previously blank surfaces while leaving room for dispute overlays.【F:gigvora-frontend-reactjs/src/components/commerce/EscrowMilestoneTracker.jsx†L201-L228】【F:user_experience.md†L221-L227】
+23. Design Changes.
+   - The refreshed timeline, compliance rail, and responsive shell mirror the redesign described for the escrow module.【F:gigvora-frontend-reactjs/src/components/commerce/EscrowMilestoneTracker.jsx†L160-L452】【F:user_experience.md†L220-L228】
+24. Design Duplication.
+   - Shared wallet tokens and reusable requirement components prevent escrow squads from forking styling or analytics patterns.【F:gigvora-frontend-reactjs/src/components/commerce/EscrowMilestoneTracker.jsx†L11-L312】【F:user_experience.md†L228】
+25. Design framework.
+   - Status pills, spacing tokens, and instrumentation align with the finance framework so other teams can slot the tracker into dashboards without restyling.【F:gigvora-frontend-reactjs/src/components/commerce/EscrowMilestoneTracker.jsx†L161-L435】【F:user_experience.md†L227-L228】
+26. Change Checklist Tracker Extensive.
+   - onTrack hooks, requirement feeds, and compliance badges provide the artefacts needed for governance sign-off and QA traces.【F:gigvora-frontend-reactjs/src/components/commerce/EscrowMilestoneTracker.jsx†L144-L224】【F:user_experience.md†L223-L228】
+27. Full Upgrade Plan & Release Steps Extensive.
+   - Release workflows, risk telemetry, and documentation staging position the tracker for anomaly overlays and phased rollouts in the launch plan.【F:gigvora-frontend-reactjs/src/components/commerce/EscrowMilestoneTracker.jsx†L332-L368】【F:user_experience.md†L223-L228】
+
+7.B.2. InvoiceGenerator.jsx
+1. Appraisal.
+   - Glassmorphic workspace, premium typography, and guidance copy create the billing hub experience stakeholders requested.【F:gigvora-frontend-reactjs/src/components/commerce/InvoiceGenerator.jsx†L214-L338】【F:user_experience.md†L231-L238】
+2. Functionality.
+   - Dynamic line items, tax selectors, memoised summaries, and action rail cover the full invoice lifecycle from draft to send.【F:gigvora-frontend-reactjs/src/components/commerce/InvoiceGenerator.jsx†L125-L506】【F:user_experience.md†L231-L238】
+3. Logic Usefulness.
+   - Reducers and summary builders reconcile quantities, discounts, and taxes into transparent totals for finance teams.【F:gigvora-frontend-reactjs/src/components/commerce/InvoiceGenerator.jsx†L17-L168】【F:user_experience.md†L233-L236】
+4. Redundancies.
+   - `createLineItem`, the reducer, and shared summary utilities prevent duplicate state handlers or formatters across billing surfaces.【F:gigvora-frontend-reactjs/src/components/commerce/InvoiceGenerator.jsx†L17-L124】【F:user_experience.md†L236-L238】
+5. Placeholders Or non-working functions or stubs.
+   - Real copy, wired selects, and analytics-backed CTAs replace placeholder inputs and inert actions from earlier drafts.【F:gigvora-frontend-reactjs/src/components/commerce/InvoiceGenerator.jsx†L230-L503】【F:user_experience.md†L231-L235】
+6. Duplicate Functions.
+   - Single reducer and instrumentation callbacks fan events to parents, avoiding scattered handlers for preview, send, or template flows.【F:gigvora-frontend-reactjs/src/components/commerce/InvoiceGenerator.jsx†L125-L212】【F:user_experience.md†L235-L238】
+7. Improvements need to make.
+   - Memoised summaries and reusable adjustments position the generator for template libraries and automation overlays noted in the roadmap.【F:gigvora-frontend-reactjs/src/components/commerce/InvoiceGenerator.jsx†L157-L212】【F:user_experience.md†L236-L238】
+8. Styling improvements.
+   - Gradient-ready shells, frosted panels, and responsive grids keep the UI polished across devices while honouring finance tokens.【F:gigvora-frontend-reactjs/src/components/commerce/InvoiceGenerator.jsx†L214-L506】【F:user_experience.md†L237-L238】
+9. Effeciency analysis and improvement.
+   - useReducer, memoised summaries, and controlled inputs contain render cost even as invoices gain complexity.【F:gigvora-frontend-reactjs/src/components/commerce/InvoiceGenerator.jsx†L125-L212】【F:user_experience.md†L236-L238】
+10. Strengths to Keep.
+   - Centralised metadata, live totals, and governance rails preserve the clarity stakeholders praised in earlier evaluations.【F:gigvora-frontend-reactjs/src/components/commerce/InvoiceGenerator.jsx†L214-L506】【F:user_experience.md†L231-L235】
+11. Weaknesses to remove.
+   - Live adjustments and analytics-backed CTAs eliminate the dead-end flows and opaque maths that previously eroded trust.【F:gigvora-frontend-reactjs/src/components/commerce/InvoiceGenerator.jsx†L201-L503】【F:user_experience.md†L231-L236】
+12. Styling and Colour review changes.
+   - Neutral frosted cards with accent actions maintain accessible contrast while aligning with finance palettes.【F:gigvora-frontend-reactjs/src/components/commerce/InvoiceGenerator.jsx†L214-L503】【F:user_experience.md†L237-L238】
+13. Css, orientation, placement and arrangement changes.
+   - Split grids, stacked adjustments, and responsive sidebars keep metadata, line items, and totals aligned per the orientation spec.【F:gigvora-frontend-reactjs/src/components/commerce/InvoiceGenerator.jsx†L214-L506】【F:user_experience.md†L237-L238】
+14. Text analysis, text placement, text length, text redundancy and quality of text analysis.
+   - Labels, helper copy, and button microcopy stay concise and outcome-driven to guide finance operators.【F:gigvora-frontend-reactjs/src/components/commerce/InvoiceGenerator.jsx†L214-L506】【F:user_experience.md†L231-L235】
+15. Text Spacing.
+   - Tailwind spacing tokens and space-y groupings preserve the documented rhythm across cards, lists, and drawers.【F:gigvora-frontend-reactjs/src/components/commerce/InvoiceGenerator.jsx†L214-L506】【F:user_experience.md†L237-L238】
+16. Shaping.
+   - Rounded-3xl shells, pill controls, and capsule buttons mirror the curvature guidance for premium billing tools.【F:gigvora-frontend-reactjs/src/components/commerce/InvoiceGenerator.jsx†L214-L503】【F:user_experience.md†L237-L238】
+17. Shadow, hover, glow and effects.
+   - Soft shadows, hover lifts, and focus-visible rings communicate interactivity without sacrificing readability.【F:gigvora-frontend-reactjs/src/components/commerce/InvoiceGenerator.jsx†L214-L503】【F:user_experience.md†L237-L238】
+18. Thumbnails.
+   - Iconography, tax labels, and summary chips provide scannable visual anchors instead of placeholder imagery.【F:gigvora-frontend-reactjs/src/components/commerce/InvoiceGenerator.jsx†L315-L503】【F:user_experience.md†L231-L235】
+19. Images and media & Images and media previews.
+   - The action rail and summary cards reserve space for richer previews while serving crisp inline totals today.【F:gigvora-frontend-reactjs/src/components/commerce/InvoiceGenerator.jsx†L214-L506】【F:user_experience.md†L231-L238】
+20. Button styling.
+   - Preview, send, and save controls respect gradient, solid, and outline treatments with accessible focus states.【F:gigvora-frontend-reactjs/src/components/commerce/InvoiceGenerator.jsx†L477-L502】【F:user_experience.md†L234-L238】
+21. Interactiveness.
+   - Controlled inputs, selects, and CTA callbacks track every interaction, feeding analytics required by finance ops.【F:gigvora-frontend-reactjs/src/components/commerce/InvoiceGenerator.jsx†L125-L503】【F:user_experience.md†L231-L238】
+22. Missing Components.
+   - Integrated adjustments, tax breakdowns, and due-date intelligence fill the gaps previously noted in billing flows.【F:gigvora-frontend-reactjs/src/components/commerce/InvoiceGenerator.jsx†L214-L506】【F:user_experience.md†L231-L236】
+23. Design Changes.
+   - The reorganised workspace, responsive sidebars, and analytics hooks embody the redesign direction for billing orchestration.【F:gigvora-frontend-reactjs/src/components/commerce/InvoiceGenerator.jsx†L214-L506】【F:user_experience.md†L231-L238】
+24. Design Duplication.
+   - Reducer-driven state, shared formatters, and modular cards ensure other billing surfaces can reuse this implementation rather than cloning it.【F:gigvora-frontend-reactjs/src/components/commerce/InvoiceGenerator.jsx†L17-L506】【F:user_experience.md†L236-L238】
+25. Design framework.
+   - Component tokens, spacing, and analytics hooks align with finance framework guidelines for deployment across dashboards.【F:gigvora-frontend-reactjs/src/components/commerce/InvoiceGenerator.jsx†L214-L506】【F:user_experience.md†L237-L238】
+26. Change Checklist Tracker Extensive.
+   - Instrumented preview/send flows, adjustment controls, and memoised totals supply the artefacts needed for compliance and QA checklists.【F:gigvora-frontend-reactjs/src/components/commerce/InvoiceGenerator.jsx†L125-L503】【F:user_experience.md†L234-L238】
+27. Full Upgrade Plan & Release Steps Extensive.
+   - Template saves, automation-ready summaries, and analytics events align the generator with staged rollout and governance plans.【F:gigvora-frontend-reactjs/src/components/commerce/InvoiceGenerator.jsx†L157-L212】【F:user_experience.md†L236-L238】
+
+7.B.3. SubscriptionManager.jsx
+1. Appraisal.
+   - Executive tiles, utilisation gauges, and lifecycle highlights present the leadership-grade subscription overview described in the UX brief.【F:gigvora-frontend-reactjs/src/components/commerce/SubscriptionManager.jsx†L307-L361】【F:user_experience.md†L241-L248】
+2. Functionality.
+   - Plan cards combine pricing, seats, renewals, usage, and lifecycle insights with actionable controls for seats, auto-renew, and cancellation.【F:gigvora-frontend-reactjs/src/components/commerce/SubscriptionManager.jsx†L69-L218】【F:user_experience.md†L241-L248】
+3. Logic Usefulness.
+   - Memoised rollups compute MRR, utilisation, and at-risk counts so operators can react immediately.【F:gigvora-frontend-reactjs/src/components/commerce/SubscriptionManager.jsx†L270-L305】【F:user_experience.md†L246-L248】
+4. Redundancies.
+   - Shared summary cards, usage pills, and plan props avoid duplicating subscription presentation patterns elsewhere.【F:gigvora-frontend-reactjs/src/components/commerce/SubscriptionManager.jsx†L16-L193】【F:user_experience.md†L241-L248】
+5. Placeholders Or non-working functions or stubs.
+   - Live metrics, responsive copy, and wired seat/renewal controls eliminate placeholder stats and inert toggles.【F:gigvora-frontend-reactjs/src/components/commerce/SubscriptionManager.jsx†L93-L213】【F:user_experience.md†L241-L248】
+6. Duplicate Functions.
+   - Seat commit, auto-renew, and cancellation handlers centralise analytics fan-out and prevent bespoke wiring per plan.【F:gigvora-frontend-reactjs/src/components/commerce/SubscriptionManager.jsx†L76-L213】【F:user_experience.md†L243-L248】
+7. Improvements need to make.
+   - Memoised rollups and churn tracking keep the manager ready for forecasting overlays and alerting automations noted in the roadmap.【F:gigvora-frontend-reactjs/src/components/commerce/SubscriptionManager.jsx†L270-L344】【F:user_experience.md†L246-L248】
+8. Styling improvements.
+   - Gradient-ready shells, badge treatments, and balanced grids align with finance design tokens across summary and plan cards.【F:gigvora-frontend-reactjs/src/components/commerce/SubscriptionManager.jsx†L95-L361】【F:user_experience.md†L247-L248】
+9. Effeciency analysis and improvement.
+   - useMemo keeps aggregated metrics lightweight while plan-level state only updates on interaction, preserving responsiveness.【F:gigvora-frontend-reactjs/src/components/commerce/SubscriptionManager.jsx†L70-L305】【F:user_experience.md†L246-L248】
+10. Strengths to Keep.
+   - Consolidated telemetry, usage insights, and lifecycle context maintain the subscription storytelling operators rely on.【F:gigvora-frontend-reactjs/src/components/commerce/SubscriptionManager.jsx†L95-L361】【F:user_experience.md†L241-L245】
+11. Weaknesses to remove.
+   - Instrumented seat controls, invoices, and lifecycle notes replace the static cards and missing governance cues previously flagged.【F:gigvora-frontend-reactjs/src/components/commerce/SubscriptionManager.jsx†L93-L213】【F:user_experience.md†L241-L248】
+12. Styling and Colour review changes.
+   - Accent badges, utilisation bars, and risk warnings follow finance palette guidance for accessibility and polish.【F:gigvora-frontend-reactjs/src/components/commerce/SubscriptionManager.jsx†L95-L361】【F:user_experience.md†L247-L248】
+13. Css, orientation, placement and arrangement changes.
+   - Responsive grids balance summary tiles and plan cards so insights stay legible from mobile to desktop as specified.【F:gigvora-frontend-reactjs/src/components/commerce/SubscriptionManager.jsx†L307-L361】【F:user_experience.md†L247-L248】
+14. Text analysis, text placement, text length, text redundancy and quality of text analysis.
+   - Headings, helper copy, and badge text stay concise and outcome-led to guide finance, sales, and ops stakeholders.【F:gigvora-frontend-reactjs/src/components/commerce/SubscriptionManager.jsx†L95-L361】【F:user_experience.md†L241-L245】
+15. Text Spacing.
+   - space-y stacks, pill padding, and progress gutters maintain the enterprise rhythm across tiles and plan details.【F:gigvora-frontend-reactjs/src/components/commerce/SubscriptionManager.jsx†L95-L361】【F:user_experience.md†L247-L248】
+16. Shaping.
+   - Rounded-3xl cards, pill badges, and capsule controls echo the curvature tokens defined for finance suites.【F:gigvora-frontend-reactjs/src/components/commerce/SubscriptionManager.jsx†L95-L213】【F:user_experience.md†L247-L248】
+17. Shadow, hover, glow and effects.
+   - Subtle shadows and focus-visible treatments provide tactile feedback while preserving data legibility.【F:gigvora-frontend-reactjs/src/components/commerce/SubscriptionManager.jsx†L95-L213】【F:user_experience.md†L247-L248】
+18. Thumbnails.
+   - Iconography, usage pills, and badge chips create scannable anchors without relying on raster imagery.【F:gigvora-frontend-reactjs/src/components/commerce/SubscriptionManager.jsx†L95-L193】【F:user_experience.md†L241-L245】
+19. Images and media & Images and media previews.
+   - Summary tiles and usage rails focus on live metrics today while leaving room for richer visualisations as automation matures.【F:gigvora-frontend-reactjs/src/components/commerce/SubscriptionManager.jsx†L95-L361】【F:user_experience.md†L241-L248】
+20. Button styling.
+   - Seat commit, auto-renew, and cancellation controls follow outline, solid, and warning treatments with accessible focus rings.【F:gigvora-frontend-reactjs/src/components/commerce/SubscriptionManager.jsx†L132-L213】【F:user_experience.md†L243-L248】
+21. Interactiveness.
+   - Callback-powered controls and analytics hooks ensure every seat or renewal adjustment is tracked for lifecycle governance.【F:gigvora-frontend-reactjs/src/components/commerce/SubscriptionManager.jsx†L76-L213】【F:user_experience.md†L243-L248】
+22. Missing Components.
+   - Usage analytics, lifecycle highlights, and governance rails now populate the previously sparse subscription dashboard.【F:gigvora-frontend-reactjs/src/components/commerce/SubscriptionManager.jsx†L95-L213】【F:user_experience.md†L241-L247】
+23. Design Changes.
+   - The refreshed summary tiles, plan scaffolding, and lifecycle callouts deliver the structural redesign for the subscription spine.【F:gigvora-frontend-reactjs/src/components/commerce/SubscriptionManager.jsx†L95-L361】【F:user_experience.md†L241-L248】
+24. Design Duplication.
+   - Shared cards, pills, and usage components prevent future subscription work from cloning bespoke layouts.【F:gigvora-frontend-reactjs/src/components/commerce/SubscriptionManager.jsx†L16-L193】【F:user_experience.md†L247-L248】
+25. Design framework.
+   - Finance tokens, spacing, and analytics instrumentation align the manager with enterprise framework standards for cross-team reuse.【F:gigvora-frontend-reactjs/src/components/commerce/SubscriptionManager.jsx†L95-L361】【F:user_experience.md†L247-L248】
+26. Change Checklist Tracker Extensive.
+   - Analytics hooks on seat, renewal, and cancellation flows provide the evidence streams compliance and finance require for release checklists.【F:gigvora-frontend-reactjs/src/components/commerce/SubscriptionManager.jsx†L76-L213】【F:user_experience.md†L243-L248】
+27. Full Upgrade Plan & Release Steps Extensive.
+   - Memoised telemetry, churn signals, and governance controls align the manager with phased rollout, alerting, and automation plans.【F:gigvora-frontend-reactjs/src/components/commerce/SubscriptionManager.jsx†L270-L344】【F:user_experience.md†L246-L248】
+
 - [x] Main Category: 6. Mentorship, Groups & Community Pillars
   - [x] 6.A. Mentorship Suite
 
