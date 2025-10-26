@@ -21,6 +21,14 @@ export function ToastProvider({ children }) {
         title: toast.title || null,
         message: toast.message || '',
         duration: typeof toast.duration === 'number' ? toast.duration : 5000,
+        content: toast.content || null,
+        className: toast.className || '',
+        style: toast.style || null,
+        accent: toast.accent || null,
+        actions: Array.isArray(toast.actions)
+          ? toast.actions.filter((action) => action && typeof action.label === 'string')
+          : [],
+        metadata: toast.metadata || null,
       };
       return [...previous, payload];
     });
