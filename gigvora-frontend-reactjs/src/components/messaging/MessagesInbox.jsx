@@ -22,12 +22,10 @@ import { formatRelativeTime } from '../../utils/date.js';
 
 const CHANNEL_LABELS = {
   direct: 'Direct',
-  mentor: 'Mentorship',
   support: 'Support',
-  hiring: 'Hiring',
-  marketing: 'Campaign',
-  investor_relations: 'Investor',
-  product: 'Product',
+  project: 'Project',
+  contract: 'Contract',
+  group: 'Group',
 };
 
 function resolveChannelLabel(channel) {
@@ -44,13 +42,28 @@ function normaliseChannelType(thread) {
 function normaliseLabels(thread) {
   const labels = thread?.labels;
   if (Array.isArray(labels)) {
-    return labels;
+    return labels
+      .map((label) => {
+        if (!label) {
+          return null;
+        }
+        if (typeof label === 'string') {
+          return label;
+        }
+        if (typeof label === 'object') {
+          return label.name ?? label.slug ?? null;
+        }
+        return null;
+      })
+      .filter(Boolean);
   }
   if (labels && typeof labels === 'object') {
-    return Object.keys(labels).filter((key) => labels[key]);
+    return Object.entries(labels)
+      .filter(([, value]) => Boolean(value))
+      .map(([key]) => key);
   }
   if (Array.isArray(thread?.tags)) {
-    return thread.tags;
+    return thread.tags.filter(Boolean);
   }
   return [];
 }
@@ -97,6 +110,9 @@ export function ThreadPreviewCard({
   const lastActivity = describeLastActivity(thread);
   const channel = resolveChannelLabel(normaliseChannelType(thread));
   const labels = normaliseLabels(thread);
+  const hasOpenEscalation = Boolean(
+    thread?.supportCase && !['resolved', 'closed'].includes(thread.supportCase.status),
+  );
   const unreadCount = typeof thread?.unreadCount === 'number' ? thread.unreadCount : unread ? 1 : 0;
 
   const handleSelect = useCallback(() => {
@@ -151,7 +167,7 @@ export function ThreadPreviewCard({
             <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
               {channel}
             </span>
-            {thread?.priority === 'high' || thread?.state === 'escalated' ? (
+            {hasOpenEscalation ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
                 <BoltIcon className="h-3.5 w-3.5" /> Escalated
               </span>
@@ -276,7 +292,18 @@ export default function MessagesInbox({
     const total = threads.length;
     const pinned = threads.filter((thread) => thread?.pinned).length;
     const unread = threads.filter((thread) => isThreadUnread(thread)).length;
-    const escalated = threads.filter((thread) => thread?.priority === 'high' || thread?.state === 'escalated').length;
+    const escalated = threads.filter((thread) => {
+      const supportCase = thread?.supportCase;
+      if (!supportCase) {
+        return false;
+      }
+      const status = supportCase.status ?? null;
+      if (status && ['resolved', 'closed'].includes(status)) {
+        return false;
+      }
+      const priority = supportCase.priority ?? thread?.metadata?.priority;
+      return priority === 'high' || priority === 'urgent' || status === 'waiting_on_customer';
+    }).length;
     const collaborators = new Set();
     threads.forEach((thread) => {
       thread?.participants?.forEach((participant) => {
@@ -286,7 +313,19 @@ export default function MessagesInbox({
       });
     });
     const responseDurations = threads
-      .map((thread) => thread?.metrics?.avgResponseMinutes ?? thread?.metadata?.avgResponseMinutes)
+      .map((thread) => {
+        if (Number.isFinite(thread?.metrics?.avgResponseMinutes)) {
+          return Number(thread.metrics.avgResponseMinutes);
+        }
+        if (Number.isFinite(thread?.metadata?.avgResponseMinutes)) {
+          return Number(thread.metadata.avgResponseMinutes);
+        }
+        const supportCase = thread?.supportCase;
+        if (Number.isFinite(supportCase?.metadata?.avgResponseMinutes)) {
+          return Number(supportCase.metadata.avgResponseMinutes);
+        }
+        return null;
+      })
       .filter((value) => Number.isFinite(value) && value > 0);
     const avgResponse =
       responseDurations.length > 0

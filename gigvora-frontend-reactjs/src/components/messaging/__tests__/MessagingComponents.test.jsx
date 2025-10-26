@@ -134,6 +134,26 @@ describe('ConversationMessage', () => {
     expect(screen.getByText('Thanks for sharing the deck! 🚀')).toBeInTheDocument();
   });
 
+  it('renders metadata links beneath the message body when provided', () => {
+    const message = {
+      id: 'msg-2',
+      createdAt: '2024-06-11T10:00:00Z',
+      senderId: 3,
+      sender: { id: 3, firstName: 'Mira', lastName: 'Stone' },
+      body: 'Sharing the case study here.',
+      messageType: 'text',
+      metadata: {
+        links: [{ title: 'Case study', url: 'https://gigvora.com/case-study' }],
+      },
+    };
+
+    render(<ConversationMessage message={message} actorId={1} />);
+
+    const link = screen.getByRole('link', { name: /Case study/i });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', 'https://gigvora.com/case-study');
+  });
+
   it('renders call events and disables join button when call ended', () => {
     const message = {
       id: 'call-1',
@@ -229,7 +249,7 @@ describe('MessagesInbox', () => {
 });
 
 describe('MessageComposerBar', () => {
-  it('sends message payload with attachments', async () => {
+  it('sends message payload with links metadata', async () => {
     const user = userEvent.setup();
     const onSend = vi.fn().mockResolvedValue();
 
@@ -263,7 +283,9 @@ describe('MessageComposerBar', () => {
     expect(onSend).toHaveBeenCalledWith(
       expect.objectContaining({
         body: 'Let’s align',
-        attachments: [expect.objectContaining({ url: 'https://gigvora.com/roadmap' })],
+        metadata: {
+          links: [expect.objectContaining({ url: 'https://gigvora.com/roadmap', title: 'Roadmap' })],
+        },
       }),
     );
   });

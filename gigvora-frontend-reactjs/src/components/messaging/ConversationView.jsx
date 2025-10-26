@@ -121,9 +121,13 @@ export default function ConversationView({
   const disabled = !thread;
   const title = thread ? buildThreadTitle(thread, actorId) : 'Conversation';
   const participantSummary = thread ? formatThreadParticipants(thread, actorId).join(', ') : '';
+  const latestMessage = useMemo(
+    () => (Array.isArray(messages) && messages.length ? messages[messages.length - 1] : null),
+    [messages],
+  );
   const readReceipts = useMemo(
-    () => (thread ? formatReadReceiptSummary(thread.readReceipts, actorId) : null),
-    [actorId, thread],
+    () => (latestMessage ? formatReadReceiptSummary(latestMessage.readReceipts, actorId) : null),
+    [actorId, latestMessage],
   );
   const typingSummary = useMemo(
     () => formatTypingParticipants(typingParticipants, actorId),
@@ -187,7 +191,10 @@ export default function ConversationView({
       [];
     const mapped = mapToInsightItems(source, 'title');
     if (mapped.length) {
-      return mapped.map((item) => ({ ...item, href: item.url ?? item.href ?? item.link }));
+      return mapped.map((item) => ({
+        ...item,
+        href: item.href ?? item.url ?? item.link ?? null,
+      }));
     }
     return [];
   }, [thread]);

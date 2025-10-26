@@ -11,18 +11,18 @@ import { classNames } from '../../utils/classNames.js';
 
 export const MAX_COMPOSER_LENGTH = 1500;
 
-function AttachmentChip({ attachment, onRemove }) {
+function LinkChip({ link, onRemove }) {
   return (
     <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
       <span className="inline-flex items-center gap-1 font-semibold text-slate-700">
         <PaperClipIcon className="h-3.5 w-3.5" />
-        {attachment.title}
+        {link.title}
       </span>
       <button
         type="button"
-        onClick={() => onRemove(attachment.id)}
+        onClick={() => onRemove(link.id)}
         className="rounded-full p-0.5 text-slate-400 transition hover:text-rose-500"
-        aria-label={`Remove attachment ${attachment.title}`}
+        aria-label={`Remove link ${link.title}`}
       >
         <XMarkIcon className="h-3.5 w-3.5" />
       </button>
@@ -30,8 +30,8 @@ function AttachmentChip({ attachment, onRemove }) {
   );
 }
 
-AttachmentChip.propTypes = {
-  attachment: PropTypes.shape({
+LinkChip.propTypes = {
+  link: PropTypes.shape({
     id: PropTypes.string.isRequired,
     title: PropTypes.string.isRequired,
     url: PropTypes.string.isRequired,
@@ -52,7 +52,7 @@ export default function MessageComposerBar({
   onSavedReplyUsed,
 }) {
   const textAreaRef = useRef(null);
-  const [attachments, setAttachments] = useState([]);
+  const [links, setLinks] = useState([]);
   const [linkDraft, setLinkDraft] = useState({ title: '', url: '' });
   const [linkFormOpen, setLinkFormOpen] = useState(false);
   const [savedRepliesOpen, setSavedRepliesOpen] = useState(false);
@@ -62,7 +62,7 @@ export default function MessageComposerBar({
   const remainingCharacters = Math.max(0, MAX_COMPOSER_LENGTH - resolvedValue.length);
 
   useEffect(() => {
-    setAttachments([]);
+    setLinks([]);
     setLinkDraft({ title: '', url: '' });
     setLinkFormOpen(false);
     setSavedRepliesOpen(false);
@@ -97,12 +97,12 @@ export default function MessageComposerBar({
       }
       try {
         const parsed = new URL(trimmedUrl);
-        const attachment = {
-          id: `${Date.now()}-${attachments.length}`,
+        const link = {
+          id: `${Date.now()}-${links.length}`,
           title: trimmedTitle || parsed.hostname,
           url: parsed.toString(),
         };
-        setAttachments((current) => [...current, attachment]);
+        setLinks((current) => [...current, link]);
         setLinkDraft({ title: '', url: '' });
         setLinkFormOpen(false);
         setLocalError(null);
@@ -110,11 +110,11 @@ export default function MessageComposerBar({
         setLocalError('Links must include a valid protocol (https://).');
       }
     },
-    [attachments.length, linkDraft],
+    [links.length, linkDraft],
   );
 
-  const handleRemoveAttachment = useCallback((id) => {
-    setAttachments((current) => current.filter((attachment) => attachment.id !== id));
+  const handleRemoveLink = useCallback((id) => {
+    setLinks((current) => current.filter((link) => link.id !== id));
   }, []);
 
   const handleSavedReply = useCallback(
@@ -146,14 +146,19 @@ export default function MessageComposerBar({
         return;
       }
       const trimmed = resolvedValue.trim();
-      if (!trimmed && attachments.length === 0) {
-        setLocalError('Add a message or attachment before sending.');
+      if (!trimmed && links.length === 0) {
+        setLocalError('Add a message or link before sending.');
         return;
       }
       setLocalError(null);
       try {
-        await onSend({ body: trimmed, attachments });
-        setAttachments([]);
+        const metadata = links.length
+          ? {
+              links: links.map((link) => ({ title: link.title, url: link.url })),
+            }
+          : undefined;
+        await onSend({ body: trimmed, metadata });
+        setLinks([]);
         setLinkDraft({ title: '', url: '' });
         setLinkFormOpen(false);
         setSavedRepliesOpen(false);
@@ -162,7 +167,7 @@ export default function MessageComposerBar({
         setLocalError(message);
       }
     },
-    [attachments, disabled, onSend, resolvedValue, sending],
+    [links, disabled, onSend, resolvedValue, sending],
   );
 
   const handleKeyDown = useCallback(
@@ -188,7 +193,11 @@ export default function MessageComposerBar({
           onChange={handleTextChange}
           onKeyDown={handleKeyDown}
           disabled={disabled || sending}
-          placeholder={disabled ? 'Select a conversation to compose your update.' : 'Share agendas, drop saved replies, or attach documents.'}
+          placeholder={
+            disabled
+              ? 'Select a conversation to compose your update.'
+              : 'Share agendas, drop saved replies, or add supporting links.'
+          }
           className="w-full resize-none rounded-2xl border border-transparent bg-white/70 px-4 py-3 text-sm text-slate-700 transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:bg-slate-100"
           maxLength={MAX_COMPOSER_LENGTH}
         />
@@ -309,10 +318,10 @@ export default function MessageComposerBar({
             </div>
           </div>
         ) : null}
-        {attachments.length ? (
+        {links.length ? (
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {attachments.map((attachment) => (
-              <AttachmentChip key={attachment.id} attachment={attachment} onRemove={handleRemoveAttachment} />
+            {links.map((link) => (
+              <LinkChip key={link.id} link={link} onRemove={handleRemoveLink} />
             ))}
           </div>
         ) : null}
@@ -335,7 +344,7 @@ export default function MessageComposerBar({
           {sending ? 'Sending…' : 'Send message'}
         </button>
         <span className="text-xs text-slate-500">
-          Align quickly with saved replies, attachments, and rich formatting built for premium partnerships.
+          Align quickly with saved replies, curated links, and rich formatting built for premium partnerships.
         </span>
       </div>
     </form>
