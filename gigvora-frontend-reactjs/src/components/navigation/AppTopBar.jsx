@@ -1,27 +1,14 @@
 import { Fragment, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
-import { Link, NavLink } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Menu, Transition } from '@headlessui/react';
-import {
-  Bars3Icon,
-  BellIcon,
-  ChartBarIcon,
-  BriefcaseIcon,
-  BuildingOffice2Icon,
-  ChatBubbleLeftRightIcon,
-  HomeIcon,
-  MagnifyingGlassIcon,
-  PresentationChartBarIcon,
-  RssIcon,
-  ShieldCheckIcon,
-  SparklesIcon,
-  Squares2X2Icon,
-} from '@heroicons/react/24/outline';
+import { Bars3Icon, ChatBubbleLeftRightIcon, MagnifyingGlassIcon, SparklesIcon } from '@heroicons/react/24/outline';
 
 import MobileNavigation from './MobileNavigation.jsx';
 import RoleSwitcher from './RoleSwitcher.jsx';
 import LanguageSelector from '../LanguageSelector.jsx';
 import HeaderMegaMenu from './HeaderMegaMenu.jsx';
+import PrimaryNavItem from './PrimaryNavItem.jsx';
 import { LOGO_SRCSET, LOGO_URL } from '../../constants/branding.js';
 import { classNames } from '../../utils/classNames.js';
 import { resolveInitials } from '../../utils/user.js';
@@ -316,25 +303,6 @@ export default function AppTopBar({
   onMarketingSearch,
 }) {
   const [searchQuery, setSearchQuery] = useState('');
-  const iconMap = useMemo(
-    () => ({
-      timeline: RssIcon,
-      explorer: Squares2X2Icon,
-      studio: SparklesIcon,
-      inbox: ChatBubbleLeftRightIcon,
-      notifications: BellIcon,
-      dashboard: HomeIcon,
-      policies: ShieldCheckIcon,
-      ats: BriefcaseIcon,
-      analytics: ChartBarIcon,
-      pipeline: PresentationChartBarIcon,
-      portfolio: BriefcaseIcon,
-      crm: BuildingOffice2Icon,
-      finance: ChartBarIcon,
-    }),
-    [],
-  );
-
   const resolvedMarketingMenus = marketingNavigation ?? [];
 
   const handleSearchSubmit = (event) => {
@@ -390,24 +358,9 @@ export default function AppTopBar({
         {isAuthenticated ? (
           <nav className="hidden flex-none items-stretch gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500 lg:flex">
             <RoleSwitcher options={roleOptions} currentKey={currentRoleKey} />
-            {primaryNavigation.map((item) => {
-              const Icon = iconMap[item.id] ?? Squares2X2Icon;
-              return (
-                <NavLink
-                  key={item.id}
-                  to={item.to}
-                  className={({ isActive }) =>
-                    classNames(
-                      'flex h-[4.75rem] w-20 flex-col items-center justify-center gap-1 rounded-none border-b-2 border-transparent px-2 transition hover:text-slate-900',
-                      isActive ? 'border-slate-900 text-slate-900' : 'text-slate-500 hover:border-slate-300',
-                    )
-                  }
-                >
-                  <Icon className="h-5 w-5" />
-                  <span className="text-[0.7rem] font-semibold leading-none">{item.label}</span>
-                </NavLink>
-              );
-            })}
+            {primaryNavigation.map((item) => (
+              <PrimaryNavItem key={item.id} item={item} variant="desktop" />
+            ))}
           </nav>
         ) : null}
 

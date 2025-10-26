@@ -30,9 +30,10 @@ vi.mock('../../components/ads/AdPlacementRail.jsx', () => ({
   default: ({ surface }) => <div data-testid="ad-rail" data-surface={surface} />,
 }));
 
-vi.mock('../../images/Gigvora Logo.png', () => ({
+vi.mock('../constants/branding.js', () => ({
   __esModule: true,
-  default: 'gigvora-logo.png',
+  LOGO_URL: 'https://example.com/logo.png',
+  LOGO_SRCSET: 'https://example.com/logo.png 1x, https://example.com/logo@2x.png 2x',
 }));
 
 describe('DashboardLayout access control', () => {

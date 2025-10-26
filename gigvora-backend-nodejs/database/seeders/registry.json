@@ -1,0 +1,23 @@
+{
+  "20240501010000-demo-data": {
+    "title": "Foundational multi-persona workspace demo",
+    "summary": "Creates founders, freelancers, agencies, mentors, marketplace listings, and timeline activity for executive-grade walkthroughs.",
+    "personas": ["founder", "freelancer", "agency", "mentor", "recruiter"],
+    "domains": ["profiles", "marketplace", "jobs", "timeline"],
+    "tags": ["core", "onboarding", "cross-network"]
+  },
+  "20240915104500-workspace-templates-seed": {
+    "title": "Workspace template accelerators",
+    "summary": "Seeds reusable workspace templates, automation blueprints, and appearance baselines for enterprise onboarding.",
+    "personas": ["operations", "product", "agency"],
+    "domains": ["workspace", "automation", "design"],
+    "tags": ["templates", "automation", "design-system"]
+  },
+  "20250120091500-feature-flag-demo": {
+    "title": "Feature flag and rollout governance",
+    "summary": "Populates feature flag definitions and assignments for operations, AI pilots, and mentorship cohorts.",
+    "personas": ["platform-ops", "product", "mentorship"],
+    "domains": ["feature-flags", "mentorship", "workspaces"],
+    "tags": ["flags", "rollout", "experiments"]
+  }
+}

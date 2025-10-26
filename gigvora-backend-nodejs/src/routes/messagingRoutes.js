@@ -24,6 +24,7 @@ import {
   searchThreadsQuerySchema,
   createTranscriptBodySchema,
   enforceRetentionBodySchema,
+  reorderPinnedThreadsBodySchema,
 } from '../validation/schemas/messagingSchemas.js';
 
 const router = Router();
@@ -141,5 +142,20 @@ router.delete('/inbox/saved-replies/:replyId', asyncHandler(inboxController.remo
 router.post('/inbox/routing-rules', asyncHandler(inboxController.createRule));
 router.patch('/inbox/routing-rules/:ruleId', asyncHandler(inboxController.updateRule));
 router.delete('/inbox/routing-rules/:ruleId', asyncHandler(inboxController.removeRule));
+router.post(
+  '/inbox/threads/:threadId/pin',
+  validateRequest({ params: threadParamsSchema }),
+  asyncHandler(inboxController.pinThread),
+);
+router.delete(
+  '/inbox/threads/:threadId/pin',
+  validateRequest({ params: threadParamsSchema }),
+  asyncHandler(inboxController.unpinThread),
+);
+router.put(
+  '/inbox/threads/pins/order',
+  validateRequest({ body: reorderPinnedThreadsBodySchema }),
+  asyncHandler(inboxController.reorderPins),
+);
 
 export default router;

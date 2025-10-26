@@ -1,5 +1,11 @@
 import { useCallback, useMemo } from 'react';
 import useSession from './useSession.js';
+import {
+  describePermissionRequirement,
+  hasPermission as matrixHasPermission,
+  normaliseMembershipKey,
+  resolveAuthorizationState,
+} from '../authorization/permissionMatrix.js';
 
 const PROJECT_MANAGEMENT_ROLES = [
   'project_manager',
@@ -78,30 +84,89 @@ function mergeValues(target, candidate) {
 export default function useAuthorization() {
   const { session, isAuthenticated } = useSession();
 
-  const roleSet = useMemo(() => {
-    const values = new Set();
-    mergeValues(values, session?.memberships);
-    mergeValues(values, session?.roles);
-    mergeValues(values, session?.accountTypes);
-    mergeValues(values, session?.primaryDashboard);
-    mergeValues(values, session?.activeMembership);
+  const membershipInputs = useMemo(() => {
+    const values = [];
+    const pushValue = (entry) => {
+      if (!entry) {
+        return;
+      }
+      if (Array.isArray(entry) || entry instanceof Set) {
+        entry.forEach((item) => pushValue(item));
+        return;
+      }
+      values.push(entry);
+    };
+    if (Array.isArray(session?.memberships)) {
+      session.memberships.forEach((membership) => {
+        if (typeof membership === 'string') {
+          values.push(membership);
+          return;
+        }
+        if (membership && typeof membership === 'object') {
+          if (membership.role) {
+            values.push(membership.role);
+          }
+          if (membership.key) {
+            values.push(membership.key);
+          }
+        }
+      });
+    }
+    pushValue(session?.roles);
+    pushValue(session?.accountTypes);
+    pushValue(session?.primaryDashboard);
+    pushValue(session?.activeMembership);
     return values;
-  }, [session?.accountTypes, session?.activeMembership, session?.memberships, session?.primaryDashboard, session?.roles]);
+  }, [
+    session?.accountTypes,
+    session?.activeMembership,
+    session?.memberships,
+    session?.primaryDashboard,
+    session?.roles,
+  ]);
 
-  const permissionSet = useMemo(() => {
-    const values = new Set();
-    mergeValues(values, session?.permissions);
-    mergeValues(values, session?.capabilities);
-    mergeValues(values, session?.grants);
-    mergeValues(values, session?.scopes);
+  const explicitPermissions = useMemo(() => {
+    const values = [];
+    [session?.permissions, session?.capabilities, session?.grants, session?.scopes]
+      .filter(Array.isArray)
+      .forEach((collection) => {
+        collection.forEach((entry) => values.push(entry));
+      });
     return values;
   }, [session?.capabilities, session?.grants, session?.permissions, session?.scopes]);
+
+  const authorizationState = useMemo(
+    () => resolveAuthorizationState({ memberships: membershipInputs, permissions: explicitPermissions }),
+    [explicitPermissions, membershipInputs],
+  );
+
+  const roleSet = useMemo(() => {
+    const values = new Set();
+    membershipInputs.forEach((role) => {
+      const normalised = normaliseMembershipKey(role);
+      if (normalised) {
+        values.add(normalised);
+      }
+    });
+    authorizationState.membershipKeys.forEach((membership) => values.add(membership));
+    mergeValues(values, session?.primaryDashboard);
+    return values;
+  }, [authorizationState.membershipKeys, membershipInputs, session?.primaryDashboard]);
+
+  const permissionSet = useMemo(() => new Set(authorizationState.permissionKeys), [
+    authorizationState.permissionKeys,
+  ]);
 
   const hasRole = useCallback((role) => roleSet.has(normaliseKey(role)), [roleSet]);
 
   const hasPermission = useCallback(
-    (permission) => permissionSet.has(normaliseKey(permission)),
-    [permissionSet],
+    (permission) => {
+      if (permissionSet.has(normaliseKey(permission))) {
+        return true;
+      }
+      return matrixHasPermission(authorizationState, permission);
+    },
+    [authorizationState, permissionSet],
   );
 
   const canAccess = useCallback(
@@ -146,13 +211,23 @@ export default function useAuthorization() {
   );
 
   const canManageProjects = useMemo(() => {
+    if (matrixHasPermission(authorizationState, 'projects:manage')) {
+      return true;
+    }
     if (!roleSet.size) {
       return false;
     }
     return PROJECT_MANAGEMENT_ROLES.some((role) => hasRole(role));
-  }, [hasRole, roleSet]);
+  }, [authorizationState, hasRole, roleSet]);
 
-  const denialReason = canManageProjects ? null : PROJECT_DENIAL_REASON;
+  const projectRequirement = useMemo(
+    () => describePermissionRequirement('projects:manage'),
+    [],
+  );
+
+  const denialReason = canManageProjects
+    ? null
+    : projectRequirement?.message ?? PROJECT_DENIAL_REASON;
 
   return {
     session,
@@ -164,6 +239,8 @@ export default function useAuthorization() {
     permissions: Array.from(permissionSet),
     canManageProjects,
     denialReason,
+    authorization: authorizationState,
+    projectRequirement,
   };
 }
 

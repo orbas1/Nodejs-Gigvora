@@ -6,6 +6,7 @@ process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'true';
 
 const modelsModuleSpecifier = '../../../tests/stubs/modelsIndexStub.js';
 const moderationModuleUrl = new URL('../../services/contentModerationService.js', import.meta.url);
+const suggestionModuleUrl = new URL('../../services/feedSuggestionService.js', import.meta.url);
 
 const FeedPostMock = {
   findAll: jest.fn(),
@@ -52,6 +53,19 @@ jest.unstable_mockModule(moderationModuleUrl.pathname, () => ({
   enforceFeedCommentPolicies: enforceFeedCommentPoliciesMock,
 }));
 
+const getFeedSuggestionsMock = jest.fn().mockResolvedValue({
+  generatedAt: new Date().toISOString(),
+  connections: [],
+  groups: [],
+  liveMoments: [],
+});
+const invalidateFeedSuggestionsMock = jest.fn();
+
+jest.unstable_mockModule(suggestionModuleUrl.pathname, () => ({
+  getFeedSuggestions: getFeedSuggestionsMock,
+  invalidateFeedSuggestions: invalidateFeedSuggestionsMock,
+}));
+
 let listFeed;
 let createComment;
 let toggleReaction;
@@ -96,6 +110,13 @@ function resetMocks() {
     signals: [],
   }));
   enforceFeedCommentPoliciesMock.mockReset().mockImplementation(({ content }) => ({ content, signals: [] }));
+  getFeedSuggestionsMock.mockReset().mockResolvedValue({
+    generatedAt: new Date().toISOString(),
+    connections: [],
+    groups: [],
+    liveMoments: [],
+  });
+  invalidateFeedSuggestionsMock.mockReset();
 }
 
 beforeEach(async () => {
@@ -166,7 +187,11 @@ describe('feedController', () => {
       nextPage: null,
       hasMore: false,
       total: 1,
-      suggestions: [],
+      suggestions: expect.objectContaining({
+        connections: expect.any(Array),
+        groups: expect.any(Array),
+        liveMoments: expect.any(Array),
+      }),
     });
   });
 
@@ -256,59 +281,61 @@ describe('feedController', () => {
     });
   });
 
-  it('enriches the feed response with suggested connections and mutual reasons', async () => {
+  it('enriches the feed response with suggested connections and signal payload', async () => {
     FeedPostMock.findAll.mockResolvedValue([]);
     FeedPostMock.count.mockResolvedValue(0);
     FeedReactionMock.findAll.mockResolvedValue([]);
     FeedCommentMock.findAll.mockResolvedValue([]);
-    ConnectionMock.findAll
-      .mockResolvedValueOnce([
-        { requesterId: 42, addresseeId: 7 },
-        { requesterId: 7, addresseeId: 42 },
-      ])
-      .mockResolvedValueOnce([{ requesterId: 5, addresseeId: 7 }]);
-    ProfileMock.findAll.mockResolvedValue([
-      {
-        userId: 5,
-        headline: 'Product Lead',
-        location: 'Berlin',
-        avatarUrl: null,
-        avatarSeed: 'alex',
-        followersCount: 4,
-        trustScore: 87,
-        updatedAt: new Date().toISOString(),
-        User: {
-          id: 5,
-          firstName: 'Alex',
-          lastName: 'River',
-          email: 'alex.river@example.com',
-          userType: 'member',
-          primaryDashboard: 'member',
+    getFeedSuggestionsMock.mockResolvedValue({
+      generatedAt: '2024-05-01T12:00:00.000Z',
+      connections: [
+        {
+          id: 'user-5',
+          userId: 5,
+          name: 'Alex River',
+          headline: 'Product Lead',
+          mutualConnections: 3,
+          reason: '3 mutual connections',
         },
-      },
-    ]);
+      ],
+      groups: [
+        {
+          id: 77,
+          name: 'Future of Work Collective',
+          members: 2140,
+          focus: ['future of work'],
+        },
+      ],
+      liveMoments: [
+        { id: 'signal-1', title: 'Live moment', tag: 'Update', icon: '⚡️', timestamp: '2024-05-01T11:59:00.000Z' },
+      ],
+    });
 
     const req = { query: {}, user: { id: 42 } };
     const res = createResponse();
 
     await listFeed(req, res);
 
-    expect(ConnectionMock.findAll).toHaveBeenCalled();
-    expect(ProfileMock.findAll).toHaveBeenCalledWith(
+    expect(getFeedSuggestionsMock).toHaveBeenCalledWith(
+      { id: 42 },
       expect.objectContaining({
-        limit: expect.any(Number),
+        connectionLimit: expect.any(Number),
+        groupLimit: expect.any(Number),
+        signalLimit: expect.any(Number),
+        recentFeedPosts: expect.any(Array),
       }),
     );
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({
         items: [],
         total: 0,
-        suggestions: [
-          expect.objectContaining({
-            userId: 5,
-            reason: expect.stringMatching(/mutual|followers/),
-          }),
-        ],
+        suggestions: expect.objectContaining({
+          connections: expect.arrayContaining([
+            expect.objectContaining({ userId: 5, reason: '3 mutual connections' }),
+          ]),
+          groups: expect.arrayContaining([expect.objectContaining({ id: 77 })]),
+          liveMoments: expect.arrayContaining([expect.objectContaining({ id: 'signal-1' })]),
+        }),
       }),
     );
   });
