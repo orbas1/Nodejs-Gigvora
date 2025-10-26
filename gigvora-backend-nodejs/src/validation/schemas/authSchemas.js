@@ -8,9 +8,20 @@ import {
   requiredEmail,
   requiredTrimmedString,
 } from '../primitives.js';
+import { evaluatePasswordStrength } from '../../../../shared-contracts/security/passwordStrength.js';
 
 const emailSchema = requiredEmail();
-const passwordSchema = requiredTrimmedString({ min: 8, max: 200 });
+const passwordSchema = requiredTrimmedString({ min: 12, max: 200 }).superRefine((value, ctx) => {
+  const assessment = evaluatePasswordStrength(value);
+  if (assessment.valid) {
+    return;
+  }
+  const guidance = [...assessment.recommendations, ...assessment.compromised];
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message: guidance[0] || 'Password does not meet the required complexity.',
+  });
+});
 const firstNameSchema = requiredTrimmedString({ max: 120 });
 const lastNameSchema = requiredTrimmedString({ max: 120 });
 const optionalAddress = optionalTrimmedString({ max: 255 });

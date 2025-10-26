@@ -6,6 +6,7 @@ import jwkToPem from 'jwk-to-pem';
 import { OAuth2Client } from 'google-auth-library';
 import twoFactorService from './twoFactorService.js';
 import { getAuthDomainService, getFeatureFlagService } from '../domains/serviceCatalog.js';
+import { evaluatePasswordStrength } from '../../../shared-contracts/security/passwordStrength.js';
 import {
   getRefreshTokenInvalidation,
   getRefreshTokenRevocation,
@@ -548,9 +549,23 @@ async function issueSession(user, { context = null } = {}) {
 }
 
 function ensurePasswordStrength(password) {
-  if (typeof password !== 'string' || password.length < 8) {
-    throw buildError('Password must be at least 8 characters long.', 422);
+  if (typeof password !== 'string') {
+    throw buildError('Password must be provided as a string.', 422);
   }
+  const assessment = evaluatePasswordStrength(password);
+  if (assessment.valid) {
+    return;
+  }
+  const guidance = [...assessment.recommendations, ...assessment.compromised];
+  const message = guidance[0] || 'Password does not meet the required complexity.';
+  const error = buildError(message, 422);
+  error.meta = {
+    recommendations: assessment.recommendations,
+    compromised: assessment.compromised,
+    score: assessment.score,
+    length: assessment.length,
+  };
+  throw error;
 }
 
 async function register(data) {

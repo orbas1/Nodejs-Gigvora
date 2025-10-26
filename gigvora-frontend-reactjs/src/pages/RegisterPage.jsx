@@ -9,6 +9,10 @@ import { SOCIAL_PROVIDERS, SOCIAL_PROVIDER_LABELS } from '../components/SocialAu
 import useFormState from '../hooks/useFormState.js';
 import FormStatusMessage from '../components/forms/FormStatusMessage.jsx';
 import { isValidEmail, validatePasswordStrength } from '../utils/validation.js';
+import {
+  MAX_PASSWORD_STRENGTH_SCORE,
+  resolvePasswordStrengthLevel,
+} from '@shared-contracts/security/passwordStrength.js';
 import { normaliseEmail, saveRememberedLogin, redirectToSocialAuth } from '../utils/authHelpers.js';
 
 const DASHBOARD_ROUTES = {
@@ -60,8 +64,6 @@ const ROLE_OPTIONS = [
 
 const DEFAULT_MEMBERSHIP = 'user';
 
-const PASSWORD_STRENGTH_LABELS = ['Needs improvement', 'Getting there', 'Strong', 'Elite'];
-
 const initialState = {
   firstName: '',
   lastName: '',
@@ -100,42 +102,34 @@ export default function RegisterPage() {
   const maxBirthDate = new Date().toISOString().split('T')[0];
 
   const passwordInsights = useMemo(() => validatePasswordStrength(form.password), [form.password]);
-  const passwordRules = useMemo(() => {
-    const value = typeof form.password === 'string' ? form.password.trim() : '';
-    return [
-      { id: 'length', label: 'At least 8 characters', met: value.length >= 8 },
-      { id: 'letter', label: 'Includes a letter', met: /[a-zA-Z]/.test(value) },
-      { id: 'number', label: 'Includes a number', met: /\d/.test(value) },
-      { id: 'symbol', label: 'Includes a symbol', met: /[^\da-zA-Z]/.test(value) },
-    ];
-  }, [form.password]);
-  const passwordScore = useMemo(() => passwordRules.filter((rule) => rule.met).length, [passwordRules]);
-  const passwordStrengthPercent = useMemo(
-    () => (passwordRules.length ? Math.round((passwordScore / passwordRules.length) * 100) : 0),
-    [passwordRules.length, passwordScore],
-  );
-  const passwordStrengthMeta = useMemo(() => {
-    const ratio = passwordRules.length ? passwordScore / passwordRules.length : 0;
-    if (ratio >= 0.95) {
-      return { label: PASSWORD_STRENGTH_LABELS[3], barClass: 'bg-blue-600' };
-    }
-    if (ratio >= 0.75) {
-      return { label: PASSWORD_STRENGTH_LABELS[2], barClass: 'bg-emerald-500' };
-    }
-    if (ratio >= 0.5) {
-      return { label: PASSWORD_STRENGTH_LABELS[1], barClass: 'bg-amber-500' };
-    }
-    return { label: PASSWORD_STRENGTH_LABELS[0], barClass: 'bg-rose-500' };
-  }, [passwordRules.length, passwordScore]);
-  const passwordStrengthWidth = useMemo(() => {
-    if (!passwordRules.length) {
+  const passwordRequirements = passwordInsights.requirements ?? [];
+  const passwordStrengthPercent = useMemo(() => {
+    if (typeof passwordInsights.score !== 'number') {
       return 0;
     }
-    if (passwordScore === 0) {
-      return 12;
+    return Math.round((passwordInsights.score / MAX_PASSWORD_STRENGTH_SCORE) * 100);
+  }, [passwordInsights.score]);
+  const passwordStrengthMeta = useMemo(() => {
+    const level = resolvePasswordStrengthLevel(passwordInsights.score ?? 0);
+    const barClass =
+      level.id === 'elite'
+        ? 'bg-blue-600'
+        : level.id === 'strong'
+          ? 'bg-emerald-500'
+          : level.id === 'fair'
+            ? 'bg-amber-500'
+            : 'bg-rose-500';
+    return { label: level.label, barClass };
+  }, [passwordInsights.score]);
+  const passwordStrengthWidth = useMemo(() => {
+    if (!passwordRequirements.length) {
+      return 0;
+    }
+    if (!passwordInsights.score) {
+      return 16;
     }
     return Math.min(100, Math.max(passwordStrengthPercent, 32));
-  }, [passwordRules.length, passwordScore, passwordStrengthPercent]);
+  }, [passwordInsights.score, passwordRequirements.length, passwordStrengthPercent]);
 
   const selectedRoles = useMemo(() => Array.from(roleSelections), [roleSelections]);
   const membershipPayload = useMemo(() => {
@@ -208,7 +202,8 @@ export default function RegisterPage() {
       return;
     }
     if (!passwordInsights.valid) {
-      setError(`Choose a stronger password. ${passwordInsights.recommendations.join(' ')}`);
+      const guidance = [...passwordInsights.recommendations, ...passwordInsights.compromised];
+      setError(`Choose a stronger password. ${guidance.join(' ')}`.trim());
       return;
     }
     if (!acceptTerms) {
@@ -379,6 +374,8 @@ export default function RegisterPage() {
                     onChange={handleChange}
                     className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 pr-24 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                     required
+                    minLength={12}
+                    autoComplete="new-password"
                   />
                   <button
                     type="button"
@@ -404,6 +401,8 @@ export default function RegisterPage() {
                     onChange={handleChange}
                     className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 pr-24 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                     required
+                    minLength={12}
+                    autoComplete="new-password"
                   />
                   <button
                     type="button"
@@ -419,7 +418,7 @@ export default function RegisterPage() {
               <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
                   <span>{passwordStrengthMeta.label}</span>
-                  <span>{passwordStrengthPercent}% secure</span>
+                  <span>{Math.max(0, passwordStrengthPercent)}% secure</span>
                 </div>
                 <div className="mt-3 h-2 rounded-full bg-slate-200" aria-hidden="true">
                   <div
@@ -428,7 +427,7 @@ export default function RegisterPage() {
                   />
                 </div>
                 <ul className="mt-3 grid gap-2 text-xs text-slate-500 sm:grid-cols-2">
-                  {passwordRules.map((rule) => (
+                  {passwordRequirements.map((rule) => (
                     <li key={rule.id} className={`flex items-center gap-2 ${rule.met ? 'text-emerald-600' : ''}`}>
                       <span
                         className={`inline-flex h-2.5 w-2.5 rounded-full ${rule.met ? 'bg-emerald-500' : 'bg-slate-300'}`}
@@ -438,6 +437,20 @@ export default function RegisterPage() {
                     </li>
                   ))}
                 </ul>
+                {passwordInsights.recommendations.length ? (
+                  <div className="mt-3 space-y-1 rounded-xl bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+                    {passwordInsights.recommendations.map((tip) => (
+                      <p key={tip}>• {tip}</p>
+                    ))}
+                  </div>
+                ) : null}
+                {passwordInsights.compromised.length ? (
+                  <div className="mt-3 space-y-1 rounded-xl bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-600">
+                    {passwordInsights.compromised.map((warning) => (
+                      <p key={warning}>{warning}</p>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             </div>
             <div className="space-y-4 rounded-3xl border border-slate-200 bg-surfaceMuted/60 p-6">

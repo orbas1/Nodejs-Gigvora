@@ -5,9 +5,11 @@ import PageHeader from '../PageHeader.jsx';
 import FormStatusMessage from '../forms/FormStatusMessage.jsx';
 import useFormState from '../../hooks/useFormState.js';
 import { resetPassword, verifyPasswordResetToken } from '../../services/auth.js';
-import { validatePasswordStrength } from '../../utils/validation.js';
-
-const PASSWORD_STRENGTH_LABELS = ['Needs work', 'On track', 'Strong', 'Elite'];
+import {
+  evaluatePasswordStrength,
+  resolvePasswordStrengthLevel,
+  MAX_PASSWORD_STRENGTH_SCORE,
+} from '@shared-contracts/security/passwordStrength.js';
 
 function formatExpiry(timestamp) {
   if (!timestamp) {
@@ -37,7 +39,7 @@ export default function PasswordReset({ token: providedToken }) {
   const { status, setStatus, setError, setInfo, setSuccess, clearMessage, message, messageType, feedbackProps } =
     useFormState('verifying');
 
-  const passwordInsights = useMemo(() => validatePasswordStrength(password), [password]);
+  const passwordInsights = useMemo(() => evaluatePasswordStrength(password), [password]);
   const expiresAtLabel = useMemo(() => formatExpiry(tokenMeta?.expiresAt), [tokenMeta?.expiresAt]);
 
   useEffect(() => {
@@ -117,7 +119,8 @@ export default function PasswordReset({ token: providedToken }) {
         return;
       }
       if (!passwordInsights.valid) {
-        setError(`Choose a stronger password. ${passwordInsights.recommendations.join(' ')}`.trim());
+        const guidance = [...passwordInsights.recommendations, ...passwordInsights.compromised];
+        setError(`Choose a stronger password. ${guidance.join(' ')}`.trim());
         return;
       }
 
@@ -143,12 +146,17 @@ export default function PasswordReset({ token: providedToken }) {
     [clearMessage, confirmPassword, navigate, password, passwordInsights, setError, setStatus, setSuccess, status, token, verificationState],
   );
 
-  const passwordStrengthLabel = useMemo(() => {
-    const score = passwordInsights.score ?? 0;
-    return PASSWORD_STRENGTH_LABELS[Math.min(PASSWORD_STRENGTH_LABELS.length - 1, Math.max(0, score - 1))];
-  }, [passwordInsights.score]);
+  const strengthMeta = useMemo(() => resolvePasswordStrengthLevel(passwordInsights.score ?? 0), [passwordInsights.score]);
 
-  const strengthPercent = useMemo(() => Math.min(100, Math.max(0, (passwordInsights.score ?? 0) * 25)), [passwordInsights.score]);
+  const strengthPercent = useMemo(() => {
+    if (!passwordInsights || typeof passwordInsights.score !== 'number') {
+      return 0;
+    }
+    return Math.min(
+      100,
+      Math.max(0, Math.round((passwordInsights.score / MAX_PASSWORD_STRENGTH_SCORE) * 100)),
+    );
+  }, [passwordInsights]);
 
   const countdownLabel = useMemo(() => {
     if (!countdown || countdown <= 0) {
@@ -194,6 +202,7 @@ export default function PasswordReset({ token: providedToken }) {
                     className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                     autoComplete="new-password"
                     required
+                    minLength={12}
                     disabled={verificationState !== 'ready' && verificationState !== 'completed'}
                   />
                   <button
@@ -205,7 +214,7 @@ export default function PasswordReset({ token: providedToken }) {
                   </button>
                 </div>
                 <div className="space-y-1 text-xs text-slate-500">
-                  <p className="font-semibold text-slate-600">{passwordStrengthLabel}</p>
+                  <p className="font-semibold text-slate-600">{strengthMeta.label}</p>
                   <div className="h-1.5 w-full rounded-full bg-slate-200">
                     <div
                       className={`h-1.5 rounded-full transition-all duration-500 ${
@@ -219,12 +228,32 @@ export default function PasswordReset({ token: providedToken }) {
                       aria-hidden="true"
                     />
                   </div>
+                  <ul className="space-y-1 text-[11px]">
+                    {passwordInsights.requirements.map((rule) => (
+                      <li key={rule.id} className="flex items-center gap-2">
+                        <span
+                          className={`inline-flex h-1.5 w-1.5 rounded-full ${
+                            rule.met ? 'bg-emerald-500' : 'bg-slate-300'
+                          }`}
+                          aria-hidden="true"
+                        />
+                        <span className={rule.met ? 'text-slate-600' : 'text-slate-500'}>{rule.label}</span>
+                      </li>
+                    ))}
+                  </ul>
                   {passwordInsights.recommendations.length ? (
-                    <ul className="space-y-0.5 text-[11px] text-slate-500">
+                    <div className="rounded-xl bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
                       {passwordInsights.recommendations.map((tip) => (
-                        <li key={tip}>• {tip}</li>
+                        <p key={tip}>• {tip}</p>
                       ))}
-                    </ul>
+                    </div>
+                  ) : null}
+                  {passwordInsights.compromised.length ? (
+                    <div className="rounded-xl bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-600">
+                      {passwordInsights.compromised.map((warning) => (
+                        <p key={warning}>{warning}</p>
+                      ))}
+                    </div>
                   ) : null}
                 </div>
               </div>
@@ -241,6 +270,7 @@ export default function PasswordReset({ token: providedToken }) {
                     className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                     autoComplete="new-password"
                     required
+                    minLength={12}
                     disabled={verificationState !== 'ready' && verificationState !== 'completed'}
                   />
                   <button
