@@ -1,5 +1,4 @@
 import {
-  ArrowTrendingUpIcon,
   ChatBubbleLeftRightIcon,
   CheckBadgeIcon,
   GlobeAltIcon,
@@ -7,8 +6,10 @@ import {
   SparklesIcon,
 } from '@heroicons/react/24/outline';
 import PropTypes from 'prop-types';
-import DataStatus from '../DataStatus.jsx';
 import UserAvatar from '../UserAvatar.jsx';
+import ReputationScorecard from './ReputationScorecard.jsx';
+import ReviewComposer from './ReviewComposer.jsx';
+import EndorsementWall from './EndorsementWall.jsx';
 import { formatRelativeTime, formatAbsolute } from '../../utils/date.js';
 
 function formatBadgeDate(value) {
@@ -19,89 +20,6 @@ function formatBadgeDate(value) {
     return value;
   }
 }
-
-function formatMetricDescription(metric) {
-  if (!metric?.periodLabel && !metric?.source) {
-    return null;
-  }
-  const parts = [];
-  if (metric.periodLabel) {
-    parts.push(metric.periodLabel);
-  }
-  if (metric.source) {
-    parts.push(`Source: ${metric.source}`);
-  }
-  return parts.join(' • ');
-}
-
-function classNames(...values) {
-  return values.filter(Boolean).join(' ');
-}
-
-function TrendPill({ trendDirection, trendLabel }) {
-  if (!trendLabel) {
-    return null;
-  }
-  const palette = trendDirection === 'down' ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600';
-  return (
-    <span className={classNames('inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold', palette)}>
-      <ArrowTrendingUpIcon
-        className={classNames('mr-1 h-3.5 w-3.5', trendDirection === 'down' ? 'rotate-180 text-rose-500' : 'text-emerald-500')}
-      />
-      {trendLabel}
-    </span>
-  );
-}
-
-TrendPill.propTypes = {
-  trendDirection: PropTypes.oneOf(['up', 'down']),
-  trendLabel: PropTypes.string,
-};
-
-function TestimonialCard({ testimonial, featured = false }) {
-  if (!testimonial) {
-    return null;
-  }
-  return (
-    <article
-      className={classNames(
-        'flex h-full flex-col justify-between rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm',
-        featured ? 'ring-2 ring-blue-200' : '',
-      )}
-    >
-      <div>
-        <p className="text-sm text-slate-600">{testimonial.comment}</p>
-      </div>
-      <footer className="mt-6 flex flex-col gap-1 text-sm text-slate-700">
-        <div className="font-semibold text-slate-900">{testimonial.clientName}</div>
-        <div className="text-xs uppercase tracking-wide text-slate-400">
-          {[testimonial.clientRole, testimonial.company].filter(Boolean).join(' • ')}
-        </div>
-        {testimonial.rating ? (
-          <div className="mt-2 inline-flex items-center gap-2 text-xs font-semibold text-amber-600">
-            <SparklesIcon className="h-4 w-4" /> {testimonial.rating.toFixed(1)} / 5
-          </div>
-        ) : null}
-      </footer>
-    </article>
-  );
-}
-
-TestimonialCard.propTypes = {
-  testimonial: PropTypes.shape({
-    comment: PropTypes.string,
-    clientName: PropTypes.string,
-    clientRole: PropTypes.string,
-    company: PropTypes.string,
-    rating: PropTypes.number,
-  }),
-  featured: PropTypes.bool,
-};
-
-TestimonialCard.defaultProps = {
-  testimonial: null,
-  featured: false,
-};
 
 function SuccessStoryCard({ story }) {
   if (!story) return null;
@@ -228,12 +146,11 @@ export default function ReputationEngineShowcase({
   onRefresh,
   fromCache,
   lastUpdated,
+  freelancerId,
 }) {
   const freelancer = data?.freelancer;
   const metrics = data?.metrics ?? [];
   const summary = data?.summary ?? {};
-  const featuredTestimonial = data?.testimonials?.featured ?? null;
-  const additionalTestimonials = data?.testimonials?.recent ?? [];
   const successStories = data?.successStories?.collection ?? [];
   const featuredStory = data?.successStories?.featured ?? null;
   const badges = data?.badges?.collection ?? [];
@@ -243,14 +160,40 @@ export default function ReputationEngineShowcase({
   const integrationTouchpoints = data?.integrationTouchpoints ?? [];
   const shareableLinks = data?.shareableLinks ?? [];
 
-  const metricsToRender = metrics.slice(0, 4);
-  const secondaryMetrics = metrics.slice(4, 8);
+  const trustBreakdown = summary?.trustBreakdown ?? data?.trustBreakdown ?? [];
+  const trustBenchmarks = summary?.benchmarks ?? data?.trustBenchmarks ?? [];
+  const scorecardAchievements =
+    Array.isArray(summary?.achievements) && summary.achievements.length
+      ? summary.achievements
+      : promotedBadges.length
+      ? promotedBadges.slice(0, 3).map((badge) => `Badge unlocked: ${badge.name}`)
+      : undefined;
+  const reviewComposerConfig = data?.reviewComposer ?? {};
+  const reviewPersonaOptions =
+    reviewComposerConfig.personaOptions ??
+    reviewComposerConfig.personas ??
+    reviewComposerConfig.personaChoices ??
+    undefined;
+  const reviewPrompts = data?.reviewPrompts ?? reviewComposerConfig.prompts ?? undefined;
+  const reviewTagLibrary = reviewComposerConfig.tags ?? undefined;
+  const reviewGuidelines = reviewComposerConfig.guidelines ?? undefined;
+  const reviewAudienceOptions =
+    reviewComposerConfig.audiences ?? reviewComposerConfig.availableAudiences ?? undefined;
+  const reviewDefaultVisibility = reviewComposerConfig.defaultVisibility ?? reviewComposerConfig.visibility ?? 'public';
+  const ratingBaseline = summary?.reviewAverage ?? summary?.rating ?? null;
+  const totalReviews = summary?.totalReviews ?? summary?.reviewCount ?? null;
   const verifiedRelative = summary?.lastVerifiedAt ? formatRelativeTime(summary.lastVerifiedAt) : null;
   const verifiedAbsolute = summary?.lastVerifiedAt ? formatAbsolute(summary.lastVerifiedAt) : null;
+  const resolvedRatingBaseline = Number.isFinite(Number(ratingBaseline)) ? Number(ratingBaseline) : null;
+  const resolvedTotalReviews = Number.isFinite(Number(totalReviews)) ? Number(totalReviews) : null;
+  const composerFreelancerId = freelancerId ?? freelancer?.id ?? null;
 
   return (
     <div className="space-y-12">
-      <section id="reputation-engine" className="rounded-3xl border border-slate-200 bg-white p-8 shadow-[0_24px_50px_-30px_rgba(30,64,175,0.35)]">
+      <section
+        id="reputation-engine"
+        className="space-y-10 rounded-3xl border border-slate-200 bg-white p-8 shadow-[0_24px_50px_-30px_rgba(30,64,175,0.35)]"
+      >
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-blue-600/80">Reputation engine</p>
@@ -259,80 +202,63 @@ export default function ReputationEngineShowcase({
               Monitor testimonials, success stories, verified metrics, and shareable badges from one command center. Every insight
               links back to Gigvora delivery data so clients can trust what they see.
             </p>
-            {freelancer ? (
-              <div className="flex items-center gap-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                <UserAvatar name={freelancer.name} seed={freelancer.avatarSeed} size="md" />
-                <div>
-                  <p className="text-sm uppercase tracking-wide text-slate-400">Featured freelancer</p>
-                  <p className="text-lg font-semibold text-slate-900">{freelancer.name}</p>
-                  <p className="text-sm text-slate-500">{freelancer.title}</p>
-                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
-                    {freelancer.location ? <span>{freelancer.location}</span> : null}
-                    {freelancer.timezone ? <span>• {freelancer.timezone}</span> : null}
-                    {verifiedRelative ? (
-                      <span title={verifiedAbsolute ?? undefined}>• Metrics verified {verifiedRelative}</span>
-                    ) : null}
-                  </div>
+          </div>
+          {freelancer ? (
+            <div className="flex items-center gap-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+              <UserAvatar name={freelancer.name} seed={freelancer.avatarSeed} size="md" />
+              <div>
+                <p className="text-sm uppercase tracking-wide text-slate-400">Featured freelancer</p>
+                <p className="text-lg font-semibold text-slate-900">{freelancer.name}</p>
+                <p className="text-sm text-slate-500">{freelancer.title}</p>
+                <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
+                  {freelancer.location ? <span>{freelancer.location}</span> : null}
+                  {freelancer.timezone ? <span>• {freelancer.timezone}</span> : null}
+                  {verifiedRelative ? (
+                    <span title={verifiedAbsolute ?? undefined}>• Metrics verified {verifiedRelative}</span>
+                  ) : null}
                 </div>
               </div>
-            ) : null}
-          </div>
-          <DataStatus
+            </div>
+          ) : null}
+        </div>
+
+        <div className="space-y-10">
+          <ReputationScorecard
+            summary={summary}
+            metrics={metrics}
+            breakdown={trustBreakdown}
+            benchmarks={trustBenchmarks}
+            achievements={scorecardAchievements}
             loading={loading}
+            error={error}
             fromCache={fromCache}
             lastUpdated={lastUpdated}
             onRefresh={onRefresh}
           />
-        </div>
 
-        {error ? (
-          <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-            {error}
-          </div>
-        ) : null}
+          <ReviewComposer
+            freelancerId={composerFreelancerId ?? undefined}
+            personaOptions={reviewPersonaOptions}
+            promptLibrary={reviewPrompts}
+            tagLibrary={reviewTagLibrary}
+            guidelines={reviewGuidelines}
+            defaultAudience={reviewAudienceOptions}
+            defaultVisibility={reviewDefaultVisibility}
+            ratingBaseline={resolvedRatingBaseline ?? undefined}
+            totalReviews={resolvedTotalReviews ?? undefined}
+            onReviewCreated={() => onRefresh?.()}
+          />
 
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {metricsToRender.map((metric) => (
-            <div key={metric.metricType} className="flex h-full flex-col justify-between rounded-3xl border border-slate-200 bg-slate-50 p-5">
-              <div className="space-y-3">
-                <p className="text-xs uppercase tracking-wide text-slate-400">{metric.label}</p>
-                <p className="text-2xl font-semibold text-slate-900">{metric.formattedValue ?? metric.value}</p>
-                {metric.trendLabel ? <TrendPill trendDirection={metric.trendDirection} trendLabel={metric.trendLabel} /> : null}
-                {formatMetricDescription(metric) ? (
-                  <p className="text-xs text-slate-500">{formatMetricDescription(metric)}</p>
-                ) : null}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {secondaryMetrics.length ? (
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {secondaryMetrics.map((metric) => (
-              <div key={metric.metricType} className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/70 p-5">
-                <p className="text-xs uppercase tracking-wide text-slate-400">{metric.label}</p>
-                <p className="mt-2 text-lg font-semibold text-slate-900">{metric.formattedValue ?? metric.value}</p>
-                {formatMetricDescription(metric) ? (
-                  <p className="mt-2 text-xs text-slate-500">{formatMetricDescription(metric)}</p>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        ) : null}
-
-        <div className="mt-10 grid gap-6 lg:grid-cols-5">
-          <div className="lg:col-span-2 space-y-4">
-            <h3 className="text-lg font-semibold text-slate-900">Featured testimonial</h3>
-            <TestimonialCard testimonial={featuredTestimonial} featured />
-          </div>
-          <div className="lg:col-span-3 space-y-4">
-            <h3 className="text-lg font-semibold text-slate-900">Recent testimonials</h3>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {additionalTestimonials.slice(0, 4).map((testimonial) => (
-                <TestimonialCard key={testimonial.id} testimonial={testimonial} />
-              ))}
-            </div>
-          </div>
+          <EndorsementWall
+            testimonials={data?.testimonials}
+            shareLinks={shareableLinks}
+            freelancer={freelancer}
+            loading={loading}
+            error={error}
+            fromCache={fromCache}
+            lastUpdated={lastUpdated}
+            onRefresh={onRefresh}
+          />
         </div>
       </section>
 
@@ -493,10 +419,11 @@ ReputationEngineShowcase.propTypes = {
     shareableLinks: PropTypes.arrayOf(PropTypes.object),
   }),
   loading: PropTypes.bool,
-  error: PropTypes.instanceOf(Error),
+  error: PropTypes.oneOfType([PropTypes.instanceOf(Error), PropTypes.string]),
   onRefresh: PropTypes.func,
   fromCache: PropTypes.bool,
   lastUpdated: PropTypes.instanceOf(Date),
+  freelancerId: PropTypes.string,
 };
 
 ReputationEngineShowcase.defaultProps = {
@@ -506,5 +433,6 @@ ReputationEngineShowcase.defaultProps = {
   onRefresh: undefined,
   fromCache: false,
   lastUpdated: undefined,
+  freelancerId: undefined,
 };
 

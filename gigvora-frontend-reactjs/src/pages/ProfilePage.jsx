@@ -809,6 +809,7 @@ export default function ProfilePage() {
                     onRefresh={handleReputationRefresh}
                     fromCache={reputationState.fromCache}
                     lastUpdated={reputationState.lastUpdated}
+                    freelancerId={id}
                   />
                 </div>
               ) : (
