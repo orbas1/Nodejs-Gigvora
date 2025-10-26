@@ -3,7 +3,10 @@ process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'false';
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import '../setupTestEnv.js';
 import { configureRateLimitMetrics, resetRateLimitMetrics, recordRateLimitAttempt, recordRateLimitSuccess } from '../../src/observability/rateLimitMetrics.js';
-import { getRuntimeOperationalSnapshot } from '../../src/services/runtimeObservabilityService.js';
+import {
+  getRuntimeOperationalSnapshot,
+  __testing as observabilityTesting,
+} from '../../src/services/runtimeObservabilityService.js';
 import { createAnnouncement } from '../../src/services/runtimeMaintenanceService.js';
 
 describe('runtimeObservabilityService', () => {
@@ -47,6 +50,64 @@ describe('runtimeObservabilityService', () => {
     const snapshot = await getRuntimeOperationalSnapshot();
     expect(snapshot.rateLimit.currentWindow.hits).toBe(0);
     expect(snapshot.rateLimit.topConsumers).toHaveLength(0);
+    expect(snapshot.realtime).toMatchObject({
+      generatedAt: expect.any(String),
+      enabled: expect.any(Boolean),
+      connectedUsers: expect.any(Number),
+      activeSockets: expect.any(Number),
+    });
+    expect(snapshot.workers).toMatchObject({
+      generatedAt: expect.any(String),
+      totalWorkers: expect.any(Number),
+      workers: expect.any(Array),
+    });
+  });
+
+  it('summarises worker telemetry into attention states', () => {
+    const { summariseWorkerTelemetry, buildWorkerOverview, buildRealtimeOverview } = observabilityTesting;
+    const workerSummary = summariseWorkerTelemetry({
+      name: 'profileEngagement',
+      metrics: {
+        pending: 150,
+        stuck: 2,
+        failed: 1,
+        intervalMs: 30000,
+        generatedAt: '2024-05-20T00:00:00.000Z',
+      },
+      metadata: { intervalMs: 30000 },
+    });
+
+    expect(workerSummary).toMatchObject({
+      name: 'profileEngagement',
+      status: 'attention',
+      queue: { pending: 150, stuck: 2, failed: 1 },
+    });
+    expect(workerSummary.attentionReasons).toEqual(
+      expect.arrayContaining(['high-pending', 'stuck-jobs', 'failed-jobs']),
+    );
+
+    const overview = buildWorkerOverview([
+      { name: 'profileEngagement', metrics: { pending: 0 } },
+      { name: 'newsAggregation', metrics: { pending: 5, isRunning: false } },
+    ]);
+
+    expect(overview.totalWorkers).toBe(2);
+    expect(overview.degraded).toBe(1);
+
+    const realtime = buildRealtimeOverview({
+      registry: {
+        describe: () => ({ users: 2, sockets: 10, maxConnectionsPerUser: 3 }),
+      },
+      io: null,
+      runtimeConfig: { realtime: { enabled: true, connection: { maxConnectionsPerUser: 3 } } },
+    });
+
+    expect(realtime.enabled).toBe(false);
+    expect(realtime.anomalies).toEqual(
+      expect.arrayContaining(['server-not-initialised', 'connection-limit-breached']),
+    );
+    expect(realtime.connectedUsers).toBe(2);
+    expect(realtime.activeSockets).toBe(10);
   });
 });
 

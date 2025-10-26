@@ -9,6 +9,9 @@ import { getRateLimitSnapshot } from '../observability/rateLimitMetrics.js';
 import { getPerimeterSnapshot } from '../observability/perimeterMetrics.js';
 import { getWebApplicationFirewallSnapshot } from '../security/webApplicationFirewall.js';
 import { getMetricsStatus } from '../observability/metricsRegistry.js';
+import { collectWorkerTelemetry } from '../lifecycle/workerManager.js';
+import { getConnectionRegistry, getSocketServer } from '../realtime/socketServer.js';
+import { getRuntimeConfig } from '../config/runtimeConfig.js';
 
 const SEVERITY_RANKING = {
   security: 4,
@@ -16,6 +19,175 @@ const SEVERITY_RANKING = {
   maintenance: 2,
   info: 1,
 };
+
+function toNumber(value, fallback = 0) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function summariseWorkerTelemetry(entry, { highPendingThreshold = 100 } = {}) {
+  if (!entry || typeof entry !== 'object') {
+    return null;
+  }
+
+  const metrics = entry.metrics && typeof entry.metrics === 'object' ? entry.metrics : {};
+  const pending = toNumber(metrics.pending ?? metrics.queueDepth ?? metrics.jobsPending, 0);
+  const stuck = toNumber(metrics.stuck ?? metrics.locked ?? metrics.jobsLocked, 0);
+  const failed = toNumber(metrics.failed ?? metrics.errorCount ?? metrics.jobsFailed, 0);
+  const intervalMs = toNumber(entry.metadata?.intervalMs ?? metrics.intervalMs, 0);
+  const sampleSource = entry.lastSampleAt || metrics.generatedAt || metrics.lastRunAt || null;
+
+  const alerts = [];
+  if (metrics?.error) {
+    alerts.push('telemetry-error');
+  }
+  if (metrics?.isRunning === false) {
+    alerts.push('stopped');
+  }
+  if (stuck > 0) {
+    alerts.push('stuck-jobs');
+  }
+  if (failed > 0) {
+    alerts.push('failed-jobs');
+  }
+  if (pending > highPendingThreshold) {
+    alerts.push('high-pending');
+  }
+
+  let status = 'healthy';
+  if (alerts.includes('telemetry-error')) {
+    status = 'error';
+  } else if (alerts.includes('stopped')) {
+    status = 'stopped';
+  } else if (alerts.length > 0) {
+    status = 'attention';
+  }
+
+  const lastSampleAt = sampleSource ? new Date(sampleSource).toISOString() : null;
+
+  return {
+    name: entry.name ?? 'unknown',
+    status,
+    queue: {
+      pending,
+      stuck,
+      failed,
+    },
+    intervalMs,
+    lastSampleAt,
+    attentionReasons: alerts,
+    metadata: entry.metadata ?? {},
+    metrics,
+  };
+}
+
+function buildWorkerOverview(telemetry = []) {
+  const generatedAt = new Date().toISOString();
+  if (!Array.isArray(telemetry) || telemetry.length === 0) {
+    return {
+      generatedAt,
+      totalWorkers: 0,
+      healthy: 0,
+      attention: 0,
+      degraded: 0,
+      workers: [],
+    };
+  }
+
+  const workers = telemetry
+    .map((entry) => summariseWorkerTelemetry(entry))
+    .filter(Boolean);
+
+  const healthy = workers.filter((worker) => worker.status === 'healthy').length;
+  const attention = workers.filter((worker) => worker.status === 'attention').length;
+  const degraded = workers.filter((worker) => worker.status === 'error' || worker.status === 'stopped').length;
+
+  return {
+    generatedAt,
+    totalWorkers: workers.length,
+    healthy,
+    attention,
+    degraded,
+    workers,
+  };
+}
+
+function extractNamespaceStats(io) {
+  if (!io) {
+    return [];
+  }
+
+  const namespaces = [];
+  const namespaceMap = io._nsps && typeof io._nsps.forEach === 'function' ? io._nsps : null;
+  if (namespaceMap) {
+    namespaceMap.forEach((namespace, name) => {
+      if (!namespace) {
+        return;
+      }
+      const sockets = namespace.sockets instanceof Map ? namespace.sockets.size : namespace.sockets?.size ?? 0;
+      const rooms = namespace.adapter?.rooms instanceof Map ? namespace.adapter.rooms.size : namespace.adapter?.rooms?.size ?? 0;
+      namespaces.push({
+        name,
+        sockets,
+        rooms,
+      });
+    });
+  } else if (typeof io.of === 'function') {
+    const namespace = io.of('/');
+    const sockets = namespace?.sockets instanceof Map ? namespace.sockets.size : namespace?.sockets?.size ?? 0;
+    const rooms = namespace?.adapter?.rooms instanceof Map ? namespace.adapter.rooms.size : namespace?.adapter?.rooms?.size ?? 0;
+    namespaces.push({ name: '/', sockets, rooms });
+  }
+
+  return namespaces.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function buildRealtimeOverview({ registry, io, runtimeConfig }) {
+  const generatedAt = new Date().toISOString();
+  const summary = typeof registry?.describe === 'function' ? registry.describe() : null;
+
+  const connectedUsers = toNumber(summary?.users, 0);
+  const activeSockets = toNumber(summary?.sockets, 0);
+  const maxConnectionsRaw =
+    summary?.maxConnectionsPerUser ?? runtimeConfig?.realtime?.connection?.maxConnectionsPerUser ?? null;
+  const maxConnectionsPerUser =
+    maxConnectionsRaw === null || maxConnectionsRaw === undefined
+      ? null
+      : toNumber(maxConnectionsRaw, null);
+  const averageSocketsPerUser = connectedUsers > 0 ? Number((activeSockets / connectedUsers).toFixed(2)) : 0;
+
+  const expectedEnabled = runtimeConfig?.realtime?.enabled !== false;
+  const anomalies = [];
+  const warnings = [];
+
+  if (expectedEnabled && !io) {
+    anomalies.push('server-not-initialised');
+  }
+  if (!expectedEnabled && (connectedUsers > 0 || activeSockets > 0)) {
+    anomalies.push('connections-while-disabled');
+  }
+  if (maxConnectionsPerUser && connectedUsers > 0) {
+    const allowance = maxConnectionsPerUser * connectedUsers;
+    if (activeSockets > allowance) {
+      anomalies.push('connection-limit-breached');
+    } else if (averageSocketsPerUser > maxConnectionsPerUser * 0.8) {
+      warnings.push('connection-ratio-approaching-limit');
+    }
+  }
+
+  return {
+    generatedAt,
+    enabled: Boolean(io) && expectedEnabled,
+    registryActive: Boolean(registry),
+    connectedUsers,
+    activeSockets,
+    averageSocketsPerUser,
+    maxConnectionsPerUser,
+    namespaces: extractNamespaceStats(io),
+    anomalies,
+    warnings,
+  };
+}
 
 function getEnvironmentSnapshot() {
   const memory = process.memoryUsage();
@@ -165,7 +337,15 @@ function buildAnnouncementSummary(raw = {}) {
 }
 
 export async function getRuntimeOperationalSnapshot() {
-  const [readiness, liveness, maintenanceAnnouncements, settings, securityEvents] = await Promise.all([
+  const runtimeConfig = getRuntimeConfig();
+  const [
+    readiness,
+    liveness,
+    maintenanceAnnouncements,
+    settings,
+    securityEvents,
+    workerTelemetry,
+  ] = await Promise.all([
     getReadinessReport(),
     Promise.resolve(getLivenessReport()),
     getVisibleAnnouncements({
@@ -177,7 +357,16 @@ export async function getRuntimeOperationalSnapshot() {
     }),
     getPlatformSettings(),
     getRecentRuntimeSecurityEvents({ limit: 12 }),
+    collectWorkerTelemetry({ forceRefresh: true }).catch(() => []),
   ]);
+
+  const realtime = buildRealtimeOverview({
+    registry: getConnectionRegistry(),
+    io: getSocketServer(),
+    runtimeConfig,
+  });
+
+  const workers = buildWorkerOverview(workerTelemetry);
 
   return {
     generatedAt: new Date().toISOString(),
@@ -192,9 +381,18 @@ export async function getRuntimeOperationalSnapshot() {
     maintenance: buildAnnouncementSummary(maintenanceAnnouncements),
     scheduledMaintenance: buildScheduledMaintenanceSnapshot(settings),
     security: buildSecuritySnapshot(securityEvents),
+    realtime,
+    workers,
   };
 }
 
 export default {
   getRuntimeOperationalSnapshot,
+};
+
+export const __testing = {
+  summariseWorkerTelemetry,
+  buildWorkerOverview,
+  buildRealtimeOverview,
+  extractNamespaceStats,
 };
