@@ -299,10 +299,17 @@ function summariseSessions(sessions = []) {
     free: 0,
     revenueCents: 0,
     satisfactionAverage: null,
+    totalFollowUps: 0,
+    averageFollowUpsPerSession: null,
+    averageFollowUpsPerAttendee: null,
+    connectionsCaptured: 0,
+    averageConnectionsPerSession: null,
   };
   const joinLimits = [];
   const rotationDurations = [];
   const satisfactionScores = [];
+  const followUps = { total: 0, sessions: 0, attendees: 0 };
+  const connections = { total: 0, sessions: 0 };
 
   sessions.forEach((session) => {
     const status = session.status ?? session.get?.('status');
@@ -320,12 +327,32 @@ function summariseSessions(sessions = []) {
       rotationDurations.push(Number(session.rotationDurationSeconds));
     }
     const signups = Array.isArray(session.signups) ? session.signups : [];
+    if (signups.length) {
+      followUps.sessions += 1;
+      connections.sessions += 1;
+    }
     signups.forEach((signup) => {
       const signupStatus = signup.status ?? signup.get?.('status');
       if (signupStatus === 'registered') summary.registered += 1;
       if (signupStatus === 'waitlisted') summary.waitlist += 1;
       if (signupStatus === 'checked_in') summary.checkedIn += 1;
       if (signupStatus === 'completed') summary.completedAttendees += 1;
+      followUps.attendees += 1;
+      const scheduled = Number(signup.followUpsScheduled ?? signup.get?.('followUpsScheduled'));
+      if (Number.isFinite(scheduled)) {
+        followUps.total += Math.max(0, scheduled);
+      }
+      const savedConnections = Number(
+        signup.connectionsSaved ??
+          signup.get?.('connectionsSaved') ??
+          signup.connectionsTracked ??
+          signup.get?.('connectionsTracked') ??
+          signup.connectionsRecorded ??
+          signup.get?.('connectionsRecorded'),
+      );
+      if (Number.isFinite(savedConnections)) {
+        connections.total += Math.max(0, savedConnections);
+      }
       if (signup.satisfactionScore != null) {
         const score = Number(signup.satisfactionScore);
         if (Number.isFinite(score)) {
@@ -355,6 +382,17 @@ function summariseSessions(sessions = []) {
   if (satisfactionScores.length) {
     const total = satisfactionScores.reduce((sum, value) => sum + value, 0);
     summary.satisfactionAverage = Number((total / satisfactionScores.length).toFixed(2));
+  }
+  summary.totalFollowUps = followUps.total;
+  if (followUps.sessions > 0) {
+    summary.averageFollowUpsPerSession = Number((followUps.total / followUps.sessions).toFixed(1));
+  }
+  if (followUps.attendees > 0) {
+    summary.averageFollowUpsPerAttendee = Number((followUps.total / followUps.attendees).toFixed(2));
+  }
+  summary.connectionsCaptured = connections.total;
+  if (connections.sessions > 0) {
+    summary.averageConnectionsPerSession = Number((connections.total / connections.sessions).toFixed(1));
   }
   return summary;
 }
