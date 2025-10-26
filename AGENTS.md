@@ -86,3 +86,6 @@
    - FileVault consumes workspace tokens, easing adoption by squads delivering adjacent asset management experiences.
    - Deployment checklist now spans storage API contracts, upload QA, analytics verification, localisation, and support enablement.
    - Release plan: integrate storage services, run staged pilots with compliance teams, validate performance, then expand globally with training.
+   - Modular quick actions, hide/show toggles, widget reordering, and curated data bands now cover metrics, milestones, tasks, files, and broadcasts from a single cockpit, hydrated by live workspace telemetry and seeded artefacts.
+   - Drag-and-drop moves, keyboard selectors, inspector drawer, filters, WIP badges, and view toggles now deliver enterprise-grade control backed by live workspace task pipelines.
+   - Version badges, tag filters, owner toggles, bulk share, and upload/new-folder actions now deliver end-to-end workspace file management tied to hydrated storage analytics.

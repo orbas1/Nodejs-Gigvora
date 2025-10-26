@@ -15,6 +15,9 @@ import {
   ProjectWorkspaceSubmission,
   ProjectWorkspaceInvite,
   ProjectWorkspaceHrRecord,
+  ProjectWorkspaceTask,
+  ProjectWorkspaceTaskAssignment,
+  ProjectWorkspaceTimeline,
   WORKSPACE_APPROVAL_STATUSES,
   WORKSPACE_CONVERSATION_PRIORITIES,
   WORKSPACE_BUDGET_STATUSES,
@@ -53,6 +56,14 @@ import {
 } from '../models/projectWorkspaceModels.js';
 import crypto from 'crypto';
 import { ValidationError, NotFoundError, AuthorizationError } from '../utils/errors.js';
+import {
+  seedWorkspaceOperationsArtifacts,
+  mapWorkspaceTaskWithAssignments,
+  groupWorkspaceMessagesByConversation,
+  mapWorkspaceConversation,
+  buildWorkspaceActivityFeed,
+  buildWorkspaceStorageSummary,
+} from './workspaceOperationsShared.js';
 
 const workspaceSequelize =
   ProjectWorkspace?.sequelize ?? Project?.sequelize ?? projectGigManagementSequelize ?? null;
@@ -1204,6 +1215,7 @@ export async function getWorkspaceDashboard(projectId) {
   project.setDataValue?.('workspace', workspace);
 
   await ensureWorkspaceSeedData(project, workspace);
+  await seedWorkspaceOperationsArtifacts(workspace, { project });
   await ensureDefaultChannel(project.id);
 
   const [
@@ -1221,6 +1233,8 @@ export async function getWorkspaceDashboard(projectId) {
     invites,
     hrRecords,
     messages,
+    tasks,
+    timeline,
   ] = await Promise.all([
     ProjectWorkspaceBrief.findOne({ where: { workspaceId: workspace.id } }),
     ProjectWorkspaceWhiteboard.findAll({
@@ -1315,24 +1329,27 @@ export async function getWorkspaceDashboard(projectId) {
         ['createdAt', 'ASC'],
       ],
     }),
+    ProjectWorkspaceTask.findAll({
+      where: { workspaceId: workspace.id },
+      include: [{ model: ProjectWorkspaceTaskAssignment, as: 'assignments' }],
+      order: [
+        ['status', 'ASC'],
+        ['endAt', 'ASC'],
+        ['createdAt', 'ASC'],
+      ],
+    }),
+    ProjectWorkspaceTimeline.findOne({ where: { workspaceId: workspace.id } }),
   ]);
 
   const briefPayload = brief ? brief.toPublicObject() : null;
   const whiteboardsPayload = whiteboards.map((board) => board.toPublicObject());
   const filesPayload = files.map((file) => file.toPublicObject());
-  const messagesGrouped = messages.reduce((map, message) => {
-    const convoId = message.conversationId;
-    if (!map.has(convoId)) {
-      map.set(convoId, []);
-    }
-    map.get(convoId).push(message.toPublicObject());
-    return map;
-  }, new Map());
-  const conversationsPayload = conversations.map((conversation) => {
-    const payload = conversation.toPublicObject();
-    payload.messages = messagesGrouped.get(conversation.id) ?? [];
-    return payload;
-  });
+  const messagesGrouped = groupWorkspaceMessagesByConversation(messages);
+  const conversationsPayload = conversations.map((conversation) =>
+    mapWorkspaceConversation(conversation, messagesGrouped),
+  );
+  const tasksPayload = tasks.map((task) => mapWorkspaceTaskWithAssignments(task)).filter(Boolean);
+  const messagesPayload = messages.map((message) => message.toPublicObject());
   const approvalsPayload = approvals.map((approval) => approval.toPublicObject());
   const budgetsPayload = budgets.map((budget) => budget.toPublicObject());
   const objectsPayload = objects.map((object) => {
@@ -1351,6 +1368,13 @@ export async function getWorkspaceDashboard(projectId) {
   const submissionsPayload = submissions.map((submission) => submission.toPublicObject());
   const invitesPayload = invites.map((invite) => invite.toPublicObject());
   const hrRecordsPayload = hrRecords.map((record) => record.toPublicObject());
+  const timelineMeta = timeline?.toPublicObject?.() ?? timeline?.get?.({ plain: true }) ?? (timeline ?? null);
+  const activityFeed = buildWorkspaceActivityFeed({
+    conversations: conversationsPayload,
+    messages: messagesPayload,
+    timelineEntries: timelinePayload,
+  });
+  const storageSummary = buildWorkspaceStorageSummary(filesPayload);
 
   return {
     project: project.toPublicObject(),
@@ -1368,6 +1392,10 @@ export async function getWorkspaceDashboard(projectId) {
     submissions: submissionsPayload,
     invites: invitesPayload,
     hrRecords: hrRecordsPayload,
+    tasks: tasksPayload,
+    activity: activityFeed,
+    storage: storageSummary,
+    timelineMeta,
     metrics: computeWorkspaceMetrics(workspace, {
       approvals: approvalsPayload,
       files: filesPayload,
