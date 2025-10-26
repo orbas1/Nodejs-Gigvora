@@ -1,3 +1,13 @@
+- [x] Main Category: 1. Landing & Hero Surfaces
+  - [x] 1.B. Landing & Hero Surfaces
+    - [x] 1.B.3. TestimonialsCarousel.jsx
+      - Immersive carousel introduces memoised autoplay, accessible controls, and metric-rich framing so the landing hero mirrors the LinkedIn-class polish mandated for first-impression trust checks.【F:gigvora-frontend-reactjs/src/components/marketing/TestimonialsCarousel.jsx†L1-L338】【F:user_experience.md†L109-L148】
+      - Home section wrapper layers gradient halos, partner badges, and resilient fallbacks while piping enriched testimonial content to the carousel, ensuring operators see real voices instead of placeholders.【F:gigvora-frontend-reactjs/src/pages/home/TestimonialsSection.jsx†L1-L52】【F:gigvora-frontend-reactjs/src/content/home/testimonials.js†L1-L52】【F:user_experience.md†L125-L148】
+      - Vitest coverage locks autoplay cadence and pause behavior to guard against regressions across future hero experiments.【F:gigvora-frontend-reactjs/src/components/marketing/__tests__/TestimonialsCarousel.test.jsx†L1-L46】
+    - [x] 1.B.4. CallToActionBand.jsx
+      - Gradient CTA band packages enterprise stats, supporting points, and trust badges with flexible Link/anchor actions so conversion rails stay premium and roadmap-aligned across hero surfaces.【F:gigvora-frontend-reactjs/src/components/marketing/CallToActionBand.jsx†L1-L271】【F:user_experience.md†L109-L168】
+      - JoinCommunitySection now composes the band with membership metrics, global proof points, and dual actions to match the blueprint for high-impact landing closures.【F:gigvora-frontend-reactjs/src/pages/home/JoinCommunitySection.jsx†L1-L37】【F:user_experience.md†L125-L148】
+      - Component-level tests confirm CTA links, stats, and supporting copy render correctly within router context, keeping landing conversions reliable.【F:gigvora-frontend-reactjs/src/components/marketing/__tests__/CallToActionBand.test.jsx†L1-L42】
 - [x] Main Category: 6. Mentorship, Groups & Community Pillars
   - [x] 6.B. Group Collaboration Hubs
     - [x] 6.B.1. GroupLanding.jsx
