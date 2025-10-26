@@ -243,7 +243,67 @@
    - Maintain responsive specs covering mobile stacking and desktop spread.
    - Annotate arrangement logic within developer handoffs.
    - Prototype alternatives when new controls are proposed.
-   - Icon alignment, chip grouping, and responsive stacking mirror the documented blueprint.
+- Icon alignment, chip grouping, and responsive stacking mirror the documented blueprint.
+
+### SystemStatusToast
+
+- **Appraisal.** Live status toast projects an executive-grade gradient shell, severity iconography, and premium copy that mirror major-network trust banners while surfacing issues within a single glance.
+- **Functionality.** The component polls `/platform/status/summary`, hydrates via the data fetching layer, listens for cache broadcasts, and debounces refreshes so degraded systems broadcast updates instantly without flooding the UI.
+- **Logic usefulness.** Acknowledgement fingerprints, severity thresholds, and maintenance windows ensure the toast only reappears when business-critical signals change, protecting operator focus while keeping compliance teams informed.
+- **Redundancies.** Centralised normalisation collapses disparate status payloads, eliminating ad-hoc toast implementations and ensuring every surface consumes the same status summary.
+- **Placeholders or non-working functions or stubs.** Operational, incident, and maintenance cases render production copy, CTA routing, and analytics, replacing the placeholder banners called out in earlier audits.
+- **Duplicate functions.** Shared helpers dedupe service lists, severity parsing, and acknowledgement persistence so future health banners reuse the same primitives.
+- **Improvements need to make.** Backlog tracks cross-channel broadcasts and incident timelines while today’s toast already delivers proactive health clarity for executives.
+- **Styling improvements.** Glassmorphism, gradient overlays, and severity-specific badges align with the flagship design tokens to reassure stakeholders even during outages.
+- **Efficiency analysis and improvement.** Polling intervals, stale-while-revalidate caching, and subscriber updates keep the banner responsive without hammering the status endpoint.
+- **Strengths to keep.** Elevated copy, service badges, and quick navigation to the full status portal remain the marquee strengths delivering trust.
+- **Weaknesses to remove.** The absence of real-time system signals has been retired—operators now see actionable incidents rather than static trust badges.
+- **Styling and colour review changes.** Severity palettes (emerald, amber, rose) match accessibility audits, ensuring colour cues remain legible across themes.
+- **CSS, orientation, placement and arrangement changes.** The fixed bottom-centre layout, flexible badge grid, and responsive spacing follow the documented toast blueprint for multi-breakpoint parity.
+- **Text analysis, placement, text length, text redundancy and quality.** Copy stays concise (“Maintenance window begins in…”) while emphasising impact and updates, avoiding redundant warnings.
+- **Text spacing.** 8px/12px rhythms between headline, body, and badges preserve readability even with dense incident detail.
+- **Shaping.** Rounded 24px shells, pill badges, and circular severity icons maintain the house silhouette for premium surfaces.
+- **Shadow, hover, glow and effects.** Soft drop shadows and translucent backgrounds deliver the polished float requested for enterprise alerts.
+- **Thumbnails.** Service badges act as thumbnail substitutes, reinforcing which areas are impacted without imagery gaps.
+- **Images and media & previews.** The toast leans on text and tokens, gracefully handling absent media while leaving space for future charts.
+- **Button styling.** CTA and dismiss controls follow rounded-full tokens with stateful hover/focus outlines for confident interaction.
+- **Interactiveness.** Users can dismiss, reopen via CTA, and deep-link to the status portal; analytics capture interactions for operations reviews.
+- **Missing components.** Incident timelines and multi-lingual messaging remain queued in backlog while the core alert experience ships today.
+- **Design changes.** The upgrade replaces silent fail states with animated health signals, per-service badges, and maintenance callouts.
+- **Design duplication.** Shared tokens, gradients, and badge primitives prevent parallel toast variants from drifting across dashboards.
+- **Design framework.** The toast consumes theme, analytics, and data-fetch contexts, aligning with the enterprise component framework and governance rules.
+- **Change checklist tracker extensive.** Unit coverage and analytics hooks prove degraded, maintenance, and dismissal flows satisfy release checklists.
+- **Full upgrade plan & release steps extensive.** Polling, acknowledgement storage, and CTA routing support staged rollouts with telemetry to guide regional launches.
+
+### FeedbackPulse
+
+- **Appraisal.** Floating feedback pulse showcases a premium voice-of-customer panel with glowing trigger, editorial copy, and executive reassurance to match LinkedIn-grade UX councils.
+- **Functionality.** Eligibility checks, auto-open timers, reaction buttons, text capture, analytics, and submission flows ensure feedback loops operate end-to-end without dead ends.
+- **Logic usefulness.** Snooze windows, reaction telemetry, and persona-aware prompts guarantee signals remain actionable and respectful of operator focus.
+- **Redundancies.** Shared helpers govern storage, eligibility, and theming so teams retire bespoke modals or survey banners.
+- **Placeholders or non-working functions or stubs.** Real prompts, analytics, and submission endpoints replace placeholder dialogs, shipping a production-grade pulse.
+- **Duplicate functions.** Centralised storage and analytics hooks eliminate duplicate feedback collectors across dashboards.
+- **Improvements need to make.** Roadmap captures upcoming sentiment trends and AI summarisation while today’s module gathers qualitative signals immediately.
+- **Styling improvements.** Gradient trigger, glass panel, and capsule buttons align with enterprise styling tokens for a polished feel.
+- **Efficiency analysis and improvement.** Debounced timers, cached eligibility, and capped textarea length protect performance and reduce noise.
+- **Strengths to keep.** Respectful tone, fast reactions, and gratitude messaging remain the signature strengths stakeholders love.
+- **Weaknesses to remove.** Dormant “contact us” links give way to live analytics-backed capture with actionable workflows.
+- **Styling and colour review changes.** Accent-driven focus rings and accessible contrast guarantee the pulse meets brand standards on light/dark themes.
+- **CSS, orientation, placement and arrangement changes.** Fixed bottom-right placement, responsive card layout, and balanced spacing follow the documented arrangement guidance.
+- **Text analysis, placement, text length, text redundancy and quality.** Prompts stay direct (“How is your experience going?”) while helper copy explains expectations without redundancy.
+- **Text spacing.** Consistent padding and counter placement respect the 8pt grid for comfortable scanning.
+- **Shaping.** Rounded 24px shells, pill reactions, and circular icons keep silhouettes cohesive with the broader system.
+- **Shadow, hover, glow and effects.** Hover lifts, animated send indicator, and soft glows deliver tactile delight without overwhelming the business tone.
+- **Thumbnails.** Emoji reactions stand in as expressive thumbnails, instantly communicating sentiment choices.
+- **Images and media & previews.** The panel balances rich text with emoji signals, gracefully handling the absence of imagery while staying ready for future media embeds.
+- **Button styling.** Trigger, reaction, and submit buttons reuse gradient, outline, and pill patterns defined in the design system.
+- **Interactiveness.** Keyboard support, immediate reaction feedback, textarea focus, and thank-you state deliver a complete interaction loop.
+- **Missing components.** Multi-question surveys and AI summaries remain future enhancements now catalogued in the backlog.
+- **Design changes.** The pulse replaces static survey links with an animated panel, reaction chips, and contextual gratitude messaging per the redesign brief.
+- **Design duplication.** Tokens, analytics, and storage helpers keep future survey experiences aligned, preventing bespoke modals from diverging.
+- **Design framework.** The module consumes theme, analytics, and data-fetch contexts so governance, tokens, and rollout policies remain consistent.
+- **Change checklist tracker extensive.** Unit tests, analytics events, and storage validation fulfil the change checklist covering open, submit, and snooze flows.
+- **Full upgrade plan & release steps extensive.** Auto-open gating, snooze persistence, and telemetry instrumentation support phased rollouts with measurable sentiment KPIs.
    - Keep placeholder and helper copy purposeful and persona-aware.
    - Review tone and length with content design partners.
    - Store approved copy in the localisation library.
