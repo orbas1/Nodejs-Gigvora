@@ -82,6 +82,10 @@ describe('appearanceManagementService', () => {
     expect(summary.themes[0].stats.layoutCount).toBe(1);
     expect(summary.assets).toHaveLength(2);
     expect(summary.layouts).toHaveLength(1);
+    expect(summary.layouts[0].analytics).toEqual({ conversionLift: null, sampleSize: null });
+    expect(summary.layouts[0].audienceSegments).toEqual([]);
+    expect(summary.layouts[0].scheduledLaunch).toBeNull();
+    expect(summary.layouts[0].theme).toMatchObject({ id: theme.id, name: 'Daybreak' });
   });
 
   it('sanitises tokens and revokes previous defaults when creating a new default theme', async () => {

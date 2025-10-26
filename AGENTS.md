@@ -328,3 +328,6 @@
    - Telemetry collection monitors module toggles, custom feed creation, and digest adjustments to surface adoption trends.
    - Broader rollout follows playbook once analytics confirms reduced manual newsletter work and improved segment reach.
    - Continuous improvement cycle schedules quarterly audits of default modules, metrics thresholds, and AI personalization messaging.
+   - `userWebsitePreferenceService` now normalizes accent palettes, accessibility presets, and OS sync settings inside the theme JSON payload (while codifying personalization subscriptions) via migration `20250326093000`, guaranteeing the designer reflects the persisted backend contract.
+   - Appearance management APIs persist audience segments, analytics, experiment keys, and scheduled launches through migration `20250326094000`, so wizard inputs map directly onto the `appearance_layouts` schema and seed data.
+   - Website preference APIs sanitize digest times, channel/segment selections, and sample content before persisting via migration `20250326093000`, and Jest coverage guards the normalization pipeline end-to-end.

@@ -140,6 +140,22 @@ const layoutConfigSchema = z
   })
   .strip();
 
+const layoutAnalyticsSchema = z
+  .object({
+    conversionLift: optionalNumber({ min: -100, max: 100, precision: 1 }),
+    sampleSize: optionalNumber({ min: 0, max: 1_000_000, precision: 0, integer: true }),
+  })
+  .strip();
+
+const optionalDateTimeString = z
+  .preprocess((value) => {
+    if (value == null || value === '') {
+      return undefined;
+    }
+    return value;
+  }, z.string().datetime({ message: 'must be an ISO 8601 datetime string.' }))
+  .optional();
+
 export const appearanceSummaryQuerySchema = z.object({}).strip();
 
 export const appearanceThemeParamsSchema = z
@@ -203,6 +219,13 @@ export const appearanceLayoutCreateSchema = z
     allowedRoles: optionalStringArray({ maxItemLength: 80 }),
     metadata: z.record(z.any()).optional(),
     releaseNotes: optionalTrimmedString({ max: 2000 }),
+    audienceSegments: z
+      .array(z.enum(['prospects', 'clients', 'partners', 'internal', 'beta']))
+      .max(5)
+      .optional(),
+    analytics: layoutAnalyticsSchema.optional(),
+    experimentKey: optionalTrimmedString({ max: 120 }),
+    scheduledLaunch: optionalDateTimeString,
   })
   .strip();
 

@@ -7,6 +7,53 @@ const BACKGROUND_STYLES = ['light', 'dark', 'gradient'];
 const BUTTON_SHAPES = ['rounded', 'pill', 'square'];
 const MEDIA_TYPES = ['image', 'video', 'none'];
 
+const SUBSCRIPTION_FREQUENCIES = ['weekly', 'biweekly', 'monthly'];
+const SUBSCRIPTION_CHANNELS = ['site', 'email', 'push', 'rss'];
+const SUBSCRIPTION_SEGMENTS = ['prospects', 'clients', 'partners', 'community', 'internal'];
+const ACCESSIBILITY_PRESETS = ['standard', 'high-contrast', 'calm-reading'];
+
+const DEFAULT_SUBSCRIPTION_MODULES = [
+  {
+    id: 'community-highlights',
+    title: 'Community highlights',
+    description: 'Signature wins and inspiring stories from verified talent.',
+    enabled: true,
+    frequency: 'weekly',
+    channels: ['site', 'email'],
+    segments: ['prospects', 'clients'],
+    sampleContent: [
+      { id: 'story-1', title: 'How Gigvora studios launched 40 marketplaces', metric: '4.8k reads' },
+      { id: 'story-2', title: 'Founder spotlight: Amina’s distributed design crew', metric: 'Top 3% engagement' },
+    ],
+  },
+  {
+    id: 'product-releases',
+    title: 'Product releases',
+    description: 'Feature drops, release notes, and roadmap previews.',
+    enabled: true,
+    frequency: 'biweekly',
+    channels: ['site', 'email', 'rss'],
+    segments: ['clients', 'partners'],
+    sampleContent: [
+      { id: 'release-1', title: 'Spaces 2.0: Multiplayer branding sessions', metric: 'Beta waitlist 1.2k' },
+      { id: 'release-2', title: 'Automation recipes for talent onboarding', metric: '92% adoption' },
+    ],
+  },
+  {
+    id: 'learning-paths',
+    title: 'Learning paths',
+    description: 'Curated guides and certification journeys for your audience.',
+    enabled: false,
+    frequency: 'monthly',
+    channels: ['site'],
+    segments: ['prospects', 'community'],
+    sampleContent: [
+      { id: 'course-1', title: 'AI-assisted brand storytelling workshop', metric: '97% satisfaction' },
+      { id: 'course-2', title: 'Funnel mastery for indie studios', metric: '642 completions' },
+    ],
+  },
+];
+
 const DEFAULT_PREFERENCES = {
   settings: {
     siteTitle: 'My site',
@@ -24,6 +71,12 @@ const DEFAULT_PREFERENCES = {
     buttonShape: 'rounded',
     logoUrl: '',
     faviconUrl: '',
+    presetId: 'gigvora-classic',
+    systemSync: true,
+    lastSyncedAt: null,
+    accentPalette: ['#0EA5E9', '#22D3EE', '#38BDF8', '#818CF8'],
+    accessibilityPreset: 'standard',
+    reduceMotion: false,
   },
   hero: {
     kicker: '',
@@ -71,6 +124,11 @@ const DEFAULT_PREFERENCES = {
   },
   social: {
     links: [],
+  },
+  subscriptions: {
+    digestTime: 'monday-08:00',
+    autoPersonalize: true,
+    modules: DEFAULT_SUBSCRIPTION_MODULES,
   },
 };
 
@@ -173,6 +231,36 @@ function sanitizeColor(value, field) {
   return normalized.toUpperCase();
 }
 
+function sanitizeAccentPalette(palette) {
+  const list = Array.isArray(palette) ? palette : [];
+  const sanitized = [];
+  for (const color of list) {
+    try {
+      const normalized = sanitizeColor(color, 'theme.accentPalette');
+      if (!sanitized.includes(normalized) && sanitized.length < 8) {
+        sanitized.push(normalized);
+      }
+    } catch (error) {
+      // skip invalid colors while keeping the rest of the palette intact
+    }
+  }
+  if (!sanitized.length) {
+    return [...DEFAULT_PREFERENCES.theme.accentPalette];
+  }
+  return sanitized;
+}
+
+function sanitizeAccessibilityPreset(value) {
+  if (!value) {
+    return DEFAULT_PREFERENCES.theme.accessibilityPreset;
+  }
+  const normalized = `${value}`.trim().toLowerCase();
+  if (ACCESSIBILITY_PRESETS.includes(normalized)) {
+    return normalized;
+  }
+  throw new ValidationError('theme.accessibilityPreset must be a supported preset.');
+}
+
 function sanitizeSlug(value) {
   const fallback = 'my-site';
   if (!value) {
@@ -255,12 +343,12 @@ function sanitizePhone(value, field) {
 function sanitizeArray(value, limit, mapper) {
   const list = Array.isArray(value) ? value : [];
   const safe = [];
-  for (const item of list.slice(0, limit)) {
-    const mapped = mapper(item);
+  list.slice(0, limit).forEach((item, index) => {
+    const mapped = mapper(item, index);
     if (mapped) {
       safe.push(mapped);
     }
-  }
+  });
   return safe;
 }
 
@@ -458,6 +546,114 @@ function sanitizeTheme(theme) {
     buttonShape,
     logoUrl: sanitizeUrl(theme.logoUrl ?? '', { field: 'theme.logoUrl' }),
     faviconUrl: sanitizeUrl(theme.faviconUrl ?? '', { field: 'theme.faviconUrl' }),
+    presetId: sanitizeOptionalString(theme.presetId ?? DEFAULT_PREFERENCES.theme.presetId, {
+      field: 'theme.presetId',
+      maxLength: 80,
+    }) || DEFAULT_PREFERENCES.theme.presetId,
+    systemSync: sanitizeBoolean(theme.systemSync ?? true),
+    lastSyncedAt: (() => {
+      if (!theme.lastSyncedAt) {
+        return null;
+      }
+      const date = new Date(theme.lastSyncedAt);
+      if (Number.isNaN(date.getTime())) {
+        throw new ValidationError('theme.lastSyncedAt must be a valid ISO 8601 datetime.');
+      }
+      return date.toISOString();
+    })(),
+    accentPalette: sanitizeAccentPalette(theme.accentPalette),
+    accessibilityPreset: sanitizeAccessibilityPreset(theme.accessibilityPreset),
+    reduceMotion: sanitizeBoolean(theme.reduceMotion ?? false),
+  };
+}
+
+function sanitizeDigestTime(value) {
+  const fallback = DEFAULT_PREFERENCES.subscriptions.digestTime;
+  if (!value) {
+    return fallback;
+  }
+  const normalized = `${value}`.trim().toLowerCase();
+  if (!/^[a-z]+-[0-2]\d:[0-5]\d$/u.test(normalized)) {
+    throw new ValidationError('subscriptions.digestTime must follow pattern day-hh:mm.');
+  }
+  return normalized;
+}
+
+function sanitizeSubscriptionSampleContent(items) {
+  return sanitizeArray(items, 6, (item) => {
+    if (!item) {
+      return null;
+    }
+    const title = sanitizeOptionalString(item.title ?? '', {
+      field: 'subscriptions.modules.sampleContent.title',
+      maxLength: 160,
+    });
+    const metric = sanitizeOptionalString(item.metric ?? '', {
+      field: 'subscriptions.modules.sampleContent.metric',
+      maxLength: 80,
+    });
+    const id = sanitizeOptionalString(item.id ?? '', { field: 'subscriptions.modules.sampleContent.id', maxLength: 80 });
+    return {
+      id: id || makeId('subscription-sample'),
+      title,
+      metric,
+    };
+  });
+}
+
+function sanitizeSubscriptionModule(module, index) {
+  if (!module || typeof module !== 'object') {
+    return null;
+  }
+  const id = sanitizeOptionalString(module.id ?? '', { field: 'subscriptions.modules.id', maxLength: 80 });
+  const title = sanitizeString(module.title ?? `Module ${index + 1}`, {
+    field: 'subscriptions.modules.title',
+    required: true,
+    maxLength: 120,
+  });
+  const description = sanitizeOptionalString(module.description ?? '', {
+    field: 'subscriptions.modules.description',
+    maxLength: 240,
+  });
+  const frequency = module.frequency && SUBSCRIPTION_FREQUENCIES.includes(module.frequency)
+    ? module.frequency
+    : DEFAULT_PREFERENCES.subscriptions.modules[0].frequency;
+  const channels = sanitizeArray(module.channels, SUBSCRIPTION_CHANNELS.length, (channel) => {
+    if (!channel) {
+      return null;
+    }
+    const normalized = `${channel}`.trim().toLowerCase();
+    return SUBSCRIPTION_CHANNELS.includes(normalized) ? normalized : null;
+  });
+  const segments = sanitizeArray(module.segments, SUBSCRIPTION_SEGMENTS.length, (segment) => {
+    if (!segment) {
+      return null;
+    }
+    const normalized = `${segment}`.trim().toLowerCase();
+    return SUBSCRIPTION_SEGMENTS.includes(normalized) ? normalized : null;
+  });
+  const sampleContent = sanitizeSubscriptionSampleContent(module.sampleContent);
+
+  return {
+    id: id || makeId('subscription-module'),
+    title,
+    description,
+    enabled: sanitizeBoolean(module.enabled ?? true),
+    frequency,
+    channels,
+    segments,
+    sampleContent,
+  };
+}
+
+function sanitizeSubscriptions(subscriptions) {
+  const digestTime = sanitizeDigestTime(subscriptions.digestTime ?? DEFAULT_PREFERENCES.subscriptions.digestTime);
+  const autoPersonalize = sanitizeBoolean(subscriptions.autoPersonalize ?? true);
+  const modules = sanitizeArray(subscriptions.modules, 12, (module, index) => sanitizeSubscriptionModule(module, index));
+  return {
+    digestTime,
+    autoPersonalize,
+    modules,
   };
 }
 
@@ -494,6 +690,7 @@ function buildPayload(payload) {
     contact: sanitizeContact(merged.contact ?? {}),
     seo: sanitizeSeo(merged.seo ?? {}),
     social: { links: sanitizeSocialLinks(merged.social?.links) },
+    subscriptions: sanitizeSubscriptions(merged.subscriptions ?? {}),
   };
 }
 

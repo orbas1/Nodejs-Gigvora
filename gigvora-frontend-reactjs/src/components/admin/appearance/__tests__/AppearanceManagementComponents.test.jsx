@@ -107,7 +107,7 @@ describe('admin appearance components', () => {
     const modalUtils = within(modal);
 
     fireEvent.change(modalUtils.getByLabelText(/Name/i), { target: { value: 'Marketing hero' } });
-    fireEvent.change(modalUtils.getByLabelText(/Key/i), { target: { value: 'marketing-hero' } });
+    fireEvent.change(modalUtils.getByLabelText(/^Key$/i), { target: { value: 'marketing-hero' } });
 
     fireEvent.click(modalUtils.getByRole('button', { name: /Next/i }));
 

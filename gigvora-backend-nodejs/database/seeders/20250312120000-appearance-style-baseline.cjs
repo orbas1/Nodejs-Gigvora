@@ -79,7 +79,17 @@ function buildAsset({ id = crypto.randomUUID(), label, type, url, altText, metad
   };
 }
 
-function buildLayout({ id = crypto.randomUUID(), name, page, modules, metadata }) {
+function buildLayout({
+  id = crypto.randomUUID(),
+  name,
+  page,
+  modules,
+  metadata,
+  audienceSegments = [],
+  analytics = { conversionLift: 18.2, sampleSize: 420 },
+  experimentKey = 'daybreak-baseline-hero',
+  scheduledLaunch = null,
+}) {
   const now = new Date();
   return {
     id,
@@ -98,6 +108,10 @@ function buildLayout({ id = crypto.randomUUID(), name, page, modules, metadata }
     },
     allowedRoles: [],
     metadata: { seedKey: SEED_KEY, ...metadata },
+    audienceSegments,
+    analytics,
+    experimentKey,
+    scheduledLaunch,
     releaseNotes: 'Seeded marketing hero module for admin preview and Storybook baselines.',
     publishedAt: now,
     createdAt: now,
@@ -245,6 +259,10 @@ module.exports = {
         page: 'marketing',
         modules: layoutModules,
         metadata: { themeId, author: 'Seed automation' },
+        audienceSegments: ['prospects', 'clients'],
+        analytics: { conversionLift: 18.2, sampleSize: 640 },
+        experimentKey: 'daybreak-hero-v1',
+        scheduledLaunch: now,
       });
       layout.themeId = themeId;
 

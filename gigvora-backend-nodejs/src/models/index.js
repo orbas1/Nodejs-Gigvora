@@ -15123,6 +15123,7 @@ export const UserWebsitePreference = sequelize.define(
     contact: { type: jsonType, allowNull: true },
     seo: { type: jsonType, allowNull: true },
     social: { type: jsonType, allowNull: true },
+    subscriptions: { type: jsonType, allowNull: true },
   },
   { tableName: 'user_website_preferences' },
 );
@@ -15146,6 +15147,7 @@ UserWebsitePreference.prototype.toPublicObject = function toPublicObject() {
     contact: normalizeObject(plain.contact),
     seo: normalizeObject(plain.seo),
     social: normalizeObject(plain.social ?? { links: [] }, { links: [] }),
+    subscriptions: normalizeObject(plain.subscriptions ?? { modules: [] }, { modules: [] }),
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };

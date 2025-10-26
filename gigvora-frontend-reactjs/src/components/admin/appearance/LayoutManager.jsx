@@ -35,6 +35,19 @@ const ROLE_OPTIONS = ['admin', 'manager', 'editor', 'viewer'];
 
 const SEGMENT_OPTIONS = ['prospects', 'clients', 'partners', 'internal', 'beta'];
 
+function formatDateTimeLocal(value) {
+  if (!value) {
+    return '';
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  const offsetMinutes = date.getTimezoneOffset();
+  const localTime = new Date(date.getTime() - offsetMinutes * 60000);
+  return localTime.toISOString().slice(0, 16);
+}
+
 const DEVICE_PREVIEW_OPTIONS = [
   { id: 'desktop', label: 'Desktop', icon: ComputerDesktopIcon, className: 'h-64 w-full rounded-3xl' },
   { id: 'tablet', label: 'Tablet', icon: GlobeAltIcon, className: 'h-64 w-[420px] rounded-[32px]' },
@@ -205,7 +218,7 @@ function buildLayoutDraft(layout) {
     releaseNotes: layout?.releaseNotes ?? '',
     audienceSegments: Array.isArray(layout?.audienceSegments) ? layout.audienceSegments : [],
     experimentKey: layout?.experimentKey ?? '',
-    scheduledLaunch: layout?.scheduledLaunch ?? '',
+    scheduledLaunch: formatDateTimeLocal(layout?.scheduledLaunch),
     analytics: {
       conversionLift: layout?.analytics?.conversionLift ?? null,
       sampleSize: layout?.analytics?.sampleSize ?? null,
@@ -359,11 +372,22 @@ function LayoutWizard({ open, onClose, onSubmit, initialLayout, themes, saving }
       setError('Layout config must be valid JSON.');
       return;
     }
+    let scheduledLaunchIso = null;
+    if (draft.scheduledLaunch) {
+      const scheduledDate = new Date(draft.scheduledLaunch);
+      if (Number.isNaN(scheduledDate.getTime())) {
+        setError('Target launch must be a valid date and time.');
+        return;
+      }
+      scheduledLaunchIso = scheduledDate.toISOString();
+    }
+
     setError('');
     onSubmit({
       ...draft,
       config: parsedConfig,
       version: Number(draft.version) || 1,
+      scheduledLaunch: scheduledLaunchIso,
       analytics: {
         conversionLift:
           draft.analytics?.conversionLift === null || draft.analytics?.conversionLift === ''

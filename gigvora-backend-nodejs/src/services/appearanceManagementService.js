@@ -63,6 +63,8 @@ const DEFAULT_THEME_TOKENS = Object.freeze({
   },
 });
 
+const LAYOUT_SEGMENT_OPTIONS = Object.freeze(['prospects', 'clients', 'partners', 'internal', 'beta']);
+
 function slugify(value) {
   if (!value) {
     return '';
@@ -372,6 +374,69 @@ function sanitizeLayoutConfig(config = {}) {
   return sanitized;
 }
 
+function sanitizeAudienceSegments(segments) {
+  const list = Array.isArray(segments) ? segments : [];
+  const unique = [];
+  list.forEach((segment) => {
+    if (!segment) {
+      return;
+    }
+    const normalized = coerceString(segment).toLowerCase();
+    if (LAYOUT_SEGMENT_OPTIONS.includes(normalized) && !unique.includes(normalized)) {
+      unique.push(normalized);
+    }
+  });
+  return unique;
+}
+
+function sanitizeAnalytics(analytics) {
+  if (!analytics || typeof analytics !== 'object') {
+    return { conversionLift: null, sampleSize: null };
+  }
+  let conversionLift = analytics.conversionLift;
+  if (conversionLift === '' || conversionLift === null || conversionLift === undefined) {
+    conversionLift = null;
+  } else {
+    const numeric = Number(conversionLift);
+    if (!Number.isFinite(numeric)) {
+      throw new ValidationError('analytics.conversionLift must be a number.');
+    }
+    conversionLift = Number(numeric.toFixed(1));
+  }
+
+  let sampleSize = analytics.sampleSize;
+  if (sampleSize === '' || sampleSize === null || sampleSize === undefined) {
+    sampleSize = null;
+  } else {
+    const numeric = Number(sampleSize);
+    if (!Number.isFinite(numeric) || numeric < 0) {
+      throw new ValidationError('analytics.sampleSize must be a positive number.');
+    }
+    sampleSize = Math.round(numeric);
+  }
+
+  return { conversionLift, sampleSize };
+}
+
+function sanitizeScheduledLaunch(value) {
+  if (!value) {
+    return null;
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new ValidationError('scheduledLaunch must be a valid datetime.');
+  }
+  return date;
+}
+
+function sanitizeExperimentKey(value) {
+  if (value == null || value === '') {
+    return null;
+  }
+  const slug = slugify(value);
+  return slug || null;
+}
+
 function assertThemeExists(theme) {
   if (!theme) {
     throw new NotFoundError('Theme not found.');
@@ -416,6 +481,18 @@ function serializeLayout(layout) {
   const object = layout.toPublicObject();
   object.allowedRoles = normalizeAllowedRoles(object.allowedRoles);
   object.config = sanitizeLayoutConfig(object.config);
+  object.audienceSegments = sanitizeAudienceSegments(object.audienceSegments);
+  object.analytics = sanitizeAnalytics(object.analytics);
+  object.experimentKey = object.experimentKey ?? null;
+  object.scheduledLaunch = object.scheduledLaunch ? new Date(object.scheduledLaunch).toISOString() : null;
+  if (layout.theme) {
+    object.theme = {
+      id: layout.theme.id,
+      name: layout.theme.name,
+      slug: layout.theme.slug,
+      status: layout.theme.status,
+    };
+  }
   return object;
 }
 
@@ -437,6 +514,13 @@ export async function getAppearanceSummary() {
       order: [
         ['page', 'ASC'],
         ['name', 'ASC'],
+      ],
+      include: [
+        {
+          model: AppearanceTheme,
+          as: 'theme',
+          attributes: ['id', 'name', 'slug', 'status'],
+        },
       ],
     }),
   ]);
@@ -740,6 +824,10 @@ export async function createLayout(payload = {}, { actorId } = {}) {
   const page = normalizeStatus(payload.page, APPEARANCE_LAYOUT_PAGES, 'marketing');
   const status = normalizeStatus(payload.status, APPEARANCE_LAYOUT_STATUSES, 'draft');
   const config = sanitizeLayoutConfig(payload.config);
+  const audienceSegments = sanitizeAudienceSegments(payload.audienceSegments);
+  const analytics = sanitizeAnalytics(payload.analytics ?? {});
+  const experimentKey = sanitizeExperimentKey(payload.experimentKey);
+  const scheduledLaunch = sanitizeScheduledLaunch(payload.scheduledLaunch);
 
   if (payload.themeId) {
     await ensureThemeById(payload.themeId);
@@ -760,6 +848,10 @@ export async function createLayout(payload = {}, { actorId } = {}) {
     config,
     allowedRoles: normalizeAllowedRoles(payload.allowedRoles),
     metadata: sanitizeMetadata(payload.metadata),
+    audienceSegments,
+    analytics,
+    experimentKey,
+    scheduledLaunch,
     releaseNotes: coerceOptionalString(payload.releaseNotes) ?? null,
     publishedAt: status === 'published' ? new Date() : null,
     createdBy: actorId ?? null,
@@ -817,6 +909,18 @@ export async function updateLayout(layoutId, payload = {}, { actorId } = {}) {
   }
   if (payload.metadata != null) {
     updates.metadata = sanitizeMetadata(payload.metadata);
+  }
+  if (payload.audienceSegments != null) {
+    updates.audienceSegments = sanitizeAudienceSegments(payload.audienceSegments);
+  }
+  if (payload.analytics != null) {
+    updates.analytics = sanitizeAnalytics(payload.analytics);
+  }
+  if (payload.experimentKey !== undefined) {
+    updates.experimentKey = sanitizeExperimentKey(payload.experimentKey);
+  }
+  if (payload.scheduledLaunch !== undefined) {
+    updates.scheduledLaunch = sanitizeScheduledLaunch(payload.scheduledLaunch);
   }
   if (payload.releaseNotes !== undefined) {
     updates.releaseNotes = coerceOptionalString(payload.releaseNotes) ?? null;
