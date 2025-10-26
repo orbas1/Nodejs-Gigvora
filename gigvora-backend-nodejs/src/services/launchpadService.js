@@ -11,6 +11,7 @@ import {
   Job,
   Gig,
   Project,
+  Volunteering,
   User,
   Application,
   LAUNCHPAD_APPLICATION_STATUSES,
@@ -333,6 +334,15 @@ async function ensureTargetExists(targetType, targetId, trx) {
     if (!project) {
       throw new NotFoundError('Linked project could not be found.');
     }
+    return;
+  }
+
+  if (targetType === 'volunteering') {
+    const role = await Volunteering.findByPk(targetId, { transaction: trx });
+    if (!role) {
+      throw new NotFoundError('Linked volunteering role could not be found.');
+    }
+    return;
   }
 }
 
@@ -749,10 +759,10 @@ async function loadLinkedOpportunityMaps(links) {
       }
       return acc;
     },
-    { job: [], gig: [], project: [] },
+    { job: [], gig: [], project: [], volunteering: [] },
   );
 
-  const [jobs, gigs, projects] = await Promise.all([
+  const [jobs, gigs, projects, volunteeringRoles] = await Promise.all([
     grouped.job.length
       ? Job.findAll({ where: { id: { [Op.in]: grouped.job } } })
       : [],
@@ -762,13 +772,17 @@ async function loadLinkedOpportunityMaps(links) {
     grouped.project.length
       ? Project.findAll({ where: { id: { [Op.in]: grouped.project } } })
       : [],
+    grouped.volunteering.length
+      ? Volunteering.findAll({ where: { id: { [Op.in]: grouped.volunteering } } })
+      : [],
   ]);
 
   const jobMap = new Map(jobs.map((record) => [record.id, record]));
   const gigMap = new Map(gigs.map((record) => [record.id, record]));
   const projectMap = new Map(projects.map((record) => [record.id, record]));
+  const volunteeringMap = new Map(volunteeringRoles.map((record) => [record.id, record]));
 
-  return { jobMap, gigMap, projectMap };
+  return { jobMap, gigMap, projectMap, volunteeringMap };
 }
 
 function buildOpportunitySummary(link, maps) {
@@ -780,6 +794,8 @@ function buildOpportunitySummary(link, maps) {
     record = maps.gigMap.get(plainLink.targetId);
   } else if (plainLink.targetType === 'project') {
     record = maps.projectMap.get(plainLink.targetId);
+  } else if (plainLink.targetType === 'volunteering') {
+    record = maps.volunteeringMap.get(plainLink.targetId);
   }
 
   if (!record) {
@@ -787,9 +803,12 @@ function buildOpportunitySummary(link, maps) {
   }
 
   const plainRecord = typeof record.get === 'function' ? record.get({ plain: true }) : record;
-  const description = plainRecord.description ?? '';
+  const description = plainRecord.description ?? plainRecord.summary ?? '';
+  const organization = plainRecord.organization ? `${plainRecord.organization}`.trim() : '';
   const title = plainRecord.title ?? 'Untitled opportunity';
   const updatedAt = plainRecord.updatedAt ?? plainRecord.createdAt ?? plainLink.updatedAt ?? null;
+  const headline = organization && plainLink.targetType === 'volunteering' ? `${title} · ${organization}` : title;
+  const matchText = [title, organization, description].filter(Boolean).join(' ');
 
   return {
     id: plainLink.id,
@@ -799,10 +818,10 @@ function buildOpportunitySummary(link, maps) {
     notes: plainLink.notes ?? null,
     createdAt: plainLink.createdAt ?? null,
     updatedAt,
-    title,
+    title: headline,
     description,
     summary: summariseText(description || plainRecord.summary || ''),
-    textForMatching: `${title} ${description}`.trim(),
+    textForMatching: matchText.trim(),
   };
 }
 
@@ -1222,10 +1241,10 @@ export async function getLaunchpadDashboard(launchpadId, { lookbackDays = 60 } =
     const autoAssignmentsCount = matches.filter((match) => match.autoAssigned).length;
 
     const totalOpportunities = Object.values(opportunities).reduce((sum, value) => sum + value, 0);
-    const volunteerTotals =
-      (opportunities.volunteer ?? 0) +
-      (opportunities.volunteering ?? 0) +
-      (opportunities.community ?? 0);
+    const volunteerTotals = ['volunteering', 'volunteer', 'community'].reduce(
+      (sum, key) => sum + (Number(opportunities[key]) || 0),
+      0,
+    );
     const volunteerOpportunityShare =
       totalOpportunities > 0 ? Math.round((volunteerTotals / totalOpportunities) * 100) : 0;
 
