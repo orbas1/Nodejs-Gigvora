@@ -75,12 +75,22 @@ function createEnumBinding() {
   return stubEnum;
 }
 
+function identityFactory(tag) {
+  return (...args) => ({
+    type: tag,
+    args,
+  });
+}
+
 export const sequelize = {
   define: () => stubModel,
   models: {},
   authenticate: async () => {},
   close: async () => {},
   getDialect: () => 'postgres',
+  fn: identityFactory('fn'),
+  col: identityFactory('col'),
+  literal: identityFactory('literal'),
 };
 
 export const domainRegistry = {

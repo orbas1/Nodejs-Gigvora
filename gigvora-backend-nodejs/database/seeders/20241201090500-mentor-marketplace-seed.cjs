@@ -18,6 +18,18 @@ function buildSearchVector(mentor) {
     tokens.push(...mentor.expertise);
   }
 
+  if (Array.isArray(mentor.industries)) {
+    tokens.push(...mentor.industries);
+  }
+
+  if (Array.isArray(mentor.languages)) {
+    tokens.push(...mentor.languages);
+  }
+
+  if (Array.isArray(mentor.goalTags)) {
+    tokens.push(...mentor.goalTags);
+  }
+
   if (Array.isArray(mentor.packages)) {
     mentor.packages.forEach((pack) => {
       tokens.push(pack.name, pack.description);
@@ -55,6 +67,9 @@ module.exports = {
             'Product-market fit',
             'Executive communication',
           ],
+          industries: ['Marketplaces', 'SaaS'],
+          languages: ['English', 'French'],
+          goalTags: ['Fundraising narrative', 'Executive storytelling', 'Scale product leadership'],
           sessionFeeAmount: 280,
           sessionFeeCurrency: 'GBP',
           priceTier: 'tier_growth',
@@ -105,6 +120,9 @@ module.exports = {
           region: 'Singapore & Remote APAC',
           discipline: 'Revenue Operations',
           expertise: ['Revenue enablement', 'Forecasting', 'Deal reviews', 'Sales coaching'],
+          industries: ['SaaS', 'Enterprise'],
+          languages: ['English', 'Mandarin'],
+          goalTags: ['Forecast accuracy', 'Pipeline diagnostics', 'RevOps rituals'],
           sessionFeeAmount: 160,
           sessionFeeCurrency: 'USD',
           priceTier: 'tier_entry',
@@ -151,6 +169,9 @@ module.exports = {
           region: 'Amsterdam, Netherlands',
           discipline: 'Design Operations',
           expertise: ['Design systems', 'Ops rituals', 'Async collaboration', 'Hiring & leveling'],
+          industries: ['Product design', 'Platforms'],
+          languages: ['English', 'Dutch'],
+          goalTags: ['Design system scale', 'Hybrid rituals', 'Team enablement'],
           sessionFeeAmount: 340,
           sessionFeeCurrency: 'EUR',
           priceTier: 'tier_scale',
@@ -201,6 +222,9 @@ module.exports = {
           region: 'Toronto, Canada',
           discipline: 'Engineering Leadership',
           expertise: ['Platform strategy', 'Coaching ICs', 'Incident response', 'Hiring architecture'],
+          industries: ['Platform engineering', 'DevOps'],
+          languages: ['English'],
+          goalTags: ['Incident response', 'Manager coaching', 'Reliability playbooks'],
           sessionFeeAmount: 230,
           sessionFeeCurrency: 'CAD',
           priceTier: 'tier_growth',

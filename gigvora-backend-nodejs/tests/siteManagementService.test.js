@@ -35,10 +35,22 @@ describe('siteManagementService', () => {
   });
 
   test('saves settings and reflects in overview', async () => {
-    await saveSiteSettings({ siteName: 'Gigvora Test', hero: { title: 'Operators unite' } });
+    await saveSiteSettings({
+      siteName: 'Gigvora Test',
+      hero: { title: 'Operators unite' },
+      marketing: {
+        announcement: { title: '  ', description: ' New ship ', cta: { label: ' Learn ', href: ' /updates ' } },
+        trustBadges: [{ label: '  ', description: '' }],
+        productTour: { steps: [{ id: 'custom', title: '  ', summary: 'Summary' }] },
+        pricing: { plans: [{ name: '  ', pricing: { monthly: 0 } }] },
+      },
+    });
     const overview = await getSiteManagementOverview();
     expect(overview.settings.siteName).toBe('Gigvora Test');
     expect(overview.settings.hero.title).toBe('Operators unite');
+    expect(overview.settings.marketing.trustBadges.length).toBeGreaterThan(0);
+    expect(overview.settings.marketing.productTour.steps.length).toBeGreaterThan(0);
+    expect(overview.settings.marketing.pricing.plans[0].name).toBeTruthy();
   });
 
   test('creates, updates, and deletes navigation links', async () => {
