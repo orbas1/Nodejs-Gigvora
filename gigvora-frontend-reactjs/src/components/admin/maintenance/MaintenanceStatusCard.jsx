@@ -1,5 +1,7 @@
 import { Switch } from '@headlessui/react';
 import { CheckCircleIcon, ExclamationTriangleIcon, PauseCircleIcon, PlayCircleIcon } from '@heroicons/react/24/outline';
+import PropTypes from 'prop-types';
+import FeedbackPulse from '../../system/FeedbackPulse.jsx';
 
 function StatusBadge({ live }) {
   if (live) {
@@ -16,9 +18,10 @@ function StatusBadge({ live }) {
   );
 }
 
-export default function MaintenanceStatusCard({ status, updating, onToggle }) {
+export default function MaintenanceStatusCard({ status, updating, onToggle, onReviewFeedback }) {
   const live = status?.enabled !== true;
   const plannedReturn = status?.estimatedResumeAt ? new Date(status.estimatedResumeAt).toLocaleString() : 'TBC';
+  const hasFeedback = Boolean(status?.feedback);
 
   return (
     <section className="rounded-3xl border border-slate-200 bg-white/80 p-8 shadow-soft">
@@ -105,6 +108,43 @@ export default function MaintenanceStatusCard({ status, updating, onToggle }) {
           ))}
         </div>
       ) : null}
+      {hasFeedback ? (
+        <div className="mt-8">
+          <FeedbackPulse analytics={status.feedback} onReview={onReviewFeedback} />
+        </div>
+      ) : null}
     </section>
   );
 }
+
+MaintenanceStatusCard.propTypes = {
+  status: PropTypes.shape({
+    enabled: PropTypes.bool,
+    message: PropTypes.string,
+    updatedAt: PropTypes.string,
+    estimatedResumeAt: PropTypes.string,
+    impactSurface: PropTypes.string,
+    warnings: PropTypes.arrayOf(
+      PropTypes.oneOfType([
+        PropTypes.string,
+        PropTypes.shape({
+          id: PropTypes.string,
+          message: PropTypes.string,
+        }),
+      ]),
+    ),
+    broadcastCopy: PropTypes.string,
+    requiresCisoApproval: PropTypes.bool,
+    incidentReference: PropTypes.string,
+    feedback: PropTypes.shape({}),
+  }).isRequired,
+  updating: PropTypes.bool,
+  onToggle: PropTypes.func,
+  onReviewFeedback: PropTypes.func,
+};
+
+MaintenanceStatusCard.defaultProps = {
+  updating: false,
+  onToggle: undefined,
+  onReviewFeedback: undefined,
+};
