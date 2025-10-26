@@ -16,6 +16,12 @@
     "schemas:version": "node scripts/bumpContractVersion.js",
     "config:validate": "node scripts/validateRuntimeConfig.js .env.example",
     "schema:export": "node scripts/generateSchemaArtifacts.js",
+    "db:migrate": "node scripts/runMigrations.js up",
+    "db:migrate:down": "node scripts/runMigrations.js down",
+    "db:migrate:status": "node scripts/runMigrations.js status",
+    "db:seed": "node scripts/runSeeders.js up",
+    "db:seed:down": "node scripts/runSeeders.js down",
+    "db:seed:status": "node scripts/runSeeders.js status",
     "db:backup": "node scripts/databaseBackup.js backup",
     "db:verify": "node scripts/databaseBackup.js verify"
   },
@@ -56,6 +62,7 @@
     "pino-http": "^9.0.0",
     "prom-client": "^15.1.2",
     "sequelize": "^6.37.1",
+    "umzug": "^3.7.0",
     "zod": "^3.25.76",
     "zod-to-json-schema": "^3.24.6"
   },

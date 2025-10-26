@@ -14,6 +14,10 @@ import {
   appearanceLayoutParamsSchema,
   appearanceLayoutUpdateSchema,
   appearanceLayoutPublishSchema,
+  appearanceComponentProfileParamsSchema,
+  appearanceComponentProfileQuerySchema,
+  appearanceComponentProfileCreateSchema,
+  appearanceComponentProfileUpdateSchema,
 } from '../validation/schemas/appearanceSchemas.js';
 
 const router = Router();
@@ -84,6 +88,33 @@ router.delete(
   '/layouts/:layoutId',
   validateRequest({ params: appearanceLayoutParamsSchema }),
   asyncHandler(appearanceController.deleteLayoutHandler),
+);
+
+router.get(
+  '/components',
+  validateRequest({ query: appearanceComponentProfileQuerySchema }),
+  asyncHandler(appearanceController.listComponentProfilesHandler),
+);
+
+router.post(
+  '/components',
+  validateRequest({ body: appearanceComponentProfileCreateSchema }),
+  asyncHandler(appearanceController.createComponentProfileHandler),
+);
+
+router.put(
+  '/components/:componentProfileId',
+  validateRequest({
+    params: appearanceComponentProfileParamsSchema,
+    body: appearanceComponentProfileUpdateSchema,
+  }),
+  asyncHandler(appearanceController.updateComponentProfileHandler),
+);
+
+router.delete(
+  '/components/:componentProfileId',
+  validateRequest({ params: appearanceComponentProfileParamsSchema }),
+  asyncHandler(appearanceController.deleteComponentProfileHandler),
 );
 
 export default router;

@@ -4,6 +4,7 @@ import adRoutes from './adRoutes.js';
 import { adminRoutes } from './adminRoutes.js';
 import adminModerationRoutes from './adminModerationRoutes.js';
 import adminComplianceRoutes from './adminComplianceRoutes.js';
+import adminPlatformRoutes from './adminPlatformRoutes.js';
 import agencyRoutes from './agencyRoutes.js';
 import agencyJobManagementRoutes from './agencyJobManagementRoutes.js';
 import agencyBlogRoutes from './agencyBlogRoutes.js';
@@ -59,6 +60,7 @@ import eventManagementRoutes from './eventManagementRoutes.js';
 import supportRoutes from './supportRoutes.js';
 import siteRoutes from './siteRoutes.js';
 import routeRegistryRoutes from './routeRegistryRoutes.js';
+import formBlueprintRoutes from './formBlueprintRoutes.js';
 
 const router = Router();
 
@@ -67,6 +69,7 @@ const routeDefinitions = [
   ['/admin/blog', blogAdminRoutes],
   ['/admin/moderation', adminModerationRoutes],
   ['/admin/compliance', adminComplianceRoutes],
+  ['/admin/platform', adminPlatformRoutes],
   ['/admin', adminRoutes],
   ['/agency/job-management', agencyJobManagementRoutes],
   ['/agency/wallet', agencyWalletRoutes],
@@ -98,6 +101,7 @@ const routeDefinitions = [
   ['/finance', financeRoutes],
   ['/freelancer', freelancerRoutes],
   ['/freelancers', freelancerRoutes],
+  ['/forms/blueprints', formBlueprintRoutes],
   ['/groups', groupRoutes],
   ['/headhunter', headhunterRoutes],
   ['/interviews', interviewRoutes],

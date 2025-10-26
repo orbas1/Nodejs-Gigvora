@@ -105,6 +105,7 @@ export default function LaunchpadPlacementsInsights({ dashboard, loading, error,
   const interviews = dashboard?.upcomingInterviews ?? [];
   const matches = dashboard?.matches ?? [];
   const autoAssignments = dashboard?.totals?.autoAssignments ?? 0;
+  const impactHighlights = dashboard?.impactHighlights ?? {};
 
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
@@ -127,7 +128,7 @@ export default function LaunchpadPlacementsInsights({ dashboard, loading, error,
           {error.message || 'Unable to load launchpad insights right now.'}
         </div>
       ) : null}
-      <div className="grid gap-6 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-6">
           <h4 className="text-sm font-semibold text-slate-900">Pipeline</h4>
           <p className="mt-1 text-xs text-slate-500">
@@ -160,6 +161,47 @@ export default function LaunchpadPlacementsInsights({ dashboard, loading, error,
               <OpportunityBreakdown opportunities={dashboard?.opportunities} />
             </div>
           </div>
+        </div>
+        <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-6">
+          <h4 className="text-sm font-semibold text-slate-900">Impact highlights</h4>
+          <p className="mt-1 text-xs text-slate-500">
+            Snapshot of how Launchpad cohorts are converting mentoring into placements and volunteering momentum.
+          </p>
+          <dl className="mt-5 space-y-4 text-sm text-slate-600">
+            <div>
+              <dt className="font-semibold text-slate-900">Interview conversion</dt>
+              <dd className="mt-1 text-lg font-semibold text-slate-900">
+                {Number.isFinite(impactHighlights.interviewRate)
+                  ? `${impactHighlights.interviewRate}%`
+                  : '—'}
+              </dd>
+              <p className="mt-1 text-xs text-slate-500">
+                Share of applicants progressing to interviews during the selected window.
+              </p>
+            </div>
+            <div>
+              <dt className="font-semibold text-slate-900">Placement velocity</dt>
+              <dd className="mt-1 text-lg font-semibold text-slate-900">
+                {Number.isFinite(impactHighlights.placementVelocityDays)
+                  ? `${impactHighlights.placementVelocityDays} days`
+                  : '—'}
+              </dd>
+              <p className="mt-1 text-xs text-slate-500">
+                Average days from recording a placement to programme confirmation.
+              </p>
+            </div>
+            <div>
+              <dt className="font-semibold text-slate-900">Volunteering mix</dt>
+              <dd className="mt-1 text-lg font-semibold text-slate-900">
+                {Number.isFinite(impactHighlights.volunteerOpportunityShare)
+                  ? `${impactHighlights.volunteerOpportunityShare}%`
+                  : '—'}
+              </dd>
+              <p className="mt-1 text-xs text-slate-500">
+                Portion of linked opportunities oriented around pro-bono or community briefs.
+              </p>
+            </div>
+          </dl>
         </div>
         <div className="space-y-4 lg:col-span-1 xl:col-span-2">
           <OpportunityMatchesPanel matches={matches} autoAssignments={autoAssignments} />
@@ -225,6 +267,11 @@ LaunchpadPlacementsInsights.propTypes = {
     }),
     refreshedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.instanceOf(Date)]),
     opportunities: PropTypes.object,
+    impactHighlights: PropTypes.shape({
+      interviewRate: PropTypes.number,
+      placementVelocityDays: PropTypes.number,
+      volunteerOpportunityShare: PropTypes.number,
+    }),
   }),
   loading: PropTypes.bool,
   error: PropTypes.shape({

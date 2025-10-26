@@ -36,7 +36,7 @@ jest.unstable_mockModule(constantsModule.pathname, () => ({
   __esModule: true,
   LAUNCHPAD_APPLICATION_STATUSES: ['new', 'review'],
   LAUNCHPAD_PLACEMENT_STATUSES: ['scheduled', 'completed'],
-  LAUNCHPAD_TARGET_TYPES: ['project', 'gig'],
+  LAUNCHPAD_TARGET_TYPES: ['project', 'gig', 'volunteering'],
   LAUNCHPAD_OPPORTUNITY_SOURCES: ['manual', 'import'],
 }));
 

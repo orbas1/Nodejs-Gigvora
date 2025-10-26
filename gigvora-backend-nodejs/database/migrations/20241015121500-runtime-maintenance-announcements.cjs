@@ -24,6 +24,9 @@ module.exports = {
       createdBy: { type: Sequelize.STRING(120), allowNull: true },
       updatedBy: { type: Sequelize.STRING(120), allowNull: true },
       metadata: { type: jsonType, allowNull: false, defaultValue: {} },
+      publishedAt: { type: Sequelize.DATE, allowNull: true },
+      resolvedAt: { type: Sequelize.DATE, allowNull: true },
+      lastBroadcastAt: { type: Sequelize.DATE, allowNull: true },
       createdAt: {
         type: Sequelize.DATE,
         allowNull: false,
@@ -46,6 +49,11 @@ module.exports = {
 
     await queryInterface.addIndex('runtime_announcements', ['endsAt'], {
       name: 'runtime_announcements_ends_idx',
+    });
+
+    await queryInterface.addIndex('runtime_announcements', ['slug'], {
+      name: 'runtime_announcements_slug_key',
+      unique: true,
     });
   },
 

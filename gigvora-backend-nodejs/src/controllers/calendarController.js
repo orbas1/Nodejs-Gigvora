@@ -25,6 +25,27 @@ export async function deleteEvent(req, res) {
   res.status(204).send();
 }
 
+export async function downloadEventInvite(req, res) {
+  const { ics, filename } = await calendarService.exportEventAsICalendar(
+    Number(req.params.id),
+    Number(req.params.eventId),
+  );
+  res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.send(ics);
+}
+
+export async function downloadEventsFeed(req, res) {
+  const { ics, filename, count } = await calendarService.exportEventsAsICalendar(
+    Number(req.params.id),
+    req.query ?? {},
+  );
+  res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.setHeader('X-Total-Events', String(count));
+  res.send(ics);
+}
+
 export async function listFocusSessions(req, res) {
   const sessions = await calendarService.listFocusSessions(Number(req.params.id), req.query ?? {});
   res.json({ items: sessions });
@@ -65,6 +86,8 @@ export default {
   createEvent,
   updateEvent,
   deleteEvent,
+  downloadEventInvite,
+  downloadEventsFeed,
   listFocusSessions,
   createFocusSession,
   updateFocusSession,

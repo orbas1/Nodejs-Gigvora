@@ -164,6 +164,21 @@ function buildMutationPayload(payload = {}, { existing } = {}) {
   const endsAt = payload.endsAt != null ? coerceDate(payload.endsAt, { field: 'endsAt' }) : baseline.endsAt
     ? new Date(baseline.endsAt)
     : null;
+  const publishedAt = payload.publishedAt != null
+    ? coerceDate(payload.publishedAt, { field: 'publishedAt' })
+    : baseline.publishedAt
+    ? new Date(baseline.publishedAt)
+    : null;
+  const resolvedAt = payload.resolvedAt != null
+    ? coerceDate(payload.resolvedAt, { field: 'resolvedAt' })
+    : baseline.resolvedAt
+    ? new Date(baseline.resolvedAt)
+    : null;
+  const lastBroadcastAt = payload.lastBroadcastAt != null
+    ? coerceDate(payload.lastBroadcastAt, { field: 'lastBroadcastAt' })
+    : baseline.lastBroadcastAt
+    ? new Date(baseline.lastBroadcastAt)
+    : null;
 
   assertChronology(startsAt, endsAt);
 
@@ -179,11 +194,15 @@ function buildMutationPayload(payload = {}, { existing } = {}) {
     metadata,
     startsAt,
     endsAt,
+    publishedAt,
+    resolvedAt,
+    lastBroadcastAt,
   };
 
   const current = now();
   if (record.status === 'active') {
     record.startsAt = record.startsAt ?? current;
+    record.publishedAt = record.publishedAt ?? current;
     if (record.endsAt && record.endsAt.getTime() <= current.getTime()) {
       throw new ValidationError('Active maintenance windows must end in the future.');
     }
@@ -191,6 +210,7 @@ function buildMutationPayload(payload = {}, { existing } = {}) {
 
   if (record.status === 'scheduled') {
     record.startsAt = record.startsAt ?? current;
+    record.publishedAt = record.publishedAt ?? record.startsAt;
     if (record.startsAt.getTime() < current.getTime() - 60 * 1000) {
       throw new ValidationError('Scheduled maintenance windows must start in the future.');
     }
@@ -198,6 +218,7 @@ function buildMutationPayload(payload = {}, { existing } = {}) {
 
   if (record.status === 'resolved') {
     record.endsAt = record.endsAt ?? current;
+    record.resolvedAt = record.resolvedAt ?? current;
   }
 
   return record;
@@ -396,6 +417,33 @@ export async function getAnnouncement(identifier) {
   return announcement.toPublicObject();
 }
 
+export async function markAnnouncementsBroadcast(announcements, { broadcastedAt = new Date() } = {}) {
+  const rawEntries = Array.isArray(announcements) ? announcements : [];
+  const slugs = rawEntries
+    .map((entry) => {
+      if (!entry) {
+        return null;
+      }
+      if (typeof entry === 'string') {
+        return entry;
+      }
+      return entry.slug ?? null;
+    })
+    .filter((slug) => typeof slug === 'string')
+    .map((slug) => slug.trim().toLowerCase())
+    .filter((slug) => slug.length > 0);
+
+  if (!slugs.length) {
+    return { updated: 0, slugs: [] };
+  }
+
+  const uniqueSlugs = Array.from(new Set(slugs));
+  const timestamp = coerceDate(broadcastedAt, { field: 'broadcastedAt', allowNull: false });
+  const records = await RuntimeAnnouncement.findAll({ where: { slug: { [Op.in]: uniqueSlugs } } });
+  await Promise.all(records.map((record) => record.markBroadcasted(timestamp)));
+  return { updated: records.length, slugs: records.map((record) => record.slug) };
+}
+
 export default {
   createAnnouncement,
   updateAnnouncement,
@@ -403,4 +451,5 @@ export default {
   listAnnouncements,
   getVisibleAnnouncements,
   getAnnouncement,
+  markAnnouncementsBroadcast,
 };

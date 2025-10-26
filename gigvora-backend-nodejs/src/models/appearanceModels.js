@@ -19,6 +19,7 @@ export const APPEARANCE_ASSET_TYPES = Object.freeze([
 export const APPEARANCE_ASSET_STATUSES = Object.freeze(['active', 'inactive', 'archived']);
 export const APPEARANCE_LAYOUT_STATUSES = Object.freeze(['draft', 'published', 'archived']);
 export const APPEARANCE_LAYOUT_PAGES = Object.freeze(['marketing', 'dashboard', 'auth', 'admin', 'support']);
+export const APPEARANCE_COMPONENT_PROFILE_STATUSES = Object.freeze(['draft', 'active', 'archived']);
 
 export const AppearanceTheme = sequelize.define(
   'AppearanceTheme',
@@ -117,11 +118,39 @@ export const AppearanceLayout = sequelize.define(
   },
 );
 
+export const AppearanceComponentProfile = sequelize.define(
+  'AppearanceComponentProfile',
+  {
+    id: { type: DataTypes.UUID, primaryKey: true, defaultValue: DataTypes.UUIDV4 },
+    themeId: { type: DataTypes.UUID, allowNull: true },
+    componentKey: { type: DataTypes.STRING(120), allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...APPEARANCE_COMPONENT_PROFILE_STATUSES),
+      allowNull: false,
+      defaultValue: 'active',
+    },
+    definition: { type: jsonType, allowNull: false, defaultValue: {} },
+    metadata: { type: jsonType, allowNull: false, defaultValue: {} },
+    createdBy: { type: DataTypes.INTEGER, allowNull: true },
+    updatedBy: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  {
+    tableName: 'appearance_component_profiles',
+    indexes: [
+      { fields: ['componentKey'] },
+      { fields: ['status'] },
+    ],
+  },
+);
+
 AppearanceTheme.hasMany(AppearanceAsset, { foreignKey: 'themeId', as: 'assets' });
 AppearanceAsset.belongsTo(AppearanceTheme, { foreignKey: 'themeId', as: 'theme' });
 
 AppearanceTheme.hasMany(AppearanceLayout, { foreignKey: 'themeId', as: 'layouts' });
 AppearanceLayout.belongsTo(AppearanceTheme, { foreignKey: 'themeId', as: 'theme' });
+
+AppearanceTheme.hasMany(AppearanceComponentProfile, { foreignKey: 'themeId', as: 'componentProfiles' });
+AppearanceComponentProfile.belongsTo(AppearanceTheme, { foreignKey: 'themeId', as: 'theme' });
 
 AppearanceTheme.prototype.toPublicObject = function toPublicObject({ includeRelations = false } = {}) {
   const plain = this.get({ plain: true });
@@ -148,6 +177,9 @@ AppearanceTheme.prototype.toPublicObject = function toPublicObject({ includeRela
     ...base,
     assets: Array.isArray(plain.assets) ? plain.assets.map((asset) => ({ ...asset })) : [],
     layouts: Array.isArray(plain.layouts) ? plain.layouts.map((layout) => ({ ...layout })) : [],
+    componentProfiles: Array.isArray(plain.componentProfiles)
+      ? plain.componentProfiles.map((profile) => ({ ...profile }))
+      : [],
   };
 };
 
@@ -195,13 +227,31 @@ AppearanceLayout.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+AppearanceComponentProfile.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    themeId: plain.themeId ?? null,
+    componentKey: plain.componentKey,
+    status: plain.status,
+    definition: plain.definition ?? {},
+    metadata: plain.metadata ?? {},
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+    createdBy: plain.createdBy ?? null,
+    updatedBy: plain.updatedBy ?? null,
+  };
+};
+
 export default {
   AppearanceTheme,
   AppearanceAsset,
   AppearanceLayout,
+  AppearanceComponentProfile,
   APPEARANCE_THEME_STATUSES,
   APPEARANCE_ASSET_TYPES,
   APPEARANCE_ASSET_STATUSES,
   APPEARANCE_LAYOUT_STATUSES,
   APPEARANCE_LAYOUT_PAGES,
+  APPEARANCE_COMPONENT_PROFILE_STATUSES,
 };
