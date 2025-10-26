@@ -1,3 +1,4 @@
+import { LinkIcon } from '@heroicons/react/24/outline';
 import { classNames } from '../../utils/classNames.js';
 import {
   formatMessageSender,
@@ -13,6 +14,21 @@ export default function ConversationMessage({ message, actorId, onJoinCall, join
   const own = messageBelongsToUser(message, actorId);
   const timestamp = formatMessageTimestamp(message);
   const readReceiptSummary = own ? formatReadReceiptSummary(message?.readReceipts, actorId) : null;
+  const metadataLinks = Array.isArray(message?.metadata?.links)
+    ? message.metadata.links
+        .map((link) => {
+          if (!link) {
+            return null;
+          }
+          const title = link.title ?? link.label ?? link.url;
+          const url = link.url ?? link.href ?? link.link;
+          if (!url) {
+            return null;
+          }
+          return { title, url };
+        })
+        .filter(Boolean)
+    : [];
 
   if (isCallEvent(message)) {
     const callMetadata = getCallMetadata(message);
@@ -82,6 +98,26 @@ export default function ConversationMessage({ message, actorId, onJoinCall, join
         )}
       >
         {message.body ? message.body : <span className="italic text-slate-500">No message body</span>}
+        {metadataLinks.length ? (
+          <ul className={classNames('mt-3 space-y-2 text-xs', own ? 'text-white/90' : 'text-slate-600')}>
+            {metadataLinks.map((link) => (
+              <li key={link.url} className="flex items-center gap-2 break-all">
+                <LinkIcon className="h-3.5 w-3.5 flex-none" />
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={classNames(
+                    'underline decoration-dotted underline-offset-4 transition hover:opacity-80',
+                    own ? 'text-white' : 'text-accent',
+                  )}
+                >
+                  {link.title ?? link.url}
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </div>
       {readReceiptSummary ? (
         <p className="text-[11px] font-medium text-slate-400">Read by {readReceiptSummary}</p>

@@ -1,3 +1,89 @@
+2.B. Onboarding Journeys
+1. **Appraisal.** OnboardingWizard welcomes members with a premium hero shell, progress telemetry, and persona storytelling that mirrors leading social platforms.
+   - *Hero narrative.* Gradient headline, trust copy, and progress bar showcase readiness to operate like LinkedIn or Instagram from the first screen.
+   - *Persona storytelling.* PersonaSelection cards surface benefits, metrics, and signature moments so newcomers immediately feel represented.
+2. **Functionality.** The wizard ships an end-to-end flow covering persona selection, profile calibration, collaborator invites, preference tuning, and launch review without gaps.
+   - *Multi-step orchestration.* Persona, profile, team, preferences, and summary steps guard validation and carry analytics events across the journey.
+   - *Actionable review.* Summary checklist, milestones, and persona modules translate setup inputs into launch guidance.
+   - *Full-stack persistence.* `/onboarding/personas` hydrates the persona rail and `/onboarding/journeys` stores persona, profile, invite, and preference payloads through onboarding models, migrations, and seeds while the wizard drives requests via `listOnboardingPersonas` and `createOnboardingJourney`.【F:gigvora-backend-nodejs/src/routes/onboardingRoutes.js†L1-L11】【F:gigvora-backend-nodejs/src/services/onboardingService.js†L1-L185】【F:gigvora-backend-nodejs/src/models/onboardingModels.js†L1-L86】【F:gigvora-backend-nodejs/database/migrations/20250401100000-create-onboarding-tables.cjs†L1-L123】【F:gigvora-backend-nodejs/database/seeders/20250401101500-onboarding-personas-seed.cjs†L1-L74】【F:gigvora-frontend-reactjs/src/services/onboarding.js†L1-L20】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L35-L337】
+3. **Logic Usefulness.** Persona insights, invite validation, and preference toggles map directly to downstream modules and analytics.
+   - *Persona intelligence.* Recommended modules, signature wins, and metric callouts feed onboarding insights and workspace activation.
+   - *Database alignment.* Seeded personas and onboarding journey models keep analytics, UI storytelling, and stored payloads in sync across releases.【F:gigvora-backend-nodejs/database/seeders/20250401101500-onboarding-personas-seed.cjs†L1-L74】【F:gigvora-backend-nodejs/src/services/onboardingService.js†L1-L185】
+   - *Preference wiring.* Digest cadence, focus signals, and AI toggle update derived payloads for automation and notifications.
+4. **Redundancies.** Shared persona data, invite handlers, and preference utilities eliminate duplicate onboarding logic across surfaces.
+   - *Central persona catalogue.* PersonaSelection, the onboarding seeder, and `/onboarding/personas` share canonical persona definitions, metrics, and modules for every touchpoint.【F:gigvora-frontend-reactjs/src/services/onboarding.js†L1-L20】【F:gigvora-backend-nodejs/database/seeders/20250401101500-onboarding-personas-seed.cjs†L1-L74】【F:gigvora-backend-nodejs/src/services/onboardingService.js†L1-L185】
+   - *Shared handlers.* Invite, preference, and story theme utilities reuse memoised state updates instead of scattering duplicates.
+5. **Placeholders Or non-working functions or stubs.** Production copy, validation, and CTA states replace lorem text or inert actions.
+   - *Launch CTA.* "Launch workspace" now executes aggregated payload delivery with analytics and error handling.
+   - *Persona previews.* Signature moments, modules, and benefit lists hydrate with real data instead of placeholder bullets.
+6. **Duplicate Functions.** Persona toggles, invite controls, and digest selectors centralise behaviour.
+   - *Toggle utilities.* Story themes and focus signals share set-based toggles so future onboarding surfaces reuse the logic.
+   - *Invite rows.* Add/remove collaborator rows run through reusable handlers, preventing bespoke implementations.
+7. **Improvements need to make.** Roadmap highlights upcoming personalization, save-for-later, and concierge support once the flagship flow ships.
+   - *Personalisation backlog.* Future iterations will import CRM context to pre-fill personas and preferences while today’s build handles manual setup.
+   - *Concierge integration.* Live onboarding coaches and video walkthroughs stay queued post-launch.
+8. **Styling improvements.** Gradient shells, rounded-3xl surfaces, and premium chips align onboarding aesthetics with the enterprise design system.
+   - *Hero & chips.* Progress indicators, persona pills, and CTA gradients deliver the luxe polish stakeholders expect.
+   - *Glassmorphic panels.* Profile insights and review cards adopt soft shadows and elevated surfaces.
+9. **Effeciency analysis and improvement.** Memoised persona data, derived summaries, and guarded event handlers keep renders snappy.
+   - *Memoisation.* Persona lists, insights, and review summaries memoise heavy derivations.
+   - *Validation gating.* Step progression checks prevent unnecessary recomputes and API calls.
+10. **Strengths to Keep.** Premium storytelling, persona empathy, and invite collaboration remain core strengths.
+   - *Persona empathy.* Rich cards ensure newcomers feel seen and energised to launch.
+   - *Collaboration-first.* Team invites, role selection, and recommended collaborators reinforce community roots.
+11. **Weaknesses to remove.** Prior onboarding gaps around missing personas, bland copy, and unclear next steps are resolved.
+   - *Guided milestones.* Launch checklist and milestone list replace vague end screens.
+   - *Rich narratives.* Benefit and signature moment copy eliminate generic intros.
+12. **Styling and Colour review changes.** Palette leans on accent gradients, emerald success chips, and slate neutrals with AA contrast.
+   - *Progress gradient.* Accent-to-indigo bar communicates motion and trust with accessible contrast.
+   - *Metric badges.* Emerald deltas highlight growth while respecting contrast ratios.
+13. **Css, orientation, placement and arrangement changes.** Responsive grid orchestrates hero, stepper, and content zones across breakpoints.
+   - *Stepper layout.* Five-step rail adapts from horizontal grid to stacked cards on smaller screens.
+   - *Content stacking.* Sections maintain 8/16/24px rhythm across desktop and mobile.
+14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Editorial tone stays aspirational yet directive with zero lorem.
+   - *Persona copy.* Titles, subtitles, and benefit text emphasise outcomes without redundancy.
+   - *Guidance copy.* Step descriptions and milestone prompts stay concise and purposeful.
+15. **Text Spacing.** Padding, chip gaps, and paragraph rhythm adhere to the 8pt system.
+   - *Card spacing.* Persona cards and form sections maintain consistent vertical cadence for readability.
+   - *Chip trays.* Story themes and signal buttons respect balanced gutters.
+16. **Shaping.** Rounded-3xl cards, pill chips, and capsule buttons harmonise silhouettes.
+   - *Persona shells.* Buttons adopt rounded-3xl corners with pill badges for state clarity.
+   - *Toggle controls.* Switches and chips use soft radii consistent with core tokens.
+17. **Shadow, hover, glow and effects.** Hover lifts, focus rings, and gradient glows telegraph interactivity while respecting reduced motion.
+   - *Stepper shadows.* Current and complete steps gain subtle elevation and color-coded glows.
+   - *Interactive cards.* Persona and preference cards animate with accessible focus outlines.
+18. **Thumbnails.** Persona cards highlight signature moments, metrics, and badges, filling the imagery slot with purposeful data.
+   - *Signature overlays.* Moment tiles stand in for imagery while supporting future media.
+   - *Metric tiles.* Inline stats keep density without needing photos.
+19. **Images and media & Images and media previews.** Layout is media-ready with gradient placeholders and narrative panels.
+   - *Media readiness.* Persona overviews welcome hero media or video without collapsing layout.
+   - *Fallback storytelling.* Textual moments maintain engagement when imagery is unavailable.
+20. **Button styling.** Gradient primaries, ghost secondary buttons, and dashed add-row buttons align with system tokens.
+   - *Primary CTA.* Launch button uses accent gradient with disabled/launching states.
+   - *Secondary actions.* Back, exit, and add-row controls reuse ghost/dashed variants.
+21. **Interactiveness.** Keyboard navigation, analytics tracking, and toggle states support premium interactivity.
+   - *Analytics hooks.* Step view, persona selection, and completion fire structured events.
+   - *Keyboard support.* Buttons, chips, and switches expose focus outlines and aria semantics.
+22. **Missing Components.** Wizard now covers persona journeys, invites, and preferences, with backlog tracking advanced concierge modules.
+   - *Persona coverage.* Every primary persona has a card, insights, and modules.
+   - *Concierge backlog.* Human-led onboarding and tutorial media stay on roadmap.
+23. **Design Changes.** Restructured layout introduces hero, stepper, persona cards, and guided review consistent with new design direction.
+   - *Hero redesign.* Gradient hero and progress telemetry replace utilitarian headings.
+   - *Guided review.* Launch checklist and milestone rail replace plain confirmation copy.
+24. **Design Duplication.** Shared persona data model, PropTypes, and toggle logic prevent forks across onboarding contexts.
+   - *Persona data.* DEFAULT_PERSONAS powers both selection and wizard states.
+   - *Utility reuse.* Focus signal and theme toggles standardise behaviour for future onboarding flows.
+25. **Design framework.** Component contracts, PropTypes, and design tokens anchor onboarding inside the enterprise framework.
+   - *PropTypes.* Persona, invite, and preference shapes codify expectations for integrators.
+   - *Token usage.* Typography, spacing, and elevation follow existing design tokens.
+26. **Change Checklist Tracker Extensive.** Flow documents discovery through analytics validation and backlog logging.
+   - *Telemetry validation.* Step and completion events provide QA artefacts for launch checklist.
+   - *Backlog notes.* Saved personalisation and concierge support captured for future sprints.
+27. **Full Upgrade Plan & Release Steps Extensive.** Cohort launch plan pairs analytics gating with persona-ready templates.
+   - *Pilot sequencing.* Start with founding teams, expand to freelancers, then talent leaders with telemetry review.
+   - *Rollback strategy.* Exit action, analytics tracking, and manual invites support safe rollout.
+
+
    - First-impression audits still benchmark against LinkedIn-class networking suites to validate trust and desirability.
    - Capture refreshed moodboards that highlight stat tiles, persona copy, and premium shaping now present in the manager.
    - Compare Received vs. Sent tabs during heuristic reviews so stakeholders feel confident within three seconds.
