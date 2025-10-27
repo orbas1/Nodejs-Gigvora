@@ -477,3 +477,85 @@
 25. **Design framework.** Environment variables, README tables, and persist defaults slot into the broader platform governance so DevOps, QA, and docs reference the same framework when spinning up stubs.【F:gigvora-backend-nodejs/.env.example†L44-L53】【F:calendar_stub/README.md†L12-L120】
 26. **Change Checklist Tracker Extensive.** Node test suites verify CRUD, scenario, dataset, persistence, and validation-error paths; README updates document env vars and unsupported areas, giving QA and enablement teams the artefacts they need for sign-off.【F:calendar_stub/server.test.mjs†L20-L421】【F:calendar_stub/README.md†L12-L120】
 27. **Full Upgrade Plan & Release Steps Extensive.** Persisted JSON outputs, shared seeders, and scenario toggles let teams promote changes from local to staging with traceable artefacts, gating rollout via feature flags and telemetry just like the production upgrade plan.【F:calendar_stub/server.mjs†L622-L1053】【F:gigvora-backend-nodejs/database/seeders/20241031090500-company-calendar-demo.cjs†L1-L255】
+
+3. Home & Timeline Core
+3.A. Timeline Feed Framework
+
+3.A.1. FeedComposer.jsx
+1. **Appraisal.** Composer greets members with a polished shell, network guidance, and multi-mode controls so sharing feels as premium as drafting a LinkedIn update.
+   - *Guided storytelling.* Headline copy, character counter, and contextual helper text keep contributors aligned to the tone of the selected post type.【F:gigvora-frontend-reactjs/src/components/feed/FeedComposer.jsx†L148-L200】
+   - *Mode toggles.* Capsule buttons drive between opportunity, news, and celebration presets without refreshing the form, mirroring social-grade creation rails.【F:gigvora-frontend-reactjs/src/components/feed/FeedComposer.jsx†L178-L205】
+   - *Media polish.* Attachment previews, removal affordances, and alt-text inputs showcase a media-ready composer that keeps storytelling inclusive.【F:gigvora-frontend-reactjs/src/components/feed/FeedComposer.jsx†L206-L275】
+2. **Functionality.** Submission flow moderates payloads, sanitises links, and resets drafts so every publish mirrors production safeguards.
+   - *Moderation pipeline.* Drafts pass through shared moderation utilities, surfacing actionable error reasons before anything leaves the client.【F:gigvora-frontend-reactjs/src/components/feed/FeedComposer.jsx†L82-L145】
+   - *Composable payloads.* `onCreate` receives normalised content, link, and media attachment arrays ready for API consumption.【F:gigvora-frontend-reactjs/src/components/feed/FeedComposer.jsx†L82-L145】
+   - *State hygiene.* Successful posts reset mode, content, and attachments, ensuring creators re-enter with a fresh canvas every time.【F:gigvora-frontend-reactjs/src/components/feed/FeedComposer.jsx†L123-L144】
+3. **Logic Usefulness.** Memoised option selection and sanitised inputs keep analytics trustworthy and experiences consistent across composers.
+   - *Author context.* Avatar seeds and names hydrate from the active session so posts carry recognisable provenance for the network.【F:gigvora-frontend-reactjs/src/components/feed/FeedComposer.jsx†L150-L153】
+   - *Link safety.* External URLs funnel through `sanitiseExternalLink`, stripping risky protocols before analytics or downstream services ingest them.【F:gigvora-frontend-reactjs/src/components/feed/FeedComposer.jsx†L82-L119】
+   - *Option registry.* `COMPOSER_OPTIONS` centralises labels, icons, and descriptions so teams expand post types without rewriting UI logic.【F:gigvora-frontend-reactjs/src/components/feed/FeedComposer.jsx†L70-L205】
+4. **Interactivity & Resilience.** Emoji trays, GIF pickers, and actionable errors keep the experience delightful while preventing regressions when moderation fails.
+   - *Delight surfaces.* Emoji and GIF popovers tuck into relative buttons, allowing rich reactions without overwhelming the composer chrome.【F:gigvora-frontend-reactjs/src/components/feed/FeedComposer.jsx†L206-L240】
+   - *Accessible fallbacks.* Screen-reader labels, alt-text prompts, and disabled states respect accessibility guardrails for every control.【F:gigvora-frontend-reactjs/src/components/feed/FeedComposer.jsx†L154-L275】
+   - *Human-friendly errors.* Styled alerts list moderation reasons so members instantly adjust copy and resubmit without losing progress.【F:gigvora-frontend-reactjs/src/components/feed/FeedComposer.jsx†L239-L267】
+5. **Styling & Motion.** Rounded-3xl shells, capsule toggles, and soft shadows echo the premium aesthetic set elsewhere in the network.
+   - *Premium shell.* White cards, subtle borders, and shadow-soft treatments keep the composer aligned with home timeline tiles.【F:gigvora-frontend-reactjs/src/components/feed/FeedComposer.jsx†L148-L206】
+   - *Capsule interactions.* Inline chips and CTA buttons adopt capsule shapes with hover/focus transitions reminiscent of modern social suites.【F:gigvora-frontend-reactjs/src/components/feed/FeedComposer.jsx†L178-L205】【F:gigvora-frontend-reactjs/src/components/feed/FeedComposer.jsx†L268-L275】
+   - *Responsive layout.* Flex grids adapt avatar, textarea, and helpers from stacked mobile states to desktop columns without breaking rhythm.【F:gigvora-frontend-reactjs/src/components/feed/FeedComposer.jsx†L148-L205】
+6. **Analytics & Roadmap Alignment.** Copy reminds members updates reach followers and partners today, while modular options and moderation hooks pave the way for deeper analytics tomorrow.
+   - *Network framing.* Footer copy reinforces distribution reach so creators understand the stakes of every post.【F:gigvora-frontend-reactjs/src/components/feed/FeedComposer.jsx†L268-L275】
+   - *Extensible hooks.* Shared moderation errors and payload shapes mean future analytics or scheduling features can plug in without changing today’s contract.【F:gigvora-frontend-reactjs/src/components/feed/FeedComposer.jsx†L82-L145】
+   - *Experience promise.* The overall flow meets the UX benchmark for polished, confidence-inspiring share moments captured in the home roadmap.【F:gigvora-frontend-reactjs/src/components/feed/FeedComposer.jsx†L148-L275】
+
+3.A.2. FeedCard.jsx
+1. **Appraisal.** Feed cards highlight authors, post context, and opportunity badges so timeline browsing feels as informative as LinkedIn or Facebook’s flagship feeds.
+   - *Author clarity.* Avatar, headline, and timestamp stack ensure every update carries trusted provenance for talent and partners.【F:gigvora-frontend-reactjs/src/components/feed/FeedCard.jsx†L18-L81】【F:gigvora-frontend-reactjs/src/components/feed/FeedCard.jsx†L243-L263】
+   - *Opportunity spotlight.* Emerald banner calls out hiring or gig signals, nudging networks toward warm introductions without extra clicks.【F:gigvora-frontend-reactjs/src/components/feed/FeedCard.jsx†L288-L296】
+   - *Media richness.* Responsive grids and captions keep attachments premium and accessible, mirroring big-network storytelling.【F:gigvora-frontend-reactjs/src/components/feed/FeedCard.jsx†L24-L54】【F:gigvora-frontend-reactjs/src/components/feed/FeedCard.jsx†L300-L316】
+2. **Functionality.** Cards load conversations on demand, stream reactions, and orchestrate management controls so timeline interactions stay real-time ready.
+   - *Live threads.* Comments fetch via `listFeedComments`, normalise responses, and expose retry controls for resilient discussion rails.【F:gigvora-frontend-reactjs/src/components/feed/FeedCard.jsx†L91-L214】
+   - *Editing workflow.* Admin controls expose inline editing, optimistic field updates, and graceful cancel/delete handling tied to composer options.【F:gigvora-frontend-reactjs/src/components/feed/FeedCard.jsx†L214-L284】
+   - *Sharing.* Inline CTA routes to share handlers, pairing feed virality with analytics instrumentation hooks.【F:gigvora-frontend-reactjs/src/components/feed/FeedCard.jsx†L310-L336】
+3. **Logic Usefulness.** Normalisers, heuristics, and viewer context keep the card smart even when upstream payloads vary.
+   - *Payload reconciliation.* Helpers resolve authors, post types, reaction summaries, and comment lists into consistent shapes before render.【F:gigvora-frontend-reactjs/src/components/feed/FeedCard.jsx†L12-L81】
+   - *Viewer awareness.* Default names, headlines, and avatar seeds ensure optimistic comments feel personal and polished.【F:gigvora-frontend-reactjs/src/components/feed/FeedCard.jsx†L81-L134】
+   - *Post typing.* `resolvePostType` drives labels, badges, and layout differences without peppering the component with conditional spaghetti.【F:gigvora-frontend-reactjs/src/components/feed/FeedCard.jsx†L15-L20】【F:gigvora-frontend-reactjs/src/components/feed/FeedCard.jsx†L268-L307】
+4. **Interactivity & Resilience.** Optimistic reactions, comment guards, and error states keep engagement fluid even when APIs wobble.
+   - *Reaction toggles.* Local state updates and analytics tracking reflect likes instantly while still notifying services.【F:gigvora-frontend-reactjs/src/components/feed/FeedCard.jsx†L112-L168】
+   - *Optimistic comments.* Draft IDs, rollback logic, and reply guards ensure failed posts cleanly unwind without duplicating threads.【F:gigvora-frontend-reactjs/src/components/feed/FeedCard.jsx†L200-L333】
+   - *Error messaging.* Comment panels surface retry hooks and error objects so members stay informed when services misbehave.【F:gigvora-frontend-reactjs/src/components/feed/FeedCard.jsx†L91-L210】【F:gigvora-frontend-reactjs/src/components/feed/FeedCard.jsx†L322-L336】
+5. **Styling & Motion.** Hover lifts, badge capsules, and tonal banners keep cards premium while signalling interaction affordances.
+   - *Card elevation.* Rounded-xl shells, accent borders, and hover transforms make each story feel tactile and alive.【F:gigvora-frontend-reactjs/src/components/feed/FeedCard.jsx†L239-L339】
+   - *Badge language.* Opportunity and source pills reuse capsule styles to reinforce the home aesthetic system.【F:gigvora-frontend-reactjs/src/components/feed/FeedCard.jsx†L268-L296】
+   - *Thread legibility.* Typographic rhythm and whitespace inside `CommentsThread` keep long-form discussions readable at pace.【F:gigvora-frontend-reactjs/src/components/feed/FeedCard.jsx†L300-L336】
+6. **Analytics & Roadmap Alignment.** Embedded analytics calls and extensible props position the card for deeper insights and moderation.
+   - *Event tracking.* Reaction, comment, and reply submissions emit analytics payloads so growth can quantify engagement lifts.【F:gigvora-frontend-reactjs/src/components/feed/FeedCard.jsx†L120-L209】
+   - *Management hooks.* Prop-driven editing/deleting allows admin-only affordances without forking the core card design.【F:gigvora-frontend-reactjs/src/components/feed/FeedCard.jsx†L214-L284】
+   - *Insights rail ready.* Reaction insights prop wires into `ReactionsBar`, priming future breakdowns or heatmaps without layout changes.【F:gigvora-frontend-reactjs/src/components/feed/FeedCard.jsx†L310-L336】
+
+3.A.3. ActivityFilters.jsx
+1. **Appraisal.** Filter rail wraps the timeline in a polished control centre, letting members curate feeds with the same confidence they expect on Instagram or LinkedIn.
+   - *Spotlight controls.* Button grid surfaces top, recent, and conversation modes with descriptive copy so choices feel informed.【F:gigvora-frontend-reactjs/src/components/feed/ActivityFilters.jsx†L240-L273】
+   - *Category clarity.* Capsule filters display live counts, hinting at content breadth before switching contexts.【F:gigvora-frontend-reactjs/src/components/feed/ActivityFilters.jsx†L274-L323】
+   - *Network focus.* Uppercase pills let members pivot between full network, workspaces, following, and curated picks without losing timeline orientation.【F:gigvora-frontend-reactjs/src/components/feed/ActivityFilters.jsx†L324-L360】
+2. **Functionality.** Classification heuristics, summaries, and search deliver a robust filtering engine that keeps feeds relevant.
+   - *Summary intelligence.* `buildActivityFilterSummary` tallies categories and network segments so the UI can surface live story counts.【F:gigvora-frontend-reactjs/src/components/feed/ActivityFilters.jsx†L120-L210】
+   - *Filtering pipeline.* `applyActivityFilters` merges defaults, respects media-only toggles, and keeps editing posts pinned for seamless moderation flows.【F:gigvora-frontend-reactjs/src/components/feed/ActivityFilters.jsx†L210-L306】
+   - *Search.* Case-insensitive search glides across author, summary, content, and tags to catch nuanced storytelling moments.【F:gigvora-frontend-reactjs/src/components/feed/ActivityFilters.jsx†L80-L210】【F:gigvora-frontend-reactjs/src/components/feed/ActivityFilters.jsx†L252-L306】
+3. **Logic Usefulness.** Smart classification ensures opportunities, celebrations, knowledge shares, and media demos surface even when upstream payloads are uneven.
+   - *Keyword heuristics.* Celebration and knowledge keyword lists detect intent within summaries or headlines for accurate grouping.【F:gigvora-frontend-reactjs/src/components/feed/ActivityFilters.jsx†L16-L68】
+   - *Opportunity detection.* Dedicated type set ensures gigs, jobs, and launches never disappear from curated rails.【F:gigvora-frontend-reactjs/src/components/feed/ActivityFilters.jsx†L4-L44】
+   - *Network signals.* Workspace, following, and curated heuristics translate relationship metadata into actionable filters.【F:gigvora-frontend-reactjs/src/components/feed/ActivityFilters.jsx†L92-L180】
+4. **Interactivity & Resilience.** Controls debounce nothing yet remain responsive, while default states guard against empty payloads.
+   - *Defaults.* Frozen defaults object keeps fallbacks predictable across renders, avoiding flicker when state resets.【F:gigvora-frontend-reactjs/src/components/feed/ActivityFilters.jsx†L32-L60】
+   - *Editing priority.* Sorting pipeline hoists the currently edited post so moderators never lose context mid-update.【F:gigvora-frontend-reactjs/src/components/feed/ActivityFilters.jsx†L210-L248】
+   - *Empty handling.* Guard clauses return empty arrays gracefully when no posts match, letting FeedPage surface friendly empties.【F:gigvora-frontend-reactjs/src/components/feed/ActivityFilters.jsx†L210-L323】
+5. **Styling & Motion.** Frosted panels, capsule buttons, and iconography craft a luxe filter experience that still respects accessibility.
+   - *Panel design.* Rounded-3xl container with subtle shadows mirrors composer and card shells for cohesive home styling.【F:gigvora-frontend-reactjs/src/components/feed/ActivityFilters.jsx†L360-L398】
+   - *Iconic feedback.* Sparkles and search icons add delight while reinforcing affordances across copy and counts.【F:gigvora-frontend-reactjs/src/components/feed/ActivityFilters.jsx†L240-L398】
+   - *Responsive layout.* Flex groups adapt filters and search across breakpoints, keeping controls reachable on mobile and desktop alike.【F:gigvora-frontend-reactjs/src/components/feed/ActivityFilters.jsx†L240-L398】
+6. **Analytics & Roadmap Alignment.** Counts, formatting, and modular heuristics give growth teams insight into story density while leaving room for richer data overlays.
+   - *Count formatting.* Compact numbers highlight scale without overwhelming chips, ready for future A/B tracking.【F:gigvora-frontend-reactjs/src/components/feed/ActivityFilters.jsx†L306-L360】
+   - *Sparkline potential.* Classification data structures make it trivial to attach trendlines or recommended filters later.【F:gigvora-frontend-reactjs/src/components/feed/ActivityFilters.jsx†L80-L210】
+   - *Experience parity.* Together, the filters deliver the curated, high-signal timeline promised in the home experience playbook.【F:gigvora-frontend-reactjs/src/components/feed/ActivityFilters.jsx†L240-L398】
+
