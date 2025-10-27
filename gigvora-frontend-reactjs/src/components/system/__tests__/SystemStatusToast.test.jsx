@@ -32,6 +32,49 @@ function buildStatus(overrides = {}) {
       { id: 'status', label: 'Status page' },
       { id: 'email', label: 'Customer email' },
     ],
+    window: {
+      label: 'Database maintenance',
+      phase: 'scheduled',
+      startAt: '2024-05-11T23:00:00.000Z',
+      endAt: '2024-05-12T01:00:00.000Z',
+      timezone: 'UTC',
+    },
+    warnings: [
+      {
+        id: 'warn-1',
+        message: 'Notify APAC success teams before toggling maintenance.',
+        actionLabel: 'Share playbook',
+        actionLink: 'https://gigvora.notion.site',
+      },
+    ],
+    escalations: [
+      {
+        id: 'esc-1',
+        label: 'Draft postmortem template',
+        owner: 'Reliability PM',
+        dueAt: '2024-05-12T02:00:00.000Z',
+        link: 'https://gigvora.notion.site/postmortem',
+      },
+    ],
+    feedback: {
+      experienceScore: 4.7,
+      trendDelta: 0.3,
+      queueDepth: 9,
+      queueTarget: 6,
+      medianResponseMinutes: 4,
+      lastUpdated: '2024-05-11T22:55:00.000Z',
+      reviewUrl: 'https://gigvora.com/ops/feedback',
+      alerts: [
+        {
+          id: 'alert-1',
+          message: 'APAC queue depth 35% over target.',
+        },
+      ],
+      responseBreakdown: [
+        { id: 'web', label: 'Web', percentage: 48 },
+      ],
+      sentimentNarrative: 'Sentiment remains above target.',
+    },
     ...overrides,
   };
 }
@@ -52,6 +95,24 @@ describe('SystemStatusToast', () => {
     expect(screen.getByText('99.982%')).toBeInTheDocument();
     expect(screen.getByText('182 ms')).toBeInTheDocument();
     expect(screen.getByText('Status page')).toBeInTheDocument();
+  });
+
+  it('renders maintenance window, warnings, escalations, and feedback summary', () => {
+    render(
+      <SystemStatusToast
+        status={buildStatus()}
+        onViewIncidents={() => {}}
+        onViewRunbook={() => {}}
+        onDismiss={() => {}}
+      />,
+    );
+
+    expect(screen.getByText(/Maintenance window/i)).toBeInTheDocument();
+    expect(screen.getByText(/Operational warnings/i)).toBeInTheDocument();
+    expect(screen.getByText(/Escalation checklist/i)).toBeInTheDocument();
+    expect(screen.getByText(/Feedback pulse/i)).toBeInTheDocument();
+    expect(screen.getByText(/Draft postmortem template/)).toBeInTheDocument();
+    expect(screen.getByText(/Queue depth/)).toBeInTheDocument();
   });
 
   it('disables acknowledge button once acknowledged and triggers callback', async () => {

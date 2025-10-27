@@ -38,13 +38,32 @@ const FALLBACK_STATUS = {
   impactSurface: 'Platform & APIs',
   estimatedResumeAt: null,
   updatedAt: new Date().toISOString(),
-  warnings: [],
+  warnings: [
+    {
+      id: 'warning-notify-apac',
+      message: 'Notify APAC success teams before toggling maintenance — late alerts caused churn last quarter.',
+      actionLabel: 'Share playbook',
+      actionLink: 'https://gigvora.notion.site/maintenance-playbook',
+    },
+    {
+      id: 'warning-sla',
+      message: 'Pager duty escalation nearing 12m response SLA. Confirm command rotation availability.',
+    },
+  ],
   broadcastCopy: 'Gigvora is live. No known incidents.',
   metrics: {
     uptime: 99.982,
     latencyP95: 184,
     errorRate: 0.002,
     activeIncidents: 0,
+  },
+  window: {
+    id: 'window-20240512',
+    label: 'Database maintenance window',
+    phase: 'scheduled',
+    startAt: new Date(Date.now() + 1000 * 60 * 45).toISOString(),
+    endAt: new Date(Date.now() + 1000 * 60 * 165).toISOString(),
+    timezone: 'UTC',
   },
   incidents: [
     {
@@ -65,10 +84,26 @@ const FALLBACK_STATUS = {
   runbookUrl: 'https://gigvora.notion.site/maintenance-runbook',
   acknowledgedAt: null,
   acknowledgedBy: null,
+  escalations: [
+    {
+      id: 'escalation-postmortem',
+      label: 'Draft postmortem template',
+      owner: 'Reliability PM',
+      dueAt: new Date(Date.now() + 1000 * 60 * 120).toISOString(),
+      link: 'https://gigvora.notion.site/postmortem-template',
+    },
+    {
+      id: 'escalation-sla',
+      label: 'Validate vendor failover SLA',
+      owner: 'Vendor ops',
+      dueAt: new Date(Date.now() + 1000 * 60 * 240).toISOString(),
+    },
+  ],
   feedback: {
     experienceScore: 4.6,
     trendDelta: 0.2,
     queueDepth: 9,
+    queueTarget: 6,
     medianResponseMinutes: 3,
     lastUpdated: new Date().toISOString(),
     reviewUrl: 'https://gigvora.com/ops/feedback',
@@ -93,6 +128,30 @@ const FALLBACK_STATUS = {
         recordedAt: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
       },
     ],
+    alerts: [
+      {
+        id: 'alert-apac',
+        severity: 'caution',
+        message: 'APAC queue depth 35% over target after last window.',
+      },
+      {
+        id: 'alert-social',
+        severity: 'positive',
+        message: 'Community sentiment up 12% after proactive comms.',
+      },
+    ],
+    responseBreakdown: [
+      { id: 'web', label: 'Web', percentage: 48 },
+      { id: 'mobile', label: 'Mobile', percentage: 32 },
+      { id: 'email', label: 'Email', percentage: 20 },
+    ],
+    topDrivers: [
+      'Real-time roadmap updates reassure enterprise stakeholders.',
+      'Regional slack huddles reduce inbound support tickets by 18%.',
+      'Localized status copy improved transparency scores.',
+    ],
+    sentimentNarrative:
+      'Sentiment remains above target; watch APAC queue spikes and prioritise playbook distribution before next window.',
   },
 };
 
@@ -354,6 +413,10 @@ export default function AdminMaintenanceModePage() {
       metrics,
       incidents: Array.isArray(status?.incidents) ? status.incidents : FALLBACK_STATUS.incidents,
       channels: Array.isArray(status?.channels) ? status.channels : FALLBACK_STATUS.channels,
+      window: status?.window ?? FALLBACK_STATUS.window,
+      warnings: Array.isArray(status?.warnings) ? status.warnings : FALLBACK_STATUS.warnings,
+      escalations: Array.isArray(status?.escalations) ? status.escalations : FALLBACK_STATUS.escalations,
+      feedback: status?.feedback ?? FALLBACK_STATUS.feedback,
     };
   }, [status]);
 

@@ -1,5 +1,10 @@
 import PropTypes from 'prop-types';
-import { ArrowUpRightIcon, ChatBubbleBottomCenterTextIcon } from '@heroicons/react/24/outline';
+import {
+  ArrowUpRightIcon,
+  ChatBubbleBottomCenterTextIcon,
+  ExclamationTriangleIcon,
+  SparklesIcon,
+} from '@heroicons/react/24/outline';
 import { formatDistanceToNowStrict, parseISO } from 'date-fns';
 
 export function formatTrend(value) {
@@ -27,6 +32,14 @@ function formatUpdatedAt(value) {
 export default function FeedbackPulse({ analytics, onReview }) {
   const segments = Array.isArray(analytics.segments) ? analytics.segments : [];
   const highlights = Array.isArray(analytics.highlights) ? analytics.highlights : [];
+  const alerts = Array.isArray(analytics.alerts) ? analytics.alerts : [];
+  const responseBreakdown = Array.isArray(analytics.responseBreakdown) ? analytics.responseBreakdown : [];
+  const topDrivers = Array.isArray(analytics.topDrivers) ? analytics.topDrivers : [];
+  const queueTarget = analytics.queueTarget;
+  const queueLoad = typeof analytics.queueDepth === 'number' && typeof queueTarget === 'number'
+    ? analytics.queueDepth / queueTarget
+    : null;
+  const queueAboveTarget = typeof queueLoad === 'number' && queueLoad > 1;
 
   return (
     <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-slate-900/95 p-6 text-white shadow-soft">
@@ -44,11 +57,49 @@ export default function FeedbackPulse({ analytics, onReview }) {
             <p className="mt-1 text-sm text-white/70">Real-time sentiment across maintenance audiences.</p>
           </div>
           <div className="text-right text-xs text-white/70">
-            <p>Queue depth: <span className="font-semibold text-white">{analytics.queueDepth}</span></p>
+            <p>
+              Queue depth:{' '}
+              <span className={`font-semibold ${queueAboveTarget ? 'text-amber-200' : 'text-white'}`}>
+                {analytics.queueDepth}
+              </span>
+              {typeof queueTarget === 'number' ? (
+                <span className="ml-1 text-white/50">/ {queueTarget} target</span>
+              ) : null}
+            </p>
             <p>Median response: {analytics.medianResponseMinutes}m</p>
             <p>Updated {formatUpdatedAt(analytics.lastUpdated)}</p>
           </div>
         </header>
+
+        {alerts.length > 0 ? (
+          <div className="space-y-2">
+            {alerts.map((alert) => (
+              <div
+                key={alert.id || alert.message}
+                className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-xs ${
+                  alert.severity === 'critical'
+                    ? 'border-rose-400/60 bg-rose-500/15 text-rose-100'
+                    : alert.severity === 'positive'
+                      ? 'border-emerald-400/60 bg-emerald-500/15 text-emerald-100'
+                      : 'border-amber-400/60 bg-amber-500/15 text-amber-100'
+                }`}
+              >
+                <ExclamationTriangleIcon className="h-4 w-4" aria-hidden="true" />
+                <span className="flex-1 text-left">{alert.message}</span>
+                {alert.actionLabel && alert.actionLink ? (
+                  <a
+                    href={alert.actionLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[0.65rem] font-semibold uppercase tracking-[0.25em] text-white/80 transition hover:text-white"
+                  >
+                    {alert.actionLabel}
+                  </a>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : null}
 
         {segments.length > 0 ? (
           <dl className="grid gap-3 text-sm sm:grid-cols-3">
@@ -102,6 +153,55 @@ export default function FeedbackPulse({ analytics, onReview }) {
           </div>
         ) : null}
 
+        {responseBreakdown.length > 0 ? (
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-white/70">Response mix</p>
+            <div className="space-y-2">
+              {responseBreakdown.map((entry) => {
+                const percent = typeof entry.percentage === 'number' && !Number.isNaN(entry.percentage)
+                  ? Math.min(Math.max(entry.percentage, 0), 100)
+                  : null;
+                return (
+                  <div key={entry.id || entry.label} className="space-y-1">
+                    <div className="flex items-center justify-between text-[0.7rem] uppercase tracking-[0.25em] text-white/50">
+                      <span>{entry.label}</span>
+                      <span>{percent === null ? '—' : `${percent.toFixed(0)}%`}</span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-white/10">
+                      <div
+                        className="h-full rounded-full bg-emerald-400/70"
+                        style={{ width: `${percent === null ? 0 : percent}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
+        {topDrivers.length > 0 || analytics.sentimentNarrative ? (
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-white/70">Insight drivers</p>
+            {analytics.sentimentNarrative ? (
+              <p className="text-sm text-white/70">{analytics.sentimentNarrative}</p>
+            ) : null}
+            {topDrivers.length > 0 ? (
+              <ul className="grid gap-2 sm:grid-cols-2">
+                {topDrivers.map((driver, index) => (
+                  <li
+                    key={`${index}-${driver.slice(0, 16)}`}
+                    className="flex items-start gap-2 rounded-2xl border border-white/10 bg-white/10 p-3 text-xs text-white/80"
+                  >
+                    <SparklesIcon className="h-4 w-4 text-white/60" aria-hidden="true" />
+                    <span>{driver}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
+
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
@@ -135,6 +235,7 @@ FeedbackPulse.propTypes = {
     medianResponseMinutes: PropTypes.number.isRequired,
     lastUpdated: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
     reviewUrl: PropTypes.string,
+    queueTarget: PropTypes.number,
     segments: PropTypes.arrayOf(
       PropTypes.shape({
         id: PropTypes.string.isRequired,
@@ -153,10 +254,25 @@ FeedbackPulse.propTypes = {
         recordedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
       }),
     ),
+    alerts: PropTypes.arrayOf(
+      PropTypes.shape({
+        id: PropTypes.string,
+        message: PropTypes.string.isRequired,
+        severity: PropTypes.oneOf(['caution', 'critical', 'positive']),
+        actionLabel: PropTypes.string,
+        actionLink: PropTypes.string,
+      }),
+    ),
+    responseBreakdown: PropTypes.arrayOf(
+      PropTypes.shape({
+        id: PropTypes.string,
+        label: PropTypes.string.isRequired,
+        percentage: PropTypes.number,
+      }),
+    ),
+    topDrivers: PropTypes.arrayOf(PropTypes.string),
+    sentimentNarrative: PropTypes.string,
   }).isRequired,
   onReview: PropTypes.func,
 };
 
-FeedbackPulse.defaultProps = {
-  onReview: undefined,
-};
