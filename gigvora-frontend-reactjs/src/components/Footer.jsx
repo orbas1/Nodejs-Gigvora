@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BoltIcon, ShieldCheckIcon, SignalIcon } from '@heroicons/react/24/outline';
 import { LOGO_URL } from '../constants/branding.js';
 import { useNavigationChrome } from '../context/NavigationChromeContext.jsx';
+import { formatRelativeTime } from '../utils/date.js';
 
 const STATUS_ICON_MAP = {
   signal: SignalIcon,
@@ -58,7 +59,40 @@ function renderSocialIcon(iconKey) {
 
 export default function Footer() {
   const [newsletterSubmitted, setNewsletterSubmitted] = useState(false);
-  const { footer } = useNavigationChrome();
+  const { footer, loading, error, lastFetchedAt, refresh } = useNavigationChrome();
+
+  const chromeStatus = useMemo(() => {
+    if (loading) {
+      return {
+        tone: 'border-sky-100 bg-sky-50 text-sky-600',
+        label: 'Refreshing navigation chrome…',
+        helper: lastFetchedAt ? `Last synced ${formatRelativeTime(lastFetchedAt)}` : 'Fetching localisation, persona, and footer payloads.',
+        showRefresh: false,
+      };
+    }
+    if (error) {
+      return {
+        tone: 'border-rose-100 bg-rose-50 text-rose-600',
+        label: 'Unable to load latest navigation chrome',
+        helper: error,
+        showRefresh: true,
+      };
+    }
+    if (lastFetchedAt) {
+      return {
+        tone: 'border-emerald-100 bg-emerald-50 text-emerald-600',
+        label: 'Navigation chrome is current',
+        helper: `Synced ${formatRelativeTime(lastFetchedAt)}`,
+        showRefresh: true,
+      };
+    }
+    return {
+      tone: 'border-slate-200 bg-slate-50 text-slate-500',
+      label: 'Navigation chrome ready',
+      helper: 'Using bundled defaults for footer, personas, and localisation metadata.',
+      showRefresh: true,
+    };
+  }, [error, lastFetchedAt, loading]);
 
   const navigationSections = Array.isArray(footer?.navigationSections) ? footer.navigationSections : [];
   const statusHighlights = Array.isArray(footer?.statusHighlights)
@@ -83,9 +117,36 @@ export default function Footer() {
     }
   };
 
+  const handleRefreshChrome = () => {
+    refresh?.({});
+  };
+
   return (
     <footer className="border-t border-slate-200 bg-white/95">
       <div className="mx-auto max-w-7xl space-y-16 px-6 py-16 text-sm text-slate-500">
+        <div
+          className={`rounded-3xl border ${chromeStatus.tone} p-5 shadow-sm transition`}
+          role="status"
+          aria-live="polite"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="space-y-1 text-sm">
+              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-slate-400">Navigation data</p>
+              <p className="text-sm font-semibold text-slate-900">{chromeStatus.label}</p>
+              <p className="text-xs text-slate-500">{chromeStatus.helper}</p>
+            </div>
+            {chromeStatus.showRefresh ? (
+              <button
+                type="button"
+                onClick={handleRefreshChrome}
+                disabled={loading}
+                className="inline-flex items-center justify-center rounded-full border border-slate-200 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.3em] text-slate-600 transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loading ? 'Refreshing…' : 'Refresh chrome'}
+              </button>
+            ) : null}
+          </div>
+        </div>
         <div className="grid gap-12 lg:grid-cols-[1.4fr_1fr]">
           <div className="space-y-8">
             <Link to="/" className="inline-flex">
@@ -142,7 +203,9 @@ export default function Footer() {
                 </button>
               </form>
               {newsletterSubmitted ? (
-                <p className="mt-3 text-xs font-semibold text-emerald-600">Thanks! We&apos;ll deliver the next edition to your inbox.</p>
+                <p className="mt-3 text-xs font-semibold text-emerald-600" role="status" aria-live="polite">
+                  Thanks! We&apos;ll deliver the next edition to your inbox.
+                </p>
               ) : null}
             </div>
             <div className="flex flex-wrap items-center gap-3">

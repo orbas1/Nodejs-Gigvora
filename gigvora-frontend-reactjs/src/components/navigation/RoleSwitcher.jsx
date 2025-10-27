@@ -1,4 +1,4 @@
-import { Fragment, useMemo } from 'react';
+import { Fragment, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import { Menu, Transition } from '@headlessui/react';
@@ -11,6 +11,7 @@ import {
   UserCircleIcon,
   ShieldCheckIcon,
   MagnifyingGlassCircleIcon,
+  RocketLaunchIcon,
 } from '@heroicons/react/24/outline';
 import { classNames } from '../../utils/classNames.js';
 import { useNavigationChrome } from '../../context/NavigationChromeContext.jsx';
@@ -26,6 +27,17 @@ const personaIcons = Object.freeze({
   founder: SparklesIcon,
 });
 
+const iconAliases = Object.freeze({
+  'user-circle': UserCircleIcon,
+  sparkles: SparklesIcon,
+  'building-office': BuildingOffice2Icon,
+  briefcase: BriefcaseIcon,
+  'magnifying-glass-circle': MagnifyingGlassCircleIcon,
+  'academic-cap': AcademicCapIcon,
+  'shield-check': ShieldCheckIcon,
+  'rocket-launch': RocketLaunchIcon,
+});
+
 const FALLBACK_BLUEPRINT = Object.freeze({
   tagline: 'Tailored workspaces with analytics, approvals, and concierge support.',
   focusAreas: ['Workspace', 'Insights'],
@@ -36,10 +48,11 @@ const FALLBACK_BLUEPRINT = Object.freeze({
   primaryCta: 'Switch persona',
   defaultRoute: '/',
   timelineEnabled: true,
+  metadata: { journey: 'workspace' },
 });
 
-function resolveIcon(key) {
-  return personaIcons[key] ?? UserCircleIcon;
+function resolveIcon(key, iconKey) {
+  return personaIcons[key] ?? iconAliases[iconKey] ?? UserCircleIcon;
 }
 
 export default function RoleSwitcher({ options, currentKey, onSelect }) {
@@ -60,16 +73,60 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
     return null;
   }
 
-  const activeOption = options.find((option) => option.key === currentKey) ?? options[0];
-  const ActiveIcon = resolveIcon(activeOption.key);
-  const activeBlueprint = personaMap.get(activeOption.key) ?? FALLBACK_BLUEPRINT;
-  const activeFocusAreas = Array.isArray(activeBlueprint.focusAreas)
-    ? activeBlueprint.focusAreas
-    : FALLBACK_BLUEPRINT.focusAreas;
-  const activeMetrics = Array.isArray(activeBlueprint.metrics)
-    ? activeBlueprint.metrics
-    : FALLBACK_BLUEPRINT.metrics;
-  const activePrimaryCta = activeBlueprint.primaryCta ?? FALLBACK_BLUEPRINT.primaryCta;
+  const enhancedOptions = useMemo(() => {
+    return options.map((option) => {
+      const blueprint = personaMap.get(option.key) ?? FALLBACK_BLUEPRINT;
+      const focusAreas = Array.isArray(blueprint.focusAreas)
+        ? blueprint.focusAreas
+        : FALLBACK_BLUEPRINT.focusAreas;
+      const metrics = Array.isArray(blueprint.metrics) ? blueprint.metrics : FALLBACK_BLUEPRINT.metrics;
+      const primaryCta = blueprint.primaryCta ?? FALLBACK_BLUEPRINT.primaryCta;
+      const timelineActive = option.timelineEnabled ?? blueprint.timelineEnabled ?? false;
+      const destination = option.to ?? blueprint.defaultRoute ?? '#';
+      const journey = option.metadata?.journey ?? blueprint.metadata?.journey ?? null;
+      const iconKey = option.icon ?? blueprint.icon ?? null;
+
+      return {
+        ...option,
+        blueprint,
+        focusAreas,
+        metrics,
+        primaryCta,
+        timelineActive,
+        destination,
+        journey,
+        Icon: resolveIcon(option.key, iconKey),
+      };
+    });
+  }, [options, personaMap]);
+
+  if (!enhancedOptions.length) {
+    return null;
+  }
+
+  const activeOption = enhancedOptions.find((entry) => entry.key === currentKey) ?? enhancedOptions[0];
+  const { Icon: ActiveIcon, focusAreas: activeFocusAreas, metrics: activeMetrics, primaryCta: activePrimaryCta } = activeOption;
+  const activeBlueprint = activeOption.blueprint ?? FALLBACK_BLUEPRINT;
+
+  const handleSelect = useCallback(
+    (option) => (event) => {
+      onSelect?.(option, event);
+      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+        window.dispatchEvent(
+          new CustomEvent('gigvora:persona-switch', {
+            detail: {
+              key: option.key,
+              label: option.label,
+              journey: option.journey,
+              timelineEnabled: option.timelineActive,
+              destination: option.destination,
+            },
+          }),
+        );
+      }
+    },
+    [onSelect],
+  );
 
   return (
     <Menu as="div" className="relative inline-flex">
@@ -126,22 +183,16 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
               ))}
             </dl>
           </div>
-          {options.map((option) => {
-            const OptionIcon = resolveIcon(option.key);
-            const blueprint = personaMap.get(option.key) ?? FALLBACK_BLUEPRINT;
-            const focusAreas = Array.isArray(blueprint.focusAreas)
-              ? blueprint.focusAreas
-              : FALLBACK_BLUEPRINT.focusAreas;
-            const metrics = Array.isArray(blueprint.metrics) ? blueprint.metrics : FALLBACK_BLUEPRINT.metrics;
-            const primaryCta = blueprint.primaryCta ?? FALLBACK_BLUEPRINT.primaryCta;
-            const timelineActive = option.timelineEnabled ?? blueprint.timelineEnabled ?? false;
-            const destination = option.to ?? blueprint.defaultRoute ?? '#';
+          {enhancedOptions.map((option) => {
             return (
               <Menu.Item key={option.key}>
                 {({ active }) => (
                   <Link
-                    to={destination}
-                    onClick={onSelect}
+                    to={option.destination}
+                    onClick={handleSelect(option)}
+                    aria-current={option.key === activeOption.key ? 'true' : undefined}
+                    data-persona-key={option.key}
+                    data-persona-journey={option.journey ?? undefined}
                     className={classNames(
                       'flex flex-col gap-3 rounded-2xl border border-transparent px-3 py-3 transition',
                       option.key === activeOption.key
@@ -153,17 +204,22 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <span className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-full bg-slate-900/90 text-white">
-                        <OptionIcon className="h-4 w-4" aria-hidden="true" />
+                        <option.Icon className="h-4 w-4" aria-hidden="true" />
                       </span>
                       <div className="flex-1 space-y-1">
                         <p className={classNames('text-sm font-semibold', option.key === activeOption.key ? 'text-white' : 'text-slate-900')}>
                           {option.label}
                         </p>
                         <p className={classNames('text-xs', option.key === activeOption.key ? 'text-slate-100/80' : 'text-slate-500')}>
-                          {blueprint.tagline ?? FALLBACK_BLUEPRINT.tagline}
+                          {option.blueprint?.tagline ?? FALLBACK_BLUEPRINT.tagline}
                         </p>
+                        {option.journey ? (
+                          <span className={classNames('inline-flex rounded-full px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.3em]', option.key === activeOption.key ? 'bg-white/10 text-white' : 'bg-white/80 text-slate-500')}>
+                            {option.journey}
+                          </span>
+                        ) : null}
                         <div className="flex flex-wrap gap-2">
-                          {focusAreas.map((area) => (
+                          {option.focusAreas.map((area) => (
                             <span
                               key={`${option.key}-${area}`}
                               className={classNames(
@@ -179,7 +235,7 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
                       <span
                         className={classNames(
                           'inline-flex items-center rounded-full px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.35em]',
-                          timelineActive
+                          option.timelineActive
                             ? option.key === activeOption.key
                               ? 'bg-emerald-400/20 text-white'
                               : 'bg-emerald-100 text-emerald-700'
@@ -188,7 +244,7 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
                               : 'bg-amber-100 text-amber-700',
                         )}
                       >
-                        {timelineActive ? 'Timeline live' : 'Timeline pending'}
+                        {option.timelineActive ? 'Timeline live' : 'Timeline pending'}
                       </span>
                     </div>
                     <dl
@@ -197,7 +253,7 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
                         option.key === activeOption.key ? 'text-slate-100/80' : 'text-slate-400',
                       )}
                     >
-                      {metrics.map((metric) => (
+                      {option.metrics.map((metric) => (
                         <div key={`${option.key}-${metric.label}`} className="space-y-1">
                           <dt>{metric.label}</dt>
                           <dd className={classNames('text-xs font-semibold', option.key === activeOption.key ? 'text-white' : 'text-slate-600')}>
@@ -207,7 +263,7 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
                       ))}
                     </dl>
                     <span className="text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                      {primaryCta}
+                      {option.primaryCta}
                     </span>
                   </Link>
                 )}
@@ -227,6 +283,10 @@ RoleSwitcher.propTypes = {
       label: PropTypes.string.isRequired,
       to: PropTypes.string,
       timelineEnabled: PropTypes.bool,
+      icon: PropTypes.string,
+      metadata: PropTypes.shape({
+        journey: PropTypes.string,
+      }),
     }),
   ),
   currentKey: PropTypes.string,
