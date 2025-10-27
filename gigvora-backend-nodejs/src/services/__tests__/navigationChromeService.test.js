@@ -208,6 +208,7 @@ describe('navigationChromeService', () => {
       defaultRoute: '/dashboard/freelancer',
       timelineEnabled: true,
       sortOrder: 0,
+      metadata: { journey: 'freelancer' },
     });
 
     await NavigationChromeConfig.bulkCreate([
@@ -228,5 +229,9 @@ describe('navigationChromeService', () => {
     expect(chrome.footer.navigationSections[0].links[0].to).toBe('/launchpad');
     expect(chrome.footer.statusHighlights[0].id).toBe('uptime');
     expect(chrome.metadata.defaultLocale).toBe('en');
+    expect(chrome.metadata.localeStatusCounts.ga).toBe(1);
+    expect(chrome.metadata.timelineEnabledPersonaCount).toBe(1);
+    expect(chrome.metadata.rtlLocales).toEqual([]);
+    expect(chrome.metadata.personaJourneys).toContain('freelancer');
   });
 });

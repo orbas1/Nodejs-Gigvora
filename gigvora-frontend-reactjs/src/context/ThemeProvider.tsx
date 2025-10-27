@@ -220,7 +220,7 @@ function pxToRem(px, scale) {
   return `${((px * scale) / 16).toFixed(3)}rem`;
 }
 
-function applyCssVariables(tokens, mode, density) {
+function applyCssVariables(tokens, mode, density, accentName) {
   if (!isBrowser()) {
     return;
   }
@@ -229,6 +229,9 @@ function applyCssVariables(tokens, mode, density) {
   root.style.setProperty(COLOR_SCHEME_ATTRIBUTE, mode === 'dark' ? 'dark' : 'light');
   root.dataset[DATA_THEME_MODE] = mode;
   root.dataset[DATA_THEME_DENSITY] = density;
+  if (accentName) {
+    root.dataset.themeAccent = accentName;
+  }
 
   const colors = tokens.colors ?? {};
   root.style.setProperty('--gv-color-background', colors.background);
@@ -266,6 +269,30 @@ function applyCssVariables(tokens, mode, density) {
   const overlays = tokens.overlays ?? {};
   root.style.setProperty('--shell-overlay-primary', overlays.shellPrimary ?? 'none');
   root.style.setProperty('--shell-overlay-desktop', overlays.shellDesktop ?? 'none');
+
+  const typography = tokens.typography ?? {};
+  if (typography.fontSans) {
+    root.style.setProperty('--gv-font-sans', typography.fontSans);
+  }
+  if (typography.fontMono) {
+    root.style.setProperty('--gv-font-mono', typography.fontMono);
+  }
+  const heading = typography.heading ?? {};
+  Object.entries(heading).forEach(([key, value]) => {
+    root.style.setProperty(`--gv-font-heading-${key}`, value);
+  });
+  const body = typography.body ?? {};
+  Object.entries(body).forEach(([key, value]) => {
+    root.style.setProperty(`--gv-font-body-${key}`, value);
+  });
+  const label = typography.label ?? {};
+  Object.entries(label).forEach(([key, value]) => {
+    root.style.setProperty(`--gv-font-label-${key}`, value);
+  });
+
+  if (tokens.density) {
+    root.style.setProperty('--gv-density-scale', `${tokens.density}`);
+  }
 }
 
 const defaultThemeValue = {
@@ -348,8 +375,8 @@ export function ThemeProvider({ children }) {
   }, [accent, density, resolvedMode]);
 
   useEffect(() => {
-    applyCssVariables(tokens, resolvedMode, density);
-  }, [tokens, resolvedMode, density]);
+    applyCssVariables(tokens, resolvedMode, density, accent);
+  }, [tokens, resolvedMode, density, accent]);
 
   useEffect(() => {
     persistPreferences({ mode: modePreference, accent, density });

@@ -1,9 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
+import analytics from '../services/analytics.js';
 import { fetchNavigationChrome } from '../services/publicSite.js';
 
-const fallbackChrome = Object.freeze({
-  locales: [
+const fallbackChrome = (() => {
+  const locales = [
     {
       code: 'en',
       label: 'English',
@@ -156,8 +157,8 @@ const fallbackChrome = Object.freeze({
       direction: 'ltr',
       metadata: { localeCode: 'ru-RU', requestPath: '/support/localization/russian' },
     },
-  ],
-  personas: [
+  ];
+  const personas = [
     {
       key: 'user',
       label: 'Member workspace',
@@ -278,8 +279,8 @@ const fallbackChrome = Object.freeze({
       timelineEnabled: false,
       metadata: { journey: 'admin' },
     },
-  ],
-  footer: {
+  ];
+  const footer = {
     navigationSections: [
       {
         title: 'Platform',
@@ -341,8 +342,82 @@ const fallbackChrome = Object.freeze({
       { label: 'Connect on LinkedIn', href: 'https://linkedin.com/company/gigvora', icon: 'linkedin' },
       { label: 'Like on Facebook', href: 'https://facebook.com/gigvora', icon: 'facebook' },
     ],
-  },
-});
+  };
+
+  const defaultLocale = locales.find((locale) => locale.isDefault)?.code ?? locales[0]?.code ?? 'en';
+  const localeStatusCounts = locales.reduce(
+    (acc, locale) => {
+      const statusKey = locale.status ?? 'ga';
+      acc[statusKey] = (acc[statusKey] ?? 0) + 1;
+      return acc;
+    },
+    { ga: 0, beta: 0, preview: 0 },
+  );
+  const rtlLocales = locales.filter((locale) => locale.direction === 'rtl').map((locale) => locale.code);
+  const timelineEnabledPersonaCount = personas.filter((persona) => persona.timelineEnabled).length;
+  const latestUpdatedAt = locales.reduce((latest, locale) => {
+    if (!locale.lastUpdated) {
+      return latest;
+    }
+    const iso = new Date(locale.lastUpdated).toISOString();
+    if (!latest) {
+      return iso;
+    }
+    return new Date(iso).getTime() > new Date(latest).getTime() ? iso : latest;
+  }, null);
+  const metadata = {
+    defaultLocale,
+    personaCount: personas.length,
+    localeStatusCounts,
+    rtlLocales,
+    timelineEnabledPersonaCount,
+    updatedAt: latestUpdatedAt,
+  };
+
+  return Object.freeze({
+    locales,
+    personas,
+    footer,
+    metadata,
+  });
+})();
+
+function computeMetadata(locales, personas, incoming = {}) {
+  const defaultLocale = incoming.defaultLocale
+    ?? locales.find((locale) => locale.isDefault)?.code
+    ?? locales[0]?.code
+    ?? fallbackChrome.metadata.defaultLocale;
+  const localeStatusCounts = locales.reduce(
+    (acc, locale) => {
+      const statusKey = locale.status ?? 'ga';
+      acc[statusKey] = (acc[statusKey] ?? 0) + 1;
+      return acc;
+    },
+    { ga: 0, beta: 0, preview: 0 },
+  );
+  if (incoming.localeStatusCounts) {
+    Object.entries(incoming.localeStatusCounts).forEach(([status, count]) => {
+      if (typeof count === 'number' && Number.isFinite(count)) {
+        localeStatusCounts[status] = count;
+      }
+    });
+  }
+  const rtlLocales = locales
+    .filter((locale) => locale.direction === 'rtl')
+    .map((locale) => locale.code);
+  const timelineEnabledPersonaCount = personas.filter((persona) => persona.timelineEnabled).length;
+  const personaCount = incoming.personaCount ?? personas.length;
+  const updatedAt = incoming.updatedAt ?? new Date().toISOString();
+
+  return {
+    defaultLocale,
+    personaCount,
+    localeStatusCounts,
+    rtlLocales,
+    timelineEnabledPersonaCount,
+    updatedAt,
+  };
+}
 
 const NavigationChromeContext = createContext(null);
 
@@ -351,6 +426,7 @@ export function NavigationChromeProvider({ children }) {
     locales: fallbackChrome.locales,
     personas: fallbackChrome.personas,
     footer: fallbackChrome.footer,
+    metadata: fallbackChrome.metadata,
     loading: true,
     error: null,
     lastFetchedAt: null,
@@ -390,10 +466,20 @@ export function NavigationChromeProvider({ children }) {
           }
         : fallbackChrome.footer;
 
+      const metadata = computeMetadata(locales, personas, payload?.metadata);
+
+      analytics.track('navigation.chrome_loaded', {
+        localeCount: locales.length,
+        personaCount: personas.length,
+        defaultLocale: metadata.defaultLocale,
+        timelineEnabledPersonaCount: metadata.timelineEnabledPersonaCount,
+      });
+
       setState({
         locales,
         personas,
         footer,
+        metadata,
         loading: false,
         error: null,
         lastFetchedAt: new Date().toISOString(),
@@ -414,17 +500,80 @@ export function NavigationChromeProvider({ children }) {
     refresh({ silent: true });
   }, [refresh]);
 
+  const localeMap = useMemo(
+    () => new Map(state.locales.map((locale) => [locale.code, locale])),
+    [state.locales],
+  );
+  const personaMap = useMemo(
+    () => new Map(state.personas.map((persona) => [persona.key, persona])),
+    [state.personas],
+  );
+  const localesByStatus = useMemo(() => {
+    return state.locales.reduce(
+      (acc, locale) => {
+        const status = locale.status ?? 'ga';
+        if (!acc[status]) {
+          acc[status] = [];
+        }
+        acc[status].push(locale);
+        return acc;
+      },
+      { ga: [], beta: [], preview: [] },
+    );
+  }, [state.locales]);
+  const timelineEnabledPersonas = useMemo(
+    () => state.personas.filter((persona) => persona.timelineEnabled),
+    [state.personas],
+  );
+
+  const getLocale = useCallback((code) => localeMap.get(code) ?? null, [localeMap]);
+  const getPersona = useCallback((key) => personaMap.get(key) ?? null, [personaMap]);
+  const getFooterSection = useCallback(
+    (title) => {
+      if (!state.footer?.navigationSections) {
+        return null;
+      }
+      return state.footer.navigationSections.find(
+        (section) => section.title?.toLowerCase() === title?.toLowerCase(),
+      ) ?? null;
+    },
+    [state.footer],
+  );
+
+  const defaultLocale = state.metadata?.defaultLocale
+    ?? state.locales.find((locale) => locale.isDefault)?.code
+    ?? fallbackChrome.metadata.defaultLocale;
+  const personaCount = state.metadata?.personaCount ?? state.personas.length;
+
   const value = useMemo(
     () => ({
       locales: state.locales,
       personas: state.personas,
       footer: state.footer,
+      metadata: state.metadata,
       loading: state.loading,
       error: state.error,
       lastFetchedAt: state.lastFetchedAt,
+      defaultLocale,
+      personaCount,
+      localesByStatus,
+      timelineEnabledPersonas,
+      getLocale,
+      getPersona,
+      getFooterSection,
       refresh,
     }),
-    [state, refresh],
+    [
+      state,
+      refresh,
+      defaultLocale,
+      personaCount,
+      localesByStatus,
+      timelineEnabledPersonas,
+      getLocale,
+      getPersona,
+      getFooterSection,
+    ],
   );
 
   return <NavigationChromeContext.Provider value={value}>{children}</NavigationChromeContext.Provider>;
