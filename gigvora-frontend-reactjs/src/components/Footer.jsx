@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BoltIcon, ShieldCheckIcon, SignalIcon } from '@heroicons/react/24/outline';
 import { LOGO_URL } from '../constants/branding.js';
 import { useNavigationChrome } from '../context/NavigationChromeContext.jsx';
 import { formatRelativeTime } from '../utils/date.js';
+import DataStatus from './DataStatus.jsx';
 
 const STATUS_ICON_MAP = {
   signal: SignalIcon,
@@ -61,39 +62,6 @@ export default function Footer() {
   const [newsletterSubmitted, setNewsletterSubmitted] = useState(false);
   const { footer, loading, error, lastFetchedAt, refresh } = useNavigationChrome();
 
-  const chromeStatus = useMemo(() => {
-    if (loading) {
-      return {
-        tone: 'border-sky-100 bg-sky-50 text-sky-600',
-        label: 'Refreshing navigation chrome…',
-        helper: lastFetchedAt ? `Last synced ${formatRelativeTime(lastFetchedAt)}` : 'Fetching localisation, persona, and footer payloads.',
-        showRefresh: false,
-      };
-    }
-    if (error) {
-      return {
-        tone: 'border-rose-100 bg-rose-50 text-rose-600',
-        label: 'Unable to load latest navigation chrome',
-        helper: error,
-        showRefresh: true,
-      };
-    }
-    if (lastFetchedAt) {
-      return {
-        tone: 'border-emerald-100 bg-emerald-50 text-emerald-600',
-        label: 'Navigation chrome is current',
-        helper: `Synced ${formatRelativeTime(lastFetchedAt)}`,
-        showRefresh: true,
-      };
-    }
-    return {
-      tone: 'border-slate-200 bg-slate-50 text-slate-500',
-      label: 'Navigation chrome ready',
-      helper: 'Using bundled defaults for footer, personas, and localisation metadata.',
-      showRefresh: true,
-    };
-  }, [error, lastFetchedAt, loading]);
-
   const navigationSections = Array.isArray(footer?.navigationSections) ? footer.navigationSections : [];
   const statusHighlights = Array.isArray(footer?.statusHighlights)
     ? footer.statusHighlights.map((highlight) => ({
@@ -105,6 +73,60 @@ export default function Footer() {
   const officeLocations = Array.isArray(footer?.officeLocations) ? footer.officeLocations : [];
   const certifications = Array.isArray(footer?.certifications) ? footer.certifications : [];
   const socialLinks = Array.isArray(footer?.socialLinks) ? footer.socialLinks : [];
+  const statusPage = footer?.statusPage ?? {};
+  const dataResidency = Array.isArray(footer?.dataResidency) ? footer.dataResidency : [];
+
+  const statusReviewDate = statusPage?.lastReviewedAt ? new Date(statusPage.lastReviewedAt) : null;
+  const statusBadgeLabel = loading
+    ? 'Refreshing navigation chrome…'
+    : error
+      ? 'Navigation chrome issue'
+      : lastFetchedAt
+        ? 'Navigation chrome current'
+        : 'Navigation chrome ready';
+  const statusState = error ? 'error' : loading ? 'loading' : statusPage?.state ?? 'ready';
+  const statusTitle = error ? 'Unable to load latest navigation chrome' : statusPage?.title ?? 'Navigation chrome ready';
+  const statusDescription = error
+    ? error
+    : statusPage?.description ?? 'Using bundled defaults for footer, personas, and localisation metadata.';
+  const defaultInsight = lastFetchedAt
+    ? `Synced ${formatRelativeTime(lastFetchedAt)}`
+    : 'Using bundled defaults for footer, personas, and localisation metadata.';
+  const statusInsights = Array.isArray(statusPage?.insights) && statusPage.insights.length
+    ? [...statusPage.insights, defaultInsight]
+    : [defaultInsight];
+  const statusMeta = [
+    {
+      label: 'Ops review',
+      value: statusReviewDate ? formatRelativeTime(statusReviewDate) : 'Pending',
+      trend: statusReviewDate ? 'Latest audit' : 'Awaiting audit',
+      positive: true,
+    },
+    ...statusHighlights.map((card) => ({
+      label: card.label,
+      value: card.status,
+      trend: card.detail,
+      positive: card.icon !== BoltIcon,
+    })),
+  ];
+  if (dataResidency.length) {
+    statusMeta.push({
+      label: 'Residency footprint',
+      value: dataResidency.map((item) => item.region).join(' • '),
+      trend: 'Regional coverage',
+      positive: true,
+    });
+  }
+  const statusTimeline = Array.isArray(statusPage?.incidents)
+    ? statusPage.incidents.map((incident) => ({
+        id: incident.id ?? incident.label,
+        label: incident.label,
+        timestamp: incident.resolvedAt ?? incident.occurredAt,
+        description: incident.summary,
+        status: incident.resolvedAt ? 'resolved' : 'investigating',
+      }))
+    : [];
+  const fromCache = !lastFetchedAt && !error && !loading;
 
   const handleNewsletterSubmit = (event) => {
     event.preventDefault();
@@ -124,37 +146,24 @@ export default function Footer() {
   return (
     <footer className="border-t border-slate-200 bg-white/95">
       <div className="mx-auto max-w-7xl space-y-16 px-6 py-16 text-sm text-slate-500">
-        <div
-          className={`rounded-3xl border ${chromeStatus.tone} p-5 shadow-sm transition`}
-          role="status"
-          aria-live="polite"
+        <DataStatus
+          loading={loading}
+          fromCache={fromCache}
+          lastUpdated={lastFetchedAt}
+          statusLabel={statusBadgeLabel}
+          state={statusState}
+          title={statusTitle}
+          description={statusDescription}
+          insights={statusInsights}
+          meta={statusMeta}
+          actionLabel="Refresh chrome"
+          onAction={handleRefreshChrome}
+          helpLink={statusPage?.url}
+          helpLabel={statusPage?.helpLabel}
+          footnote={statusPage?.footnote}
+          timeline={statusTimeline}
         >
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="space-y-1 text-sm">
-              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-slate-400">Navigation data</p>
-              <p className="text-sm font-semibold text-slate-900">{chromeStatus.label}</p>
-              <p className="text-xs text-slate-500">{chromeStatus.helper}</p>
-            </div>
-            {chromeStatus.showRefresh ? (
-              <button
-                type="button"
-                onClick={handleRefreshChrome}
-                disabled={loading}
-                className="inline-flex items-center justify-center rounded-full border border-slate-200 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.3em] text-slate-600 transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {loading ? 'Refreshing…' : 'Refresh chrome'}
-              </button>
-            ) : null}
-          </div>
-        </div>
-        <div className="grid gap-12 lg:grid-cols-[1.4fr_1fr]">
-          <div className="space-y-8">
-            <Link to="/" className="inline-flex">
-              <img src={LOGO_URL} alt="Gigvora" className="h-11 w-auto" />
-            </Link>
-            <p className="text-base text-slate-600">
-              The professional community bringing clients, teams, and independent talent together with calm, reliable workflows.
-            </p>
+          {statusHighlights.length ? (
             <div className="rounded-3xl border border-slate-200/80 bg-white/80 p-6 shadow-sm">
               <h3 className="text-sm font-semibold text-slate-900">Platform signals</h3>
               <div className="mt-4 grid gap-4 sm:grid-cols-3">
@@ -177,6 +186,33 @@ export default function Footer() {
                 })}
               </div>
             </div>
+          ) : null}
+          {dataResidency.length ? (
+            <div className="rounded-3xl border border-slate-200/80 bg-white/80 p-6 shadow-sm">
+              <h3 className="text-sm font-semibold text-slate-900">Data residency footprint</h3>
+              <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+                {dataResidency.map((item) => (
+                  <li
+                    key={`${item.region}-${item.city}`}
+                    className="flex flex-col gap-1 rounded-2xl border border-slate-100 bg-slate-50/80 p-4"
+                  >
+                    <span className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">{item.region}</span>
+                    <span className="text-sm font-semibold text-slate-900">{item.city}</span>
+                    <span className="text-xs text-slate-500">{item.status}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </DataStatus>
+        <div className="grid gap-12 lg:grid-cols-[1.4fr_1fr]">
+          <div className="space-y-8">
+            <Link to="/" className="inline-flex">
+              <img src={LOGO_URL} alt="Gigvora" className="h-11 w-auto" />
+            </Link>
+            <p className="text-base text-slate-600">
+              The professional community bringing clients, teams, and independent talent together with calm, reliable workflows.
+            </p>
             <div className="rounded-3xl border border-slate-200/80 bg-white/80 p-6 shadow-sm">
               <h3 className="text-sm font-semibold text-slate-900">Stay ahead with the weekly signal</h3>
               <p className="mt-2 text-xs text-slate-500">
@@ -265,6 +301,18 @@ export default function Footer() {
               </span>
             ))}
           </div>
+          {dataResidency.length ? (
+            <div className="flex flex-wrap items-center gap-3 text-slate-500">
+              {dataResidency.map((item) => (
+                <span
+                  key={`residency-${item.region}-${item.city}`}
+                  className="rounded-full bg-slate-100 px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.3em]"
+                >
+                  {item.region} • {item.city} ({item.status})
+                </span>
+              ))}
+            </div>
+          ) : null}
           <div className="flex flex-wrap items-center gap-3 text-slate-500">
             {certifications.map((item) => (
               <span key={item} className="rounded-full bg-slate-100 px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.3em]">

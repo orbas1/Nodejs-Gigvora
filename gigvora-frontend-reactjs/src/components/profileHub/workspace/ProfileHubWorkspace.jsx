@@ -59,6 +59,133 @@ function parseTags(value) {
     .map((tag) => tag.slice(0, 60));
 }
 
+function cloneDraft(draft) {
+  return JSON.parse(JSON.stringify(draft ?? {}));
+}
+
+function normalizeDraft(draft) {
+  if (!draft) {
+    return null;
+  }
+
+  return {
+    headline: draft.headline?.trim() ?? '',
+    bio: draft.bio?.trim() ?? '',
+    missionStatement: draft.missionStatement?.trim() ?? '',
+    location: draft.location?.trim() ?? '',
+    timezone: draft.timezone?.trim() ?? '',
+    profileVisibility: draft.profileVisibility ?? 'members',
+    networkVisibility: draft.networkVisibility ?? 'connections',
+    followersVisibility: draft.followersVisibility ?? 'connections',
+    socialLinks: Array.isArray(draft.socialLinks)
+      ? draft.socialLinks.map((link, index) => ({
+          id: link.id ?? `link-${index + 1}`,
+          label: link.label?.trim() ?? '',
+          url: link.url?.trim() ?? '',
+          description: link.description?.trim() ?? '',
+        }))
+      : [],
+  };
+}
+
+function draftsEqual(a, b) {
+  if (!a && !b) {
+    return true;
+  }
+  if (!a || !b) {
+    return false;
+  }
+  return JSON.stringify(normalizeDraft(a)) === JSON.stringify(normalizeDraft(b));
+}
+
+function mergeDraft(previous, patch) {
+  const next = cloneDraft(previous ?? buildProfileDraft({}, {}));
+  if (!patch) {
+    return next;
+  }
+
+  const keys = [
+    'headline',
+    'bio',
+    'missionStatement',
+    'location',
+    'timezone',
+    'profileVisibility',
+    'networkVisibility',
+    'followersVisibility',
+  ];
+
+  keys.forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(patch, key)) {
+      next[key] = patch[key] ?? '';
+    }
+  });
+
+  if (Array.isArray(patch.socialLinks)) {
+    next.socialLinks = patch.socialLinks.map((link, index) => ({
+      id: link.id ?? next.socialLinks?.[index]?.id ?? `link-${index + 1}`,
+      label: link.label ?? '',
+      url: link.url ?? '',
+      description: link.description ?? '',
+    }));
+  }
+
+  return next;
+}
+
+function calculateProfileCompleteness(draft) {
+  const requirements = [
+    { key: 'headline', label: 'headline', complete: Boolean(draft?.headline?.trim()) },
+    { key: 'missionStatement', label: 'mission statement', complete: Boolean(draft?.missionStatement?.trim()) },
+    { key: 'bio', label: 'bio', complete: Boolean(draft?.bio?.trim()) },
+    { key: 'location', label: 'location', complete: Boolean(draft?.location?.trim()) },
+    { key: 'timezone', label: 'timezone', complete: Boolean(draft?.timezone?.trim()) },
+    {
+      key: 'socialLinks',
+      label: 'lead link',
+      complete: Array.isArray(draft?.socialLinks)
+        ? draft.socialLinks.some((link) => Boolean(link?.url?.trim()))
+        : false,
+    },
+  ];
+
+  const completed = requirements.filter((item) => item.complete).length;
+  const total = requirements.length;
+  const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
+  const missing = requirements.filter((item) => !item.complete).map((item) => item.label);
+
+  return { completed, total, percent, missing };
+}
+
+function formatList(values) {
+  if (!values?.length) {
+    return '';
+  }
+  if (values.length === 1) {
+    return values[0];
+  }
+  if (values.length === 2) {
+    return `${values[0]} and ${values[1]}`;
+  }
+  return `${values.slice(0, -1).join(', ')}, and ${values.at(-1)}`;
+}
+
+function formatCompactNumber(value) {
+  const numeric = Number(value);
+  if (Number.isFinite(numeric)) {
+    if (Math.abs(numeric) >= 1000) {
+      return new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(numeric);
+    }
+    return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(numeric);
+  }
+  return value ?? '0';
+}
+
+function safeNumber(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
 const PANELS = [
   { id: 'info', label: 'Info', icon: UserIcon },
   { id: 'photo', label: 'Photo', icon: PhotoIcon },
@@ -71,6 +198,7 @@ export default function ProfileHubWorkspace({ userId, profileOverview, profileHu
   const [activePanelId, setActivePanelId] = useState('info');
   const [focusedPanelId, setFocusedPanelId] = useState(null);
   const [profileDraft, setProfileDraft] = useState(() => buildProfileDraft(profileOverview, profileHub));
+  const [profileBaseline, setProfileBaseline] = useState(() => cloneDraft(buildProfileDraft(profileOverview, profileHub)));
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingAvatar, setSavingAvatar] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState('');
@@ -89,7 +217,9 @@ export default function ProfileHubWorkspace({ userId, profileOverview, profileHu
   const profileLink = profileOverview?.profileId ? `/profile/${profileOverview.profileId}` : null;
 
   useEffect(() => {
-    setProfileDraft(buildProfileDraft(profileOverview, profileHub));
+    const nextDraft = buildProfileDraft(profileOverview, profileHub);
+    setProfileDraft(nextDraft);
+    setProfileBaseline(cloneDraft(nextDraft));
   }, [profileOverview, profileHub]);
 
   useEffect(() => {
@@ -127,10 +257,134 @@ export default function ProfileHubWorkspace({ userId, profileOverview, profileHu
     );
   }, [followers]);
 
+  const workspace = profileHub?.workspace ?? {};
+  const workspaceMetrics = workspace.metrics ?? {};
+  const workspaceHighlights = Array.isArray(workspace.highlights) ? workspace.highlights : [];
+  const workspaceActions = Array.isArray(workspace.actions) ? workspace.actions : [];
+  const pinnedCampaigns = Array.isArray(workspace.pinnedCampaigns) ? workspace.pinnedCampaigns : [];
+  const cadenceGoal = workspace.cadenceGoal ?? null;
+  const workspaceTimezone = workspace.timezone ?? profileDraft?.timezone ?? profileOverview?.timezone ?? '';
+  const highlightReel = Array.isArray(profileHub?.highlightReel) ? profileHub.highlightReel : [];
+  const trustBadges = Array.isArray(profileHub?.trustBadges) ? profileHub.trustBadges : [];
+  const mutualConnections = Array.isArray(profileHub?.mutualConnections) ? profileHub.mutualConnections : [];
+  const documentStats = profileHub?.documents ?? {};
+  const collaborationStats = profileHub?.collaborations ?? {};
+  const completeness = useMemo(() => calculateProfileCompleteness(profileDraft), [profileDraft]);
+  const completenessBarWidth = completeness.percent > 0 ? Math.min(100, completeness.percent) : 6;
+  const hasUnsavedChanges = useMemo(
+    () => !draftsEqual(profileDraft, profileBaseline),
+    [profileDraft, profileBaseline],
+  );
+
+  const favouriteConnectionsCount = useMemo(
+    () => connections.filter((connection) => connection.favourite).length,
+    [connections],
+  );
+
+  const metricCards = useMemo(() => {
+    const followerTotal = workspaceMetrics.followers ?? profileHub?.followers?.total ?? followerStats.total ?? followers.length;
+    const activeFollowerTotal = workspaceMetrics.activeFollowers ?? followerStats.active ?? 0;
+    const connectionTotal = workspaceMetrics.connections ?? connections.length;
+    const favouriteTotal = workspaceMetrics.favouriteConnections ?? favouriteConnectionsCount;
+    const timelinePublished = safeNumber(workspaceMetrics.timelinePublished ?? profileHub?.experienceTimeline?.analytics?.totals?.published);
+    const portfolioPublished = safeNumber(
+      workspaceMetrics.portfolioPublished ?? profileHub?.portfolio?.summary?.published,
+    );
+    const engagementRate = workspaceMetrics.engagementRate ?? null;
+
+    const cards = [
+      {
+        id: 'followers',
+        label: 'Followers',
+        value: formatCompactNumber(followerTotal),
+        subLabel: `${formatCompactNumber(activeFollowerTotal)} active audience`,
+      },
+      {
+        id: 'connections',
+        label: 'Connections',
+        value: formatCompactNumber(connectionTotal),
+        subLabel: `${formatCompactNumber(favouriteTotal)} favourites`,
+      },
+    ];
+
+    const contentTotal = timelinePublished + portfolioPublished;
+    if (contentTotal > 0 || engagementRate) {
+      const parts = [];
+      if (timelinePublished > 0 || portfolioPublished > 0) {
+        parts.push(
+          `${formatCompactNumber(timelinePublished)} timeline • ${formatCompactNumber(portfolioPublished)} portfolio`,
+        );
+      }
+      if (engagementRate) {
+        parts.push(`${engagementRate} engagement rate`);
+      }
+      cards.push({
+        id: 'content',
+        label: 'Published stories',
+        value: formatCompactNumber(contentTotal),
+        subLabel: parts.join(' • ') || 'Ready to publish',
+      });
+    }
+
+    const publishedDocuments = safeNumber(documentStats.published);
+    const draftDocuments = safeNumber(documentStats.drafts);
+    if (publishedDocuments > 0 || draftDocuments > 0) {
+      cards.push({
+        id: 'documents',
+        label: 'Portfolio docs',
+        value: formatCompactNumber(publishedDocuments),
+        subLabel:
+          draftDocuments > 0
+            ? `${formatCompactNumber(draftDocuments)} drafts in review`
+            : 'All case studies live',
+      });
+    }
+
+    const activeCollaborations = safeNumber(collaborationStats.active);
+    const favouriteCollaborations = safeNumber(collaborationStats.favourites);
+    if (activeCollaborations > 0 || favouriteCollaborations > 0) {
+      cards.push({
+        id: 'collaborations',
+        label: 'Collaborations',
+        value: formatCompactNumber(activeCollaborations),
+        subLabel:
+          favouriteCollaborations > 0
+            ? `${formatCompactNumber(favouriteCollaborations)} favourites`
+            : 'Build your champion bench',
+      });
+    }
+
+    return cards;
+  }, [
+    workspaceMetrics.followers,
+    workspaceMetrics.activeFollowers,
+    workspaceMetrics.connections,
+    workspaceMetrics.favouriteConnections,
+    workspaceMetrics.timelinePublished,
+    workspaceMetrics.portfolioPublished,
+    workspaceMetrics.engagementRate,
+    profileHub?.followers?.total,
+    profileHub?.experienceTimeline?.analytics?.totals?.published,
+    profileHub?.portfolio?.summary?.published,
+    followers.length,
+    followerStats.total,
+    followerStats.active,
+    connections,
+    favouriteConnectionsCount,
+    documentStats.published,
+    documentStats.drafts,
+    collaborationStats.active,
+    collaborationStats.favourites,
+  ]);
+
   const activePanel = PANELS.find((panel) => panel.id === activePanelId) ?? PANELS[0];
 
   const handleDraftChange = (key, value) => {
     setProfileDraft((previous) => ({ ...previous, [key]: value }));
+  };
+
+  const handleDiscardDraft = () => {
+    setProfileDraft(cloneDraft(profileBaseline));
   };
 
   const handleProfileSave = async () => {
@@ -154,6 +408,7 @@ export default function ProfileHubWorkspace({ userId, profileOverview, profileHu
       };
       await updateProfileDetails(userId, payload);
       setFeedbackMessage('Profile saved');
+      setProfileBaseline(cloneDraft(profileDraft));
       onRefresh?.();
     } catch (error) {
       setErrorMessage(error.message ?? 'Unable to save profile details.');
@@ -193,6 +448,11 @@ export default function ProfileHubWorkspace({ userId, profileOverview, profileHu
       await uploadProfileAvatar(userId, { avatarUrl: profileDraft.avatarUrlInput });
       setFeedbackMessage('Photo updated');
       setProfileDraft((previous) => ({ ...previous, avatarUrlInput: '' }));
+      setProfileBaseline((previous) => {
+        const snapshot = cloneDraft(previous);
+        snapshot.avatarUrlInput = '';
+        return snapshot;
+      });
       onRefresh?.();
     } catch (error) {
       setErrorMessage(error.message ?? 'Unable to update photo.');
@@ -404,6 +664,183 @@ export default function ProfileHubWorkspace({ userId, profileOverview, profileHu
       id="profile-hub"
       className="rounded-4xl border border-slate-200 bg-white/80 p-6 shadow-soft backdrop-blur"
     >
+      <div className="mb-6 grid gap-4 xl:grid-cols-[minmax(0,2fr),minmax(0,1fr)]">
+        <div className="rounded-4xl border border-slate-200 bg-white/90 p-6 shadow-soft">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Profile health</p>
+              <h2 className="text-lg font-semibold text-slate-900">Profile completeness</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                {completeness.percent >= 100
+                  ? 'Your profile is showcase ready.'
+                  : `Complete ${formatList(completeness.missing)} to reach 100%.`}
+              </p>
+            </div>
+            <span className="rounded-3xl bg-accent/10 px-3 py-1 text-sm font-semibold text-accent">
+              {Math.min(100, completeness.percent)}% ready
+            </span>
+          </div>
+          <div className="mt-4 h-2 rounded-full bg-slate-100" role="presentation">
+            <div
+              className="h-2 rounded-full bg-accent transition-all"
+              style={{ width: `${completenessBarWidth}%` }}
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={completeness.percent}
+              aria-label="Profile completeness"
+            />
+          </div>
+          {(cadenceGoal || workspaceTimezone) && (
+            <dl className="mt-4 grid gap-3 text-sm text-slate-600 sm:grid-cols-2">
+              {cadenceGoal ? (
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Cadence</dt>
+                  <dd className="mt-1">{cadenceGoal}</dd>
+                </div>
+              ) : null}
+              {workspaceTimezone ? (
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Timezone</dt>
+                  <dd className="mt-1">{workspaceTimezone}</dd>
+                </div>
+              ) : null}
+            </dl>
+          )}
+          {workspaceHighlights.length ? (
+            <div className="mt-5 rounded-3xl border border-slate-200 bg-white/80 p-4">
+              <h3 className="text-sm font-semibold text-slate-700">Highlights</h3>
+              <ul className="mt-2 space-y-2 text-sm text-slate-600">
+                {workspaceHighlights.slice(0, 3).map((highlight) => (
+                  <li key={highlight} className="flex items-start gap-2">
+                    <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-accent" aria-hidden="true" />
+                    <span>{highlight}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {highlightReel.length ? (
+            <div className="mt-4 rounded-3xl border border-slate-200/80 bg-white/70 p-4 shadow-sm">
+              <h3 className="text-sm font-semibold text-slate-700">Highlight reel</h3>
+              <ul className="mt-3 space-y-3 text-sm text-slate-600">
+                {highlightReel.slice(0, 3).map((highlight) => (
+                  <li key={highlight.id ?? highlight.label} className="space-y-1">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-medium text-slate-800">{highlight.label}</span>
+                      {highlight.metric ? (
+                        <span className="inline-flex items-center rounded-full bg-slate-900/90 px-2 py-0.5 text-xs font-semibold text-white shadow-sm">
+                          {highlight.metric}
+                        </span>
+                      ) : null}
+                    </div>
+                    {highlight.description ? (
+                      <p className="text-xs text-slate-500">{highlight.description}</p>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {workspaceActions.length ? (
+            <div className="mt-4 rounded-3xl border border-amber-200 bg-amber-50/80 p-4">
+              <h3 className="text-sm font-semibold text-amber-700">Next actions</h3>
+              <ul className="mt-2 space-y-2 text-sm text-amber-700">
+                {workspaceActions.slice(0, 3).map((action) => (
+                  <li key={action} className="flex items-start gap-2">
+                    <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400" aria-hidden="true" />
+                    <span>{action}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {trustBadges.length ? (
+            <div className="mt-4 rounded-3xl border border-emerald-200 bg-emerald-50/80 p-4">
+              <h3 className="text-sm font-semibold text-emerald-700">Trust signals</h3>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {trustBadges.slice(0, 4).map((badge) => (
+                  <div
+                    key={badge.id ?? badge.label}
+                    className="rounded-2xl border border-emerald-200/70 bg-white/80 px-3 py-2 shadow-sm"
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">{badge.label}</p>
+                    {badge.description ? (
+                      <p className="mt-1 text-xs text-emerald-700">{badge.description}</p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {mutualConnections.length ? (
+            <div className="mt-4 rounded-3xl border border-slate-200 bg-white/70 p-4">
+              <h3 className="text-sm font-semibold text-slate-700">Mutual champions</h3>
+              <ul className="mt-3 space-y-2 text-sm text-slate-600">
+                {mutualConnections.slice(0, 4).map((connection) => (
+                  <li key={connection.id ?? connection.name} className="min-w-0">
+                    <p className="font-medium text-slate-800">{connection.name}</p>
+                    {connection.headline ? (
+                      <p className="text-xs text-slate-500">{connection.headline}</p>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {pinnedCampaigns.length ? (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {pinnedCampaigns.slice(0, 4).map((campaign) => (
+                <span
+                  key={campaign.id ?? campaign.name ?? campaign.title ?? campaign}
+                  className="inline-flex items-center rounded-full bg-slate-900/90 px-3 py-1 text-xs font-medium text-white shadow-sm"
+                >
+                  {campaign.name ?? campaign.title ?? campaign}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+          {metricCards.map((card) => (
+            <div
+              key={card.id}
+              className="rounded-4xl border border-slate-200 bg-gradient-to-br from-white/95 to-slate-50/80 p-5 shadow-sm"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{card.label}</p>
+              <p className="mt-2 text-3xl font-semibold text-slate-900">{card.value}</p>
+              {card.subLabel ? <p className="mt-1 text-sm text-slate-500">{card.subLabel}</p> : null}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {hasUnsavedChanges ? (
+        <div className="mb-6 rounded-3xl border border-amber-200 bg-amber-50/90 px-4 py-3 shadow-sm sm:flex sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 text-sm text-amber-800">
+            <span className="font-semibold">Unsaved changes</span>
+            <span className="hidden sm:inline">Save your edits to keep your profile current.</span>
+          </div>
+          <div className="mt-3 flex gap-2 sm:mt-0">
+            <button
+              type="button"
+              onClick={handleDiscardDraft}
+              className="inline-flex items-center rounded-2xl border border-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-100"
+            >
+              Reset draft
+            </button>
+            <button
+              type="button"
+              onClick={handleProfileSave}
+              disabled={savingProfile}
+              className="inline-flex items-center rounded-2xl bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Save now
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <div className="grid gap-6 lg:grid-cols-[220px,minmax(0,1fr)]">
         <div className="space-y-4">
           <ProfileHubNav panels={PANELS} activePanelId={activePanelId} onSelect={setActivePanelId} />
@@ -540,11 +977,16 @@ export default function ProfileHubWorkspace({ userId, profileOverview, profileHu
           setErrorMessage('');
           try {
             await updateProfileDetails(userId, payload);
-            setFeedbackMessage('Profile updated');
-            setShowAdvancedEditor(false);
-            onRefresh?.();
-          } catch (error) {
-            setErrorMessage(error.message ?? 'Unable to save profile.');
+      setFeedbackMessage('Profile updated');
+      setShowAdvancedEditor(false);
+      setProfileDraft((previous) => {
+        const next = mergeDraft(previous, payload);
+        setProfileBaseline(cloneDraft(next));
+        return next;
+      });
+      onRefresh?.();
+    } catch (error) {
+      setErrorMessage(error.message ?? 'Unable to save profile.');
           } finally {
             setSavingProfile(false);
           }

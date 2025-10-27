@@ -110,6 +110,20 @@ export async function loginWithLinkedIn(payload = {}) {
   });
 }
 
+export async function logout({ refreshToken, reason } = {}) {
+  const payload = {};
+  if (refreshToken && `${refreshToken}`.trim()) {
+    payload.refreshToken = `${refreshToken}`.trim();
+  }
+  if (reason && `${reason}`.trim()) {
+    payload.reason = `${reason}`.trim();
+  }
+  if (!payload.refreshToken) {
+    throw new Error('A refresh token is required to revoke the active session.');
+  }
+  return apiClient.post('/auth/logout', payload);
+}
+
 const authService = {
   requestAdminTwoFactor,
   verifyTwoFactorCode,
@@ -125,6 +139,7 @@ const authService = {
   requestPasswordReset,
   verifyPasswordResetToken,
   resetPassword,
+  logout,
 };
 
 export default authService;
