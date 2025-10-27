@@ -1,5 +1,29 @@
 import PageHeader from '../components/PageHeader.jsx';
 import SignInForm from '../components/access/SignInForm.jsx';
+import { DASHBOARD_ROUTES, resolveLanding as resolveLandingDestination } from '../utils/authHelpers.js';
+
+export { DASHBOARD_ROUTES };
+
+export function resolveLanding(session) {
+  return resolveLandingDestination(session);
+}
+
+export function formatExpiry(timestamp) {
+  if (!timestamp) {
+    return null;
+  }
+
+  try {
+    const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
+    return new Intl.DateTimeFormat('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    }).format(date);
+  } catch (error) {
+    return null;
+  }
+}
 
 export default function LoginPage() {
   return (

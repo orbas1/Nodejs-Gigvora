@@ -28,7 +28,7 @@ import {
   resolveAuthor,
   resolvePostType,
   extractMediaAttachments,
-} from '../FeedPage.jsx';
+} from '../../components/feed/feedNormalisers.js';
 import { parseFinanceOverview } from '../FinanceHubPage.jsx';
 import { formatTagLabelFromSlug, formatNumber as formatGigNumber } from '../GigsPage.jsx';
 import {

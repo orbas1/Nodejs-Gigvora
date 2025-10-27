@@ -169,6 +169,9 @@ export default function ConnectionProfileCard({
           <ArrowTopRightOnSquareIcon className="h-4 w-4" aria-hidden="true" />
           {isBookmarked ? 'Saved' : 'Save for later'}
         </button>
+        {actions?.canRequestConnection === false && actions?.reason ? (
+          <p className="mt-2 w-full text-xs text-slate-500">{actions.reason}</p>
+        ) : null}
       </div>
     </article>
   );
