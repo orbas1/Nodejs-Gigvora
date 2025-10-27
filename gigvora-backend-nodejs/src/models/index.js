@@ -88,6 +88,8 @@ import {
 
 import { buildLocationDetails } from '../utils/location.js';
 
+import './releaseManagementModels.js';
+
 import {
   BlogCategory,
   BlogMedia,

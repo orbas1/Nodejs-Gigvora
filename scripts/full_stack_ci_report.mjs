@@ -4,7 +4,11 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { performance } from 'node:perf_hooks';
 
-import { recordMonitorSample, markChecklistItemStatus } from '../gigvora-backend-nodejs/src/services/releaseManagementService.js';
+import {
+  recordMonitorSample,
+  markChecklistItemStatus,
+  recordPipelineRunResult,
+} from '../gigvora-backend-nodejs/src/services/releaseManagementService.js';
 
 const PIPELINE_REPORT_PATH = resolve(process.cwd(), 'update_docs/release-management/build-pipeline-report.json');
 
@@ -128,6 +132,7 @@ async function syncChecklist(status) {
 
 async function run() {
   const results = [];
+  const pipelineStartedAt = new Date();
   for (const task of TASKS) {
     console.log(`\n▶️  Running ${task.title} (${task.command.join(' ')})`);
     const result = await runCommand(task);
@@ -155,6 +160,22 @@ async function run() {
 
   await persistReport(summary);
   await syncChecklist(overallStatus);
+
+  const pipelineCompletedAt = new Date();
+  await recordPipelineRunResult(
+    'full-stack-ci',
+    {
+      status: overallStatus,
+      startedAt: pipelineStartedAt.toISOString(),
+      completedAt: pipelineCompletedAt.toISOString(),
+      durationMs: pipelineCompletedAt.getTime() - pipelineStartedAt.getTime(),
+      tasks: results,
+      metadata: {
+        triggeredBy: process.env.CI_TRIGGERED_BY ?? 'local-operator',
+        commit: process.env.GIT_COMMIT ?? process.env.CI_COMMIT_SHA ?? null,
+      },
+    },
+  );
 
   if (overallStatus === 'failed') {
     console.error('\nCI pipeline completed with failures. See task logs for details.');

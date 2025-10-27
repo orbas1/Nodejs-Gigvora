@@ -4,6 +4,11 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 
+import {
+  getReleaseRolloutSnapshot,
+  getPipelineRunHistory,
+} from '../../gigvora-backend-nodejs/src/services/releaseManagementService.js';
+
 const execFileAsync = promisify(execFile);
 
 const exec = async (file, args, options = {}) => {
@@ -208,17 +213,21 @@ async function buildReleaseNotes(options) {
   const rawLog = await exec('git', ['log', range, '--pretty=format:%H%x1f%an%x1f%s%x1f%b%x1e']);
   const sections = parseGitLog(rawLog);
 
-  const pipelineReport = await readJson(resolve(process.cwd(), 'update_docs/release-management/build-pipeline-report.json'));
-  const releaseSnapshot = await readJson(resolve(process.cwd(), 'update_docs/release-management/active-release.json'));
-
-  const release = releaseSnapshot?.activeRelease ?? null;
-  const checklist = releaseSnapshot
+  const [latestPipelineRun] = await getPipelineRunHistory({ pipelineKey: 'full-stack-ci', limit: 1 });
+  const pipelineReport = latestPipelineRun
     ? {
-        items: releaseSnapshot.activeRelease?.checklist ?? [],
-        total: releaseSnapshot.activeRelease?.checklist?.length ?? 0,
-        completed: releaseSnapshot.activeRelease?.checklist?.filter((item) => item.status === 'complete').length ?? 0,
+        status: latestPipelineRun.status,
+        tasks: latestPipelineRun.tasks ?? [],
+        startedAt: latestPipelineRun.startedAt,
+        completedAt: latestPipelineRun.completedAt,
+        durationMs: latestPipelineRun.durationMs,
       }
-    : { items: [], total: 0, completed: 0 };
+    : await readJson(resolve(process.cwd(), 'update_docs/release-management/build-pipeline-report.json'));
+
+  const releaseSnapshot = await getReleaseRolloutSnapshot();
+
+  const release = releaseSnapshot.active ? releaseSnapshot.release : null;
+  const checklist = releaseSnapshot.checklist ?? { items: [], total: 0, completed: 0 };
 
   const releaseHeader = release
     ? `${release.name ?? 'Release'} (${release.version ?? release.id ?? 'unversioned'})`
@@ -257,12 +266,15 @@ async function buildReleaseNotes(options) {
   lines.push('');
 
   lines.push('## Observability Monitors');
-  const monitors = releaseSnapshot?.monitors ? Object.values(releaseSnapshot.monitors) : [];
+  const monitors = Array.isArray(releaseSnapshot.monitors) ? releaseSnapshot.monitors : [];
   if (monitors.length) {
     for (const monitor of monitors) {
       const status = monitor.status?.toUpperCase() ?? 'UNKNOWN';
-      const latency = monitor.metrics?.durationMs != null ? `${monitor.metrics.durationMs}ms` : 'n/a';
-      lines.push(`- ${monitor.name ?? monitor.id}: **${status}** — last sample ${monitor.lastSampleAt ?? 'n/a'} (duration ${latency})`);
+      const duration = monitor.metrics?.durationMs != null ? `${monitor.metrics.durationMs}ms` : 'n/a';
+      const coverage = monitor.coverage != null ? `${monitor.coverage}%` : 'n/a';
+      lines.push(
+        `- ${monitor.name ?? monitor.key ?? monitor.id}: **${status}** — coverage ${coverage}, last sample ${monitor.lastSampleAt ?? 'n/a'} (duration ${duration})`,
+      );
     }
   } else {
     lines.push('- No monitors recorded.');

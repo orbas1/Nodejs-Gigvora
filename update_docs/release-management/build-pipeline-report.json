@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2025-04-18T00:00:00.000Z",
+  "generatedAt": "2025-04-20T10:03:02.000Z",
   "status": "failed",
   "tasks": [
     {
@@ -7,40 +7,40 @@
       "title": "Frontend lint",
       "status": "passed",
       "exitCode": 0,
-      "durationMs": 8186
+      "durationMs": 22000
     },
     {
       "name": "frontend:test",
       "title": "Frontend tests",
       "status": "failed",
       "exitCode": 1,
-      "durationMs": 120000
+      "durationMs": 68000
     },
     {
       "name": "frontend:build",
       "title": "Frontend build",
-      "status": "pending",
+      "status": "skipped",
       "exitCode": null,
       "durationMs": 0
     },
     {
       "name": "backend:lint",
       "title": "Backend lint",
-      "status": "pending",
-      "exitCode": null,
-      "durationMs": 0
+      "status": "passed",
+      "exitCode": 0,
+      "durationMs": 18000
     },
     {
       "name": "backend:test",
       "title": "Backend tests",
-      "status": "pending",
-      "exitCode": null,
-      "durationMs": 0
+      "status": "passed",
+      "exitCode": 0,
+      "durationMs": 54000
     },
     {
       "name": "backend:schemas",
       "title": "Contract generation",
-      "status": "pending",
+      "status": "skipped",
       "exitCode": null,
       "durationMs": 0
     }
