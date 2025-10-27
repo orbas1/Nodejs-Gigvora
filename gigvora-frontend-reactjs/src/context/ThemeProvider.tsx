@@ -1,12 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import analytics from '../services/analytics.js';
+import { useDesignSystem } from './DesignSystemContext.jsx';
 
 const STORAGE_KEY = 'gigvora:web:theme:preferences';
 const COLOR_SCHEME_ATTRIBUTE = 'color-scheme';
 const DATA_THEME_MODE = 'themeMode';
 const DATA_THEME_DENSITY = 'themeDensity';
 
-const MODE_PRESETS = {
+const FALLBACK_MODE_PRESETS = {
   light: {
     colors: {
       background: '#f8fafc',
@@ -78,7 +79,7 @@ const MODE_PRESETS = {
   },
 };
 
-const ACCENT_PRESETS = {
+const FALLBACK_ACCENT_PRESETS = {
   azure: {
     accent: '#2563eb',
     accentStrong: '#1d4ed8',
@@ -116,14 +117,14 @@ const ACCENT_PRESETS = {
   },
 };
 
-const DENSITY_SCALE = {
+const FALLBACK_DENSITY_SCALE = {
   spacious: 1.05,
   comfortable: 1,
   cozy: 0.92,
   compact: 0.85,
 };
 
-const BASE_SPACING = {
+const FALLBACK_BASE_SPACING = {
   xs: 4,
   sm: 8,
   md: 16,
@@ -131,7 +132,7 @@ const BASE_SPACING = {
   xl: 40,
 };
 
-const TYPOGRAPHY_PRESETS = {
+const FALLBACK_TYPOGRAPHY_PRESETS = {
   fontSans: "'Inter', 'Helvetica Neue', Arial, sans-serif",
   fontMono:
     "'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
@@ -153,7 +154,7 @@ const TYPOGRAPHY_PRESETS = {
   },
 };
 
-const RADIUS_PRESETS = {
+const FALLBACK_RADIUS_PRESETS = {
   sm: '0.75rem',
   md: '1.5rem',
   lg: '2.5rem',
@@ -298,6 +299,14 @@ export function ThemeProvider({ children }) {
   const [density, setDensityState] = useState(stored?.density ?? 'comfortable');
   const [systemMode, setSystemMode] = useState(detectSystemMode);
 
+  const { runtime: designRuntime } = useDesignSystem();
+  const modeRegistry = designRuntime?.modes ?? FALLBACK_MODE_PRESETS;
+  const accentRegistry = designRuntime?.accents ?? FALLBACK_ACCENT_PRESETS;
+  const densityRegistry = designRuntime?.densities ?? FALLBACK_DENSITY_SCALE;
+  const spacingRegistry = designRuntime?.spacing ?? FALLBACK_BASE_SPACING;
+  const radiiRegistry = designRuntime?.radii ?? FALLBACK_RADIUS_PRESETS;
+  const typographyRegistry = designRuntime?.typography ?? FALLBACK_TYPOGRAPHY_PRESETS;
+
   const componentTokensRef = useRef(new Map());
   const lastTrackedRef = useRef({ mode: null, accent: null, density: null });
 
@@ -321,12 +330,16 @@ export function ThemeProvider({ children }) {
   const resolvedMode = modePreference === 'system' ? systemMode : modePreference;
 
   const tokens = useMemo(() => {
-    const modeTokens = MODE_PRESETS[resolvedMode] ?? MODE_PRESETS.light;
-    const accentTokens = ACCENT_PRESETS[accent] ?? ACCENT_PRESETS.azure;
-    const densityScale = DENSITY_SCALE[density] ?? DENSITY_SCALE.comfortable;
+    const fallbackMode = modeRegistry.light ?? FALLBACK_MODE_PRESETS.light;
+    const fallbackAccent = accentRegistry.azure ?? FALLBACK_ACCENT_PRESETS.azure;
+    const fallbackDensity = densityRegistry.comfortable ?? FALLBACK_DENSITY_SCALE.comfortable;
+
+    const modeTokens = modeRegistry[resolvedMode] ?? fallbackMode;
+    const accentTokens = accentRegistry[accent] ?? fallbackAccent;
+    const densityScale = densityRegistry[density] ?? fallbackDensity;
 
     const spacing = Object.fromEntries(
-      Object.entries(BASE_SPACING).map(([key, value]) => [key, pxToRem(value, densityScale)]),
+      Object.entries(spacingRegistry).map(([key, value]) => [key, pxToRem(value, densityScale)]),
     );
 
     return {
@@ -339,13 +352,13 @@ export function ThemeProvider({ children }) {
         primarySoft: accentTokens.primarySoft,
       },
       spacing,
-      radii: { ...RADIUS_PRESETS },
-      typography: { ...TYPOGRAPHY_PRESETS },
+      radii: { ...radiiRegistry },
+      typography: { ...typographyRegistry },
       density: densityScale,
       shadows: { ...modeTokens.shadows },
       overlays: { ...modeTokens.overlays },
     };
-  }, [accent, density, resolvedMode]);
+  }, [accent, density, resolvedMode, modeRegistry, accentRegistry, densityRegistry, spacingRegistry, radiiRegistry, typographyRegistry]);
 
   useEffect(() => {
     applyCssVariables(tokens, resolvedMode, density);
@@ -422,39 +435,39 @@ export function ThemeProvider({ children }) {
   const setMode = useCallback(
     (nextMode) => {
       const normalised = normalisePreference(nextMode, modePreference);
-      const supported = ['light', 'dark', 'high-contrast', 'system'];
-      const value = supported.includes(normalised) ? normalised : modePreference;
+      const supported = new Set(['system', ...Object.keys(modeRegistry ?? {})]);
+      const value = supported.has(normalised) ? normalised : modePreference;
       if (value === modePreference) {
         return;
       }
       analytics.track('theme.mode_changed', { nextMode: value, previousMode: modePreference });
       setModePreference(value);
     },
-    [modePreference],
+    [modePreference, modeRegistry],
   );
 
   const setAccent = useCallback(
     (nextAccent) => {
       const normalised = normalisePreference(nextAccent, accent);
-      if (!ACCENT_PRESETS[normalised] || normalised === accent) {
+      if (!accentRegistry[normalised] || normalised === accent) {
         return;
       }
       analytics.track('theme.accent_changed', { nextAccent: normalised, previousAccent: accent });
       setAccentState(normalised);
     },
-    [accent],
+    [accent, accentRegistry],
   );
 
   const setDensity = useCallback(
     (nextDensity) => {
       const normalised = normalisePreference(nextDensity, density);
-      if (!DENSITY_SCALE[normalised] || normalised === density) {
+      if (!densityRegistry[normalised] || normalised === density) {
         return;
       }
       analytics.track('theme.density_changed', { nextDensity: normalised, previousDensity: density });
       setDensityState(normalised);
     },
-    [density],
+    [density, densityRegistry],
   );
 
   const value = useMemo(

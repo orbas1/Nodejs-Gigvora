@@ -1,6 +1,6 @@
 import { freezeDeep } from '../utils/freezeDeep.js';
 
-export const COMPONENT_TOKEN_VERSION = '2025.03';
+export const COMPONENT_TOKEN_VERSION = '2025.04';
 
 export const DEFAULT_COMPONENT_TOKENS = freezeDeep({
   buttonSuite: {
@@ -29,6 +29,10 @@ export const DEFAULT_COMPONENT_TOKENS = freezeDeep({
       danger: {
         class: 'bg-gradient-to-tr from-rose-600 via-rose-500 to-fuchsia-500 text-white shadow-soft hover:shadow-[0_28px_65px_-35px_rgba(244,63,94,0.6)]',
         analyticsKey: 'danger',
+      },
+      frosted: {
+        class: 'border border-white/20 bg-white/12 text-white shadow-[0_28px_70px_-38px_rgba(15,23,42,0.6)] backdrop-blur hover:border-white/35 hover:bg-white/16 hover:text-white focus-visible:ring-white/70',
+        analyticsKey: 'frosted',
       },
     },
     sizes: {
@@ -160,6 +164,95 @@ export const DEFAULT_COMPONENT_TOKENS = freezeDeep({
       datasetInteractive: 'data-interactive',
     },
   },
+  brandBadge: {
+    base: 'inline-flex items-center gap-2 rounded-full border px-4 py-1 text-[10px] font-semibold uppercase tracking-[0.35em] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-200 backdrop-blur',
+    icon: 'flex h-5 w-5 items-center justify-center rounded-full text-[0.6rem] font-bold',
+    text: 'tracking-[0.35em]',
+    tones: {
+      accent: {
+        shell: 'border-white/20 bg-white/10 text-accent shadow-[0_18px_45px_-32px_rgba(56,189,248,0.7)]',
+        icon: 'bg-accent/90 text-slate-950',
+      },
+      neutral: {
+        shell: 'border-slate-200/70 bg-white/95 text-slate-600 shadow-subtle',
+        icon: 'bg-slate-200 text-slate-700',
+      },
+      emerald: {
+        shell: 'border-emerald-300/70 bg-emerald-500/10 text-emerald-200 shadow-[0_20px_45px_-35px_rgba(16,185,129,0.75)]',
+        icon: 'bg-emerald-400/90 text-emerald-950',
+      },
+    },
+    analytics: {
+      datasetTone: 'data-tone',
+    },
+  },
+  personaChip: {
+    base: 'inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-medium transition-all duration-200 shadow-[0_18px_55px_-35px_rgba(15,23,42,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-200 backdrop-blur-sm',
+    label: 'text-current',
+    indicator: 'inline-flex h-2 w-2 flex-none rounded-full',
+    icon: 'flex h-4 w-4 items-center justify-center text-[0.65rem]',
+    sizes: {
+      sm: 'px-3 py-1 text-[11px] gap-1.5',
+      md: 'px-4 py-2 text-xs gap-2',
+      lg: 'px-5 py-2.5 text-sm gap-2.5',
+    },
+    states: {
+      interactive: 'hover:-translate-y-0.5 hover:shadow-[0_24px_65px_-40px_rgba(15,23,42,0.55)]',
+      selected: 'ring-2 ring-offset-2 ring-blue-300',
+    },
+    tones: {
+      accent: {
+        shell: 'border-white/15 bg-white/10 text-white/90',
+        indicator: 'bg-accent',
+      },
+      frost: {
+        shell: 'border-white/30 bg-white/18 text-white/85',
+        indicator: 'bg-white/80',
+      },
+      neutral: {
+        shell: 'border-slate-200/70 bg-white/90 text-slate-700 shadow-subtle',
+        indicator: 'bg-slate-400/90',
+      },
+      emerald: {
+        shell: 'border-emerald-400/50 bg-emerald-400/15 text-emerald-100',
+        indicator: 'bg-emerald-300',
+      },
+    },
+    analytics: {
+      datasetTone: 'data-tone',
+      datasetSize: 'data-size',
+    },
+  },
+  statBlock: {
+    base: 'rounded-2xl border px-5 py-4 shadow-[0_22px_60px_-32px_rgba(15,23,42,0.55)] backdrop-blur transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-200',
+    layout: 'space-y-2 text-left',
+    label: 'text-[11px] font-semibold uppercase tracking-[0.32em]',
+    value: 'text-lg font-semibold',
+    helper: 'text-xs leading-snug',
+    tones: {
+      accent: {
+        shell: 'border-white/15 bg-white/10 text-white',
+        label: 'text-accent/90',
+        value: 'text-white',
+        helper: 'text-white/70',
+      },
+      neutral: {
+        shell: 'border-slate-200/70 bg-white/95 text-slate-800 shadow-subtle',
+        label: 'text-slate-500',
+        value: 'text-slate-900',
+        helper: 'text-slate-500',
+      },
+      emerald: {
+        shell: 'border-emerald-400/50 bg-emerald-500/15 text-emerald-50',
+        label: 'text-emerald-200',
+        value: 'text-white',
+        helper: 'text-emerald-100/80',
+      },
+    },
+    analytics: {
+      datasetTone: 'data-tone',
+    },
+  },
 });
 
 export function mergeComponentTokens(overrides = {}) {
@@ -187,6 +280,9 @@ export function mergeComponentTokens(overrides = {}) {
     buttonSuite: deepMerge(DEFAULT_COMPONENT_TOKENS.buttonSuite, overrides.buttonSuite),
     inputFieldSet: deepMerge(DEFAULT_COMPONENT_TOKENS.inputFieldSet, overrides.inputFieldSet),
     cardScaffold: deepMerge(DEFAULT_COMPONENT_TOKENS.cardScaffold, overrides.cardScaffold),
+    brandBadge: deepMerge(DEFAULT_COMPONENT_TOKENS.brandBadge, overrides.brandBadge),
+    personaChip: deepMerge(DEFAULT_COMPONENT_TOKENS.personaChip, overrides.personaChip),
+    statBlock: deepMerge(DEFAULT_COMPONENT_TOKENS.statBlock, overrides.statBlock),
   });
 }
 

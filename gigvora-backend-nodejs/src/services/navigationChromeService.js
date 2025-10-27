@@ -64,9 +64,93 @@ function normalisePersona(instance) {
     primaryCta: payload.primaryCta ?? '',
     defaultRoute: payload.defaultRoute ?? null,
     timelineEnabled: Boolean(payload.timelineEnabled),
+    playbooks: Array.isArray(payload.playbooks) ? payload.playbooks : [],
+    lastReviewedAt: payload.lastReviewedAt ?? null,
     metadata: payload.metadata ?? {},
     sortOrder: payload.sortOrder ?? 0,
   };
+}
+
+function normaliseStatusPageConfig(raw) {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+
+  const toStringOrNull = (value) => {
+    if (value == null) {
+      return null;
+    }
+    const trimmed = `${value}`.trim();
+    return trimmed.length ? trimmed : null;
+  };
+
+  const incidents = Array.isArray(raw.incidents)
+    ? raw.incidents
+        .map((incident) => {
+          if (!incident || typeof incident !== 'object') {
+            return null;
+          }
+          const id = toStringOrNull(incident.id) ?? toStringOrNull(incident.label);
+          const occurredAt = incident.occurredAt ? new Date(incident.occurredAt).toISOString() : null;
+          const resolvedAt = incident.resolvedAt ? new Date(incident.resolvedAt).toISOString() : null;
+          const label = toStringOrNull(incident.label);
+          const summary = toStringOrNull(incident.summary);
+          if (!id && !label && !summary) {
+            return null;
+          }
+          return {
+            id,
+            label,
+            summary,
+            occurredAt,
+            resolvedAt,
+          };
+        })
+        .filter(Boolean)
+    : [];
+
+  const insights = Array.isArray(raw.insights)
+    ? raw.insights
+        .map((entry) => toStringOrNull(entry))
+        .filter((entry) => entry !== null)
+    : [];
+
+  return {
+    title: toStringOrNull(raw.title),
+    description: toStringOrNull(raw.description),
+    state: toStringOrNull(raw.state) ?? 'ready',
+    url: toStringOrNull(raw.url),
+    helpLabel: toStringOrNull(raw.helpLabel),
+    lastReviewedAt: raw.lastReviewedAt ? new Date(raw.lastReviewedAt).toISOString() : null,
+    insights,
+    incidents,
+    footnote: toStringOrNull(raw.footnote),
+  };
+}
+
+function normaliseDataResidencyConfig(raw) {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  return raw
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') {
+        return null;
+      }
+      const region = `${entry.region ?? ''}`.trim();
+      const city = `${entry.city ?? ''}`.trim();
+      if (!region && !city) {
+        return null;
+      }
+      const status = `${entry.status ?? ''}`.trim();
+      return {
+        region: region || null,
+        city: city || null,
+        status: status || null,
+      };
+    })
+    .filter(Boolean);
 }
 
 async function loadChromeConfigs() {
@@ -111,6 +195,8 @@ export async function getNavigationChrome({ includeFooter = true } = {}) {
         officeLocations: Array.isArray(configs.footer_office_locations) ? configs.footer_office_locations : [],
         certifications: Array.isArray(configs.footer_certifications) ? configs.footer_certifications : [],
         socialLinks: Array.isArray(configs.footer_social_links) ? configs.footer_social_links : [],
+        statusPage: normaliseStatusPageConfig(configs.footer_status_page),
+        dataResidency: normaliseDataResidencyConfig(configs.footer_data_residency),
       }
     : null;
 

@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useMemo } from 'react';
+import { Fragment, useCallback, useEffect, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import { Menu, Transition } from '@headlessui/react';
@@ -48,7 +48,14 @@ const FALLBACK_BLUEPRINT = Object.freeze({
   primaryCta: 'Switch persona',
   defaultRoute: '/',
   timelineEnabled: true,
-  metadata: { journey: 'workspace' },
+  metadata: {
+    journey: 'workspace',
+    supportLead: 'Concierge desk',
+    status: 'operational',
+    analyticsKey: 'persona_workspace',
+  },
+  playbooks: ['Workspace overview', 'Team onboarding'],
+  lastReviewedAt: null,
 });
 
 function resolveIcon(key, iconKey) {
@@ -85,6 +92,11 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
       const destination = option.to ?? blueprint.defaultRoute ?? '#';
       const journey = option.metadata?.journey ?? blueprint.metadata?.journey ?? null;
       const iconKey = option.icon ?? blueprint.icon ?? null;
+      const playbooks = Array.isArray(blueprint.playbooks) ? blueprint.playbooks : FALLBACK_BLUEPRINT.playbooks;
+      const supportLead = blueprint.metadata?.supportLead ?? FALLBACK_BLUEPRINT.metadata.supportLead;
+      const status = blueprint.metadata?.status ?? FALLBACK_BLUEPRINT.metadata.status;
+      const lastReviewedAt = blueprint.lastReviewedAt ?? FALLBACK_BLUEPRINT.lastReviewedAt;
+      const analyticsKey = blueprint.metadata?.analyticsKey ?? FALLBACK_BLUEPRINT.metadata.analyticsKey;
 
       return {
         ...option,
@@ -95,6 +107,11 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
         timelineActive,
         destination,
         journey,
+        playbooks,
+        supportLead,
+        status,
+        lastReviewedAt,
+        analyticsKey,
         Icon: resolveIcon(option.key, iconKey),
       };
     });
@@ -108,9 +125,48 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
   const { Icon: ActiveIcon, focusAreas: activeFocusAreas, metrics: activeMetrics, primaryCta: activePrimaryCta } = activeOption;
   const activeBlueprint = activeOption.blueprint ?? FALLBACK_BLUEPRINT;
 
+  const syncPersonaMetadata = useCallback(
+    (option) => {
+      if (typeof document === 'undefined') {
+        return;
+      }
+
+      const root = document.documentElement;
+      if (!root) {
+        return;
+      }
+
+      if (option?.key) {
+        root.dataset.personaKey = option.key;
+      } else {
+        delete root.dataset.personaKey;
+      }
+
+      if (Array.isArray(option?.focusAreas) && option.focusAreas.length) {
+        root.dataset.personaFocus = option.focusAreas.join(',');
+      } else {
+        delete root.dataset.personaFocus;
+      }
+
+      if (option?.journey) {
+        root.dataset.personaJourney = option.journey;
+      } else {
+        delete root.dataset.personaJourney;
+      }
+
+      if (option?.status) {
+        root.dataset.personaStatus = option.status;
+      } else {
+        delete root.dataset.personaStatus;
+      }
+    },
+    [],
+  );
+
   const handleSelect = useCallback(
     (option) => (event) => {
       onSelect?.(option, event);
+      syncPersonaMetadata(option);
       if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
         window.dispatchEvent(
           new CustomEvent('gigvora:persona-switch', {
@@ -120,19 +176,53 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
               journey: option.journey,
               timelineEnabled: option.timelineActive,
               destination: option.destination,
+              analyticsKey: option.analyticsKey,
             },
           }),
         );
       }
+
+      if (typeof window !== 'undefined') {
+        try {
+          const payload = {
+            event: 'gigvora_persona_switch',
+            persona: option.key,
+            journey: option.journey,
+            timelineEnabled: option.timelineActive,
+            destination: option.destination,
+            status: option.status,
+          };
+          if (Array.isArray(window.dataLayer)) {
+            window.dataLayer.push(payload);
+          }
+          if (window.analytics && typeof window.analytics.track === 'function') {
+            window.analytics.track('persona_switched', payload);
+          }
+          if (window.sessionStorage) {
+            window.sessionStorage.setItem('gigvora:last-persona-switch', JSON.stringify({
+              ...payload,
+              occurredAt: new Date().toISOString(),
+            }));
+          }
+        } catch (error) {
+          console.warn('Unable to persist persona analytics payload', error);
+        }
+      }
     },
-    [onSelect],
+    [onSelect, syncPersonaMetadata],
   );
+
+  useEffect(() => {
+    syncPersonaMetadata(activeOption);
+  }, [activeOption, syncPersonaMetadata]);
 
   return (
     <Menu as="div" className="relative inline-flex">
       <Menu.Button
         className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/95 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.3em] text-slate-500 shadow-sm transition hover:border-slate-300 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white"
         aria-label={`Switch persona – ${activeOption.label}`}
+        data-persona-key={activeOption.key}
+        data-persona-journey={activeOption.journey ?? undefined}
       >
         <ArrowsRightLeftIcon className="h-3.5 w-3.5" aria-hidden="true" />
         <ActiveIcon className="h-3.5 w-3.5" aria-hidden="true" />
@@ -158,6 +248,11 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
                 <div className="space-y-1">
                   <p className="text-sm font-semibold text-slate-900">{activeOption.label}</p>
                   <p className="text-xs text-slate-500">{activeBlueprint.tagline ?? FALLBACK_BLUEPRINT.tagline}</p>
+                  {activeOption.supportLead ? (
+                    <p className="text-[0.65rem] uppercase tracking-[0.3em] text-slate-400">
+                      Concierge: {activeOption.supportLead}
+                    </p>
+                  ) : null}
                   <div className="flex flex-wrap gap-2">
                     {activeFocusAreas.map((area) => (
                       <span
@@ -182,6 +277,16 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
                 </div>
               ))}
             </dl>
+            {activeOption.playbooks?.length ? (
+              <div className="mt-3 space-y-1 text-[0.65rem] text-slate-400">
+                {activeOption.playbooks.map((entry) => (
+                  <p key={`${activeOption.key}-${entry}`} className="flex items-center gap-2">
+                    <span className="inline-flex h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
+                    <span>{entry}</span>
+                  </p>
+                ))}
+              </div>
+            ) : null}
           </div>
           {enhancedOptions.map((option) => {
             return (
@@ -193,6 +298,7 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
                     aria-current={option.key === activeOption.key ? 'true' : undefined}
                     data-persona-key={option.key}
                     data-persona-journey={option.journey ?? undefined}
+                    data-persona-status={option.status ?? undefined}
                     className={classNames(
                       'flex flex-col gap-3 rounded-2xl border border-transparent px-3 py-3 transition',
                       option.key === activeOption.key
@@ -213,6 +319,16 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
                         <p className={classNames('text-xs', option.key === activeOption.key ? 'text-slate-100/80' : 'text-slate-500')}>
                           {option.blueprint?.tagline ?? FALLBACK_BLUEPRINT.tagline}
                         </p>
+                        {option.supportLead ? (
+                          <span
+                            className={classNames(
+                              'text-[0.6rem] uppercase tracking-[0.3em]',
+                              option.key === activeOption.key ? 'text-slate-200' : 'text-slate-400',
+                            )}
+                          >
+                            {option.supportLead}
+                          </span>
+                        ) : null}
                         {option.journey ? (
                           <span className={classNames('inline-flex rounded-full px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.3em]', option.key === activeOption.key ? 'bg-white/10 text-white' : 'bg-white/80 text-slate-500')}>
                             {option.journey}
@@ -262,6 +378,18 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
                         </div>
                       ))}
                     </dl>
+                    {option.playbooks?.length ? (
+                      <div
+                        className={classNames(
+                          'space-y-1 text-[0.6rem] uppercase tracking-[0.3em]',
+                          option.key === activeOption.key ? 'text-slate-200' : 'text-slate-400',
+                        )}
+                      >
+                        {option.playbooks.map((entry) => (
+                          <p key={`${option.key}-${entry}`}>{entry}</p>
+                        ))}
+                      </div>
+                    ) : null}
                     <span className="text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-slate-400">
                       {option.primaryCta}
                     </span>

@@ -72,6 +72,20 @@ export async function fetchNavigationChrome(params = {}, options = {}) {
   return response?.chrome ?? response;
 }
 
+export async function fetchNavigationGovernance(params = {}, options = {}) {
+  const safeParams = ensureParams(params);
+  const safeOptions = ensureOptions(options);
+  const response = await apiClient.get('/site/navigation/governance', { ...safeOptions, params: safeParams });
+  return response?.governance ?? response;
+}
+
+export async function fetchDesignSystemSnapshot(params = {}, options = {}) {
+  const safeParams = ensureParams(params);
+  const safeOptions = ensureOptions(options);
+  const response = await apiClient.get('/site/design-system', { ...safeOptions, params: safeParams });
+  return response?.designSystem ?? response;
+}
+
 export async function fetchSitePages(params = {}, options = {}) {
   const safeParams = ensureParams(params);
   const safeOptions = ensureOptions(options);
@@ -91,6 +105,8 @@ export default {
   fetchSiteSettings,
   fetchSiteNavigation,
   fetchNavigationChrome,
+  fetchNavigationGovernance,
   fetchSitePages,
   fetchSitePage,
+  fetchDesignSystemSnapshot,
 };

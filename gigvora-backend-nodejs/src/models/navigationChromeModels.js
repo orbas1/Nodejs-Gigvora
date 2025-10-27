@@ -69,6 +69,8 @@ export const NavigationPersona = sequelize.define(
     primaryCta: { type: DataTypes.STRING(200), allowNull: true },
     defaultRoute: { type: DataTypes.STRING(2048), allowNull: true },
     timelineEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    playbooks: { type: jsonType, allowNull: false, defaultValue: [] },
+    lastReviewedAt: { type: DataTypes.DATE, allowNull: true },
     sortOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     metadata: { type: jsonType, allowNull: false, defaultValue: {} },
   },
@@ -87,6 +89,9 @@ NavigationPersona.prototype.toPublicObject = function toPublicObject() {
     trend: metric?.trend ?? null,
     positive: metric?.positive === true,
   }));
+  const playbooks = ensureArray(plain.playbooks)
+    .map((entry) => `${entry}`.trim())
+    .filter(Boolean);
   return {
     id: plain.id,
     key: plain.personaKey,
@@ -98,6 +103,8 @@ NavigationPersona.prototype.toPublicObject = function toPublicObject() {
     primaryCta: plain.primaryCta ?? '',
     defaultRoute: plain.defaultRoute ?? null,
     timelineEnabled: Boolean(plain.timelineEnabled),
+    playbooks,
+    lastReviewedAt: plain.lastReviewedAt ? new Date(plain.lastReviewedAt).toISOString() : null,
     metadata: plain.metadata ?? {},
     sortOrder: Number.isFinite(plain.sortOrder) ? plain.sortOrder : 0,
     createdAt: plain.createdAt,

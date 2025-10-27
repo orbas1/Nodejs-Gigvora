@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BanknotesIcon,
   BriefcaseIcon,
@@ -39,6 +39,27 @@ import {
   computeFreelancerHealthBanner,
   resolveFreelancerIdFromSession,
 } from '../../utils/dashboard/freelancer.js';
+
+function formatDateTime(value, timezone) {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: timezone || undefined,
+    }).format(date);
+  } catch (error) {
+    return null;
+  }
+}
 
 function InsightCard({ card, currency }) {
   const formatValue = (value) => {
@@ -112,6 +133,65 @@ function HealthBanner({ banner }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function MissionTelemetryPanel({
+  metrics,
+  loading,
+  onSync,
+  syncing,
+  lastSyncedAt,
+  timezone,
+  scheduleCount,
+}) {
+  const formattedSync = formatDateTime(lastSyncedAt, timezone);
+
+  return (
+    <aside className="space-y-4 rounded-3xl border border-slate-200 bg-white/70 p-4 shadow-sm lg:sticky lg:top-24">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Mission telemetry</p>
+          <p className="mt-1 text-xs text-slate-600">
+            Live signal blend from operations, pipeline, and schedule keeps your mission control aligned in real time.
+          </p>
+        </div>
+        {typeof onSync === 'function' ? (
+          <button
+            type="button"
+            onClick={onSync}
+            disabled={syncing}
+            className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {syncing ? 'Syncing…' : 'Sync now'}
+          </button>
+        ) : null}
+      </div>
+
+      <dl className="grid gap-3">
+        {loading
+          ? Array.from({ length: 4 }).map((_, index) => (
+              <div
+                key={`telemetry-placeholder-${index}`}
+                className="h-16 animate-pulse rounded-2xl border border-dashed border-slate-200 bg-slate-50"
+              />
+            ))
+          : metrics.map((metric) => (
+              <div key={metric.id} className="rounded-2xl border border-slate-200 bg-white/80 p-3">
+                <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{metric.label}</dt>
+                <dd className="mt-1 text-lg font-semibold text-slate-900">{metric.value ?? '—'}</dd>
+                {metric.hint ? <p className="mt-1 text-xs text-slate-500">{metric.hint}</p> : null}
+              </div>
+            ))}
+      </dl>
+
+      <div className="rounded-2xl bg-slate-50 p-3 text-xs text-slate-500">
+        <p className="font-semibold text-slate-600">
+          Snapshot {formattedSync ? `updated ${formattedSync}` : 'waiting for first sync'}
+        </p>
+        <p className="mt-1">{scheduleCount > 0 ? `${scheduleCount} upcoming commitments` : 'Nothing scheduled—room to focus.'}</p>
+      </div>
+    </aside>
   );
 }
 
@@ -276,6 +356,8 @@ export default function FreelancerDashboardPage() {
 
   const [savingOverview, setSavingOverview] = useState(false);
   const [activeMenuItemId, setActiveMenuItemId] = useState('mission-control');
+  const [syncingOperations, setSyncingOperations] = useState(false);
+  const lastTrackedSectionRef = useRef('mission-control');
 
   const operationsResource = useFreelancerOperationsHQ({ freelancerId, enabled: Boolean(freelancerId) });
   const projectResource = useProjectGigManagement(freelancerId, { enabled: Boolean(freelancerId) });
@@ -383,6 +465,19 @@ export default function FreelancerDashboardPage() {
     return () => observer.disconnect();
   }, [overviewData]);
 
+  useEffect(() => {
+    if (!activeMenuItemId || lastTrackedSectionRef.current === activeMenuItemId) {
+      return;
+    }
+
+    trackDashboardEvent('freelancer.dashboard.section.visible', {
+      freelancerId,
+      sectionId: activeMenuItemId,
+    });
+
+    lastTrackedSectionRef.current = activeMenuItemId;
+  }, [activeMenuItemId, freelancerId]);
+
   const handleSaveOverview = useCallback(
     async (payload) => {
       if (!freelancerId) {
@@ -402,6 +497,81 @@ export default function FreelancerDashboardPage() {
     },
     [freelancerId, refreshOverview],
   );
+
+  const handleSyncOperations = useCallback(async () => {
+    if (typeof operationsResource.syncOperations !== 'function') {
+      return;
+    }
+    setSyncingOperations(true);
+    try {
+      await operationsResource.syncOperations();
+    } finally {
+      setSyncingOperations(false);
+    }
+  }, [operationsResource]);
+
+  const timezone = overviewData?.currentDate?.timezone ?? null;
+  const upcomingSchedule = Array.isArray(overviewData?.upcomingSchedule) ? overviewData.upcomingSchedule : [];
+  const nextCommitment = upcomingSchedule[0] ?? null;
+
+  const missionMetrics = useMemo(() => {
+    const operationsMetrics = operationsResource.metrics ?? {};
+    const workstreamCount = Array.isArray(overviewData?.workstreams) ? overviewData.workstreams.length : 0;
+    const automationCoverage = operationsMetrics.automationCoverage;
+    const automationValue = automationCoverage == null ? '—' : `${Math.round(Number(automationCoverage))}%`;
+    const complianceHint =
+      operationsMetrics.complianceScore == null
+        ? null
+        : `Compliance ${Math.round(Number(operationsMetrics.complianceScore))}%`;
+    const escalations = operationsMetrics.escalations ?? 0;
+    const atRiskCount = lifecycleStats?.atRiskCount ?? 0;
+    const overdueCount = lifecycleStats?.overdueCount ?? 0;
+    const activeWorkflows = operationsMetrics.activeWorkflows ?? 0;
+    const nextTimestamp = nextCommitment?.startsAt ? formatDateTime(nextCommitment.startsAt, timezone) : null;
+    const nextType = nextCommitment?.type ?? null;
+
+    return [
+      {
+        id: 'workstreams',
+        label: 'Active workstreams',
+        value: workstreamCount.toLocaleString(),
+        hint: `${activeWorkflows.toLocaleString()} workflows in Operations HQ`,
+      },
+      {
+        id: 'automation',
+        label: 'Automation coverage',
+        value: automationValue,
+        hint: complianceHint ?? `${escalations.toLocaleString()} escalations open`,
+      },
+      {
+        id: 'risk',
+        label: 'At-risk engagements',
+        value: atRiskCount.toLocaleString(),
+        hint:
+          overdueCount > 0
+            ? `${overdueCount.toLocaleString()} overdue deliverables`
+            : 'No overdue deliverables',
+      },
+      {
+        id: 'next-commitment',
+        label: 'Next commitment',
+        value: nextCommitment ? nextCommitment.label : 'All clear',
+        hint: nextCommitment
+          ? `${nextTimestamp ?? 'TBC'}${nextType ? ` · ${nextType}` : ''}`
+          : 'No upcoming commitments scheduled',
+      },
+    ];
+  }, [
+    lifecycleStats?.atRiskCount,
+    lifecycleStats?.overdueCount,
+    nextCommitment,
+    operationsResource.metrics,
+    overviewData?.workstreams,
+    timezone,
+  ]);
+
+  const telemetryLoading =
+    overviewLoading || operationsResource.loading || projectResource.loading || syncingOperations;
 
   return (
     <DashboardAccessGuard requiredRoles={ALLOWED_ROLES}>
@@ -424,13 +594,15 @@ export default function FreelancerDashboardPage() {
                 ))}
               </div>
             </div>
-            <aside className="space-y-4 rounded-3xl border border-slate-200 bg-white/70 p-4 shadow-sm lg:sticky lg:top-24">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Mission telemetry</p>
-              <p className="text-sm text-slate-600">
-                Stay ahead of revenue, delivery, and relationship signals. Insights refresh whenever new data arrives from
-                operations, inbox, or support hubs.
-              </p>
-            </aside>
+            <MissionTelemetryPanel
+              metrics={missionMetrics}
+              loading={telemetryLoading}
+              onSync={freelancerId ? handleSyncOperations : null}
+              syncing={syncingOperations}
+              lastSyncedAt={operationsResource.metrics?.lastSyncedAt}
+              timezone={timezone}
+              scheduleCount={upcomingSchedule.length}
+            />
           </div>
 
           <div data-freelancer-section="overview" id="overview" className="scroll-mt-28 space-y-12">

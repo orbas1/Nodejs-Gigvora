@@ -52,6 +52,38 @@ const baseProfileHub = {
     ],
     pending: [],
   },
+  highlightReel: [
+    {
+      id: 'highlight-1',
+      label: 'FlowPilot marketplace rebuild',
+      metric: '+22% ARR lift',
+      description: 'Scaled lead conversion after the relaunch.',
+    },
+  ],
+  trustBadges: [
+    { id: 'network-signal', label: 'Trusted network', description: '50 engaged followers' },
+  ],
+  mutualConnections: [
+    { id: 'mutual-1', name: 'Avery Mentor', headline: 'Leadership Coach' },
+  ],
+  documents: { published: 3, drafts: 1 },
+  collaborations: { active: 5, favourites: 2 },
+  workspace: {
+    metrics: {
+      followers: 42,
+      activeFollowers: 38,
+      connections: 12,
+      favouriteConnections: 4,
+      timelinePublished: 6,
+      portfolioPublished: 3,
+      engagementRate: '62%',
+    },
+    highlights: ['42 followers tuning into updates'],
+    actions: ['Review and schedule pending timeline drafts.'],
+    cadenceGoal: 'Publish twice weekly',
+    timezone: 'Europe/Berlin',
+    pinnedCampaigns: [{ id: 'camp-1', name: 'Founders Summit' }],
+  },
 };
 
 describe('ProfileHubWorkspace', () => {
@@ -175,5 +207,39 @@ describe('ProfileHubWorkspace', () => {
         expect.objectContaining({ favourite: true }),
       );
     });
+  });
+
+  it('surfaces workspace summary metrics and actions', async () => {
+    renderWorkspace();
+
+    expect(await screen.findByText(/Profile completeness/i)).toBeInTheDocument();
+    expect(screen.getByText('Publish twice weekly')).toBeInTheDocument();
+    expect(screen.getByText('42 followers tuning into updates')).toBeInTheDocument();
+    expect(screen.getByText(/Review and schedule pending timeline drafts\./i)).toBeInTheDocument();
+    expect(screen.getByText('Founders Summit')).toBeInTheDocument();
+    expect(screen.getByText('+22% ARR lift')).toBeInTheDocument();
+    expect(screen.getByText('Trusted network')).toBeInTheDocument();
+    expect(screen.getByText('50 engaged followers')).toBeInTheDocument();
+    expect(screen.getByText('Avery Mentor')).toBeInTheDocument();
+    expect(screen.getByText('Portfolio docs')).toBeInTheDocument();
+    expect(screen.getByText('Collaborations')).toBeInTheDocument();
+  });
+
+  it('alerts when profile changes diverge from the saved baseline', async () => {
+    const user = userEvent.setup();
+    renderWorkspace();
+
+    const headlineInput = await screen.findByLabelText('Name headline');
+    await user.clear(headlineInput);
+    await user.type(headlineInput, 'Chief Product Officer');
+
+    expect(await screen.findByText(/Unsaved changes/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Reset draft/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Name headline')).toHaveValue('Product Lead');
+    });
+    expect(screen.queryByText(/Unsaved changes/i)).not.toBeInTheDocument();
   });
 });
