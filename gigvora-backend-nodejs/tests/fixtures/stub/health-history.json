@@ -1,0 +1,19 @@
+{
+  "entries": [
+    {
+      "status": "online",
+      "latencyMs": 180,
+      "checkedAt": "2025-02-01T10:00:00.000Z"
+    },
+    {
+      "status": "offline",
+      "latencyMs": null,
+      "checkedAt": "2025-02-01T09:30:00.000Z"
+    },
+    {
+      "status": "online",
+      "latencyMs": 220,
+      "checkedAt": "2025-02-01T09:00:00.000Z"
+    }
+  ]
+}

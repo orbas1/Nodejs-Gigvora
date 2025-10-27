@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useAgencyIntegrations from '../../hooks/useAgencyIntegrations.js';
@@ -8,6 +8,8 @@ import IntegrationActivityLog from '../../components/agency/integrations/Integra
 import IntegrationProviderCatalog from '../../components/agency/integrations/IntegrationProviderCatalog.jsx';
 import IntegrationManageDrawer from '../../components/agency/integrations/IntegrationManageDrawer.jsx';
 import IntegrationCreationWizard from '../../components/agency/integrations/IntegrationCreationWizard.jsx';
+import IntegrationSandboxPanel from '../../components/agency/integrations/IntegrationSandboxPanel.jsx';
+import { fetchStubEnvironmentCatalog } from '../../services/stubEnvironments.js';
 
 const MENU_SECTIONS = [
   {
@@ -59,6 +61,29 @@ export default function AgencyIntegrationsPage() {
   const [creationOpen, setCreationOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeIntegrationId, setActiveIntegrationId] = useState(null);
+  const [stubEnvironments, setStubEnvironments] = useState([]);
+  const [stubLoading, setStubLoading] = useState(false);
+  const [stubError, setStubError] = useState(null);
+
+  const loadStubEnvironments = useCallback(
+    async (signal) => {
+      setStubLoading(true);
+      setStubError(null);
+      try {
+        const catalog = await fetchStubEnvironmentCatalog({ signal });
+        setStubEnvironments(Array.isArray(catalog?.environments) ? catalog.environments : []);
+      } catch (err) {
+        if (err?.name === 'AbortError') {
+          return;
+        }
+        console.error('Unable to load stub environments', err);
+        setStubError(err?.body?.message || err?.message || 'Unable to load stub environments.');
+      } finally {
+        setStubLoading(false);
+      }
+    },
+    [],
+  );
 
   const activeIntegration = useMemo(
     () => connectors.find((item) => item.id === activeIntegrationId) ?? null,
@@ -94,6 +119,12 @@ export default function AgencyIntegrationsPage() {
       }, { replace: true });
     }
   }, [selectedWorkspaceId, workspaceIdParam, setSearchParams]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadStubEnvironments(controller.signal);
+    return () => controller.abort();
+  }, [loadStubEnvironments]);
 
   const sections = useMemo(
     () => [
@@ -150,6 +181,15 @@ export default function AgencyIntegrationsPage() {
               </button>
             </div>
           ) : null}
+
+          <IntegrationSandboxPanel
+            environments={stubEnvironments}
+            loading={stubLoading}
+            error={stubError}
+            onRetry={() => {
+              loadStubEnvironments();
+            }}
+          />
 
         </section>
 

@@ -65,6 +65,7 @@ import formBlueprintRoutes from './formBlueprintRoutes.js';
 import presenceRoutes from './presenceRoutes.js';
 import onboardingRoutes from './onboardingRoutes.js';
 import navigationRoutes from './navigationRoutes.js';
+import integrationStubRoutes from './integrationStubRoutes.js';
 
 const router = Router();
 
@@ -87,6 +88,7 @@ const routeDefinitions = [
   ['/collaboration', collaborationRoutes],
   ['/presence', presenceRoutes],
   ['/onboarding', onboardingRoutes],
+  ['/integration', integrationStubRoutes],
   ['/company/creation-studio', creationStudioRoutes],
   ['/company/id-verifications', companyIdentityVerificationRoutes],
   ['/company/integrations', companyIntegrationRoutes],

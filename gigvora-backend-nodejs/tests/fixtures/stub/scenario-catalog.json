@@ -1,0 +1,14 @@
+[
+  {
+    "id": "rate-limit",
+    "label": "Premium rate limit",
+    "description": "Burst tests with progressive backoff guidance.",
+    "docsUrl": "https://docs.example.com/premium-rate-limit"
+  },
+  {
+    "id": "latency",
+    "label": "Latency spike",
+    "description": "Inject 2s latency to verify UI skeletons and retries.",
+    "docsUrl": "https://docs.example.com/latency"
+  }
+]
