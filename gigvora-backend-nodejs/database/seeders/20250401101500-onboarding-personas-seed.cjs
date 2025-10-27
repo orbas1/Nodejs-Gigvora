@@ -13,6 +13,12 @@ const PERSONAS = [
     metadata: {
       primaryCta: 'Launch hiring brand workspace',
       personaPillar: 'hiring-brand',
+      primerHighlights: [
+        'Instantly publish a flagship profile with testimonials and impact stats.',
+        'Automate referral sourcing, warm outreach, and campaign recaps.',
+        'Keep leadership informed with Monday-ready hiring analytics.',
+      ],
+      recommendedRoles: ['Head of People', 'Talent partner', 'Employer brand lead'],
     },
     benefits: [
       'Launch a dynamic company profile with testimonials, playlists, and KPI spotlights.',
@@ -47,6 +53,12 @@ const PERSONAS = [
     metadata: {
       primaryCta: 'Spin up deal-flow cockpit',
       personaPillar: 'independent-talent',
+      primerHighlights: [
+        'Curate your best work with reels, testimonials, and packaged offers.',
+        'Sync proposals, follow-ups, and warm intros to stay top-of-mind.',
+        'Activate AI insights so you never miss deal momentum.',
+      ],
+      recommendedRoles: ['Founder', 'Revenue partner', 'Operations lead'],
     },
     benefits: [
       'Curate a services portfolio with case studies, pricing, and testimonials in minutes.',
@@ -81,6 +93,12 @@ const PERSONAS = [
     metadata: {
       primaryCta: 'Orchestrate onboarding journeys',
       personaPillar: 'people-ops',
+      primerHighlights: [
+        'Blend ATS signals, people analytics, and onboarding checklists.',
+        'Publish journeys with tailored templates and automation triggers.',
+        'Deliver executive briefings with hiring velocity and satisfaction deltas.',
+      ],
+      recommendedRoles: ['Chief of Staff', 'People partner', 'Operations lead'],
     },
     benefits: [
       'Blend ATS intelligence, hiring health dashboards, and onboarding checklists.',

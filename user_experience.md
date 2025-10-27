@@ -66,20 +66,25 @@
 1. **Appraisal.** OnboardingWizard welcomes members with a premium hero shell, progress telemetry, and persona storytelling that mirrors leading social platforms.
    - *Hero narrative.* Gradient headline, trust copy, and progress bar showcase readiness to operate like LinkedIn or Instagram from the first screen.
    - *Persona storytelling.* PersonaSelection cards surface benefits, metrics, and signature moments so newcomers immediately feel represented.
+   - *Workspace primer.* WorkspacePrimerCarousel teases automation, analytics, and collaboration wins tailored to the chosen persona, echoing LinkedIn-style onboarding previews.【F:gigvora-frontend-reactjs/src/components/auth/onboarding/WorkspacePrimerCarousel.jsx†L5-L153】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L158-L224】
 2. **Functionality.** The wizard ships an end-to-end flow covering persona selection, profile calibration, collaborator invites, preference tuning, and launch review without gaps.
    - *Multi-step orchestration.* Persona, profile, team, preferences, and summary steps guard validation and carry analytics events across the journey.
    - *Actionable review.* Summary checklist, milestones, and persona modules translate setup inputs into launch guidance.
    - *Full-stack persistence.* `/onboarding/personas` hydrates the persona rail and `/onboarding/journeys` stores persona, profile, invite, and preference payloads through onboarding models, migrations, and seeds while the wizard drives requests via `listOnboardingPersonas` and `createOnboardingJourney`.【F:gigvora-backend-nodejs/src/routes/onboardingRoutes.js†L1-L11】【F:gigvora-backend-nodejs/src/services/onboardingService.js†L1-L185】【F:gigvora-backend-nodejs/src/models/onboardingModels.js†L1-L86】【F:gigvora-backend-nodejs/database/migrations/20250401100000-create-onboarding-tables.cjs†L1-L123】【F:gigvora-backend-nodejs/database/seeders/20250401101500-onboarding-personas-seed.cjs†L1-L74】【F:gigvora-frontend-reactjs/src/services/onboarding.js†L1-L20】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L35-L337】
+   - *Media-rich preview.* Persona hero imagery, seeded CTAs, and primer highlights hydrate from metadata so every step surfaces production visuals without manual uploads.【F:gigvora-backend-nodejs/database/seeders/20250401101500-onboarding-personas-seed.cjs†L5-L42】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/PersonaSelection.jsx†L62-L229】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L891-L968】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/WorkspacePrimerCarousel.jsx†L4-L200】
+   - *Primer automation.* Auto-advancing slides pause on hover/focus and surface analytics callbacks so marketing-grade previews feel cinematic yet accessible.【F:gigvora-frontend-reactjs/src/components/auth/onboarding/WorkspacePrimerCarousel.jsx†L37-L200】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L182-L214】
 3. **Logic Usefulness.** Persona insights, invite validation, and preference toggles map directly to downstream modules and analytics.
    - *Persona intelligence.* Recommended modules, signature wins, and metric callouts feed onboarding insights and workspace activation.
    - *Database alignment.* Seeded personas and onboarding journey models keep analytics, UI storytelling, and stored payloads in sync across releases.【F:gigvora-backend-nodejs/database/seeders/20250401101500-onboarding-personas-seed.cjs†L1-L74】【F:gigvora-backend-nodejs/src/services/onboardingService.js†L1-L185】
    - *Preference wiring.* Digest cadence, focus signals, and AI toggle update derived payloads for automation and notifications.
+   - *Profile calibration.* ProfileBasicsForm enforces URL validation, headcount telemetry, and narrative guidance so downstream hero surfaces always receive production-ready content.【F:gigvora-frontend-reactjs/src/components/agency/ProfileBasicsForm.jsx†L1-L323】
+   - *Collaboration readiness.* Invite diagnostics block duplicates, enforce real email formats, and surface persona-specific role suggestions so launch payloads stay authoritative.【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L37-L111】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L647-L716】
 4. **Redundancies.** Shared persona data, invite handlers, and preference utilities eliminate duplicate onboarding logic across surfaces.
    - *Central persona catalogue.* PersonaSelection, the onboarding seeder, and `/onboarding/personas` share canonical persona definitions, metrics, and modules for every touchpoint.【F:gigvora-frontend-reactjs/src/services/onboarding.js†L1-L20】【F:gigvora-backend-nodejs/database/seeders/20250401101500-onboarding-personas-seed.cjs†L1-L74】【F:gigvora-backend-nodejs/src/services/onboardingService.js†L1-L185】
-   - *Shared handlers.* Invite, preference, and story theme utilities reuse memoised state updates instead of scattering duplicates.
+   - *Shared handlers.* Invite, preference, and story theme utilities reuse memoised state updates instead of scattering duplicates, and the invite limit constant keeps future flows aligned with the backend launch cap.【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L35-L45】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L647-L716】
 5. **Placeholders Or non-working functions or stubs.** Production copy, validation, and CTA states replace lorem text or inert actions.
    - *Launch CTA.* "Launch workspace" now executes aggregated payload delivery with analytics and error handling.
-   - *Persona previews.* Signature moments, modules, and benefit lists hydrate with real data instead of placeholder bullets.
+   - *Persona previews.* Signature moments, modules, and benefit lists hydrate with real data instead of placeholder bullets, while hero art, primer highlights, and CTAs flow straight from the seeded metadata.【F:gigvora-backend-nodejs/database/seeders/20250401101500-onboarding-personas-seed.cjs†L5-L42】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L47-L116】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L891-L968】
 6. **Duplicate Functions.** Persona toggles, invite controls, and digest selectors centralise behaviour.
    - *Toggle utilities.* Story themes and focus signals share set-based toggles so future onboarding surfaces reuse the logic.
    - *Invite rows.* Add/remove collaborator rows run through reusable handlers, preventing bespoke implementations.
@@ -89,9 +94,12 @@
 8. **Styling improvements.** Gradient shells, rounded-3xl surfaces, and premium chips align onboarding aesthetics with the enterprise design system.
    - *Hero & chips.* Progress indicators, persona pills, and CTA gradients deliver the luxe polish stakeholders expect.
    - *Glassmorphic panels.* Profile insights and review cards adopt soft shadows and elevated surfaces.
+   - *Primer visuals.* Carousel shells reuse rounded-3xl geometry, pill badges, and accent indicators while rendering persona hero media inline for premium storytelling.【F:gigvora-frontend-reactjs/src/components/auth/onboarding/WorkspacePrimerCarousel.jsx†L37-L200】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L182-L214】
 9. **Effeciency analysis and improvement.** Memoised persona data, derived summaries, and guarded event handlers keep renders snappy.
    - *Memoisation.* Persona lists, insights, and review summaries memoise heavy derivations.
    - *Validation gating.* Step progression checks prevent unnecessary recomputes and API calls.
+   - *Form hygiene.* Character budgets and debounce-free validation keep ProfileBasicsForm responsive while preventing bloated payloads.【F:gigvora-frontend-reactjs/src/components/agency/ProfileBasicsForm.jsx†L64-L185】
+   - *Invite diagnostics.* Centralised duplicate detection and a launch cap avoid redundant state updates while respecting the backend limit.【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L37-L45】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L647-L716】
 10. **Strengths to Keep.** Premium storytelling, persona empathy, and invite collaboration remain core strengths.
    - *Persona empathy.* Rich cards ensure newcomers feel seen and energised to launch.
    - *Collaboration-first.* Team invites, role selection, and recommended collaborators reinforce community roots.
@@ -101,6 +109,7 @@
 12. **Styling and Colour review changes.** Palette leans on accent gradients, emerald success chips, and slate neutrals with AA contrast.
    - *Progress gradient.* Accent-to-indigo bar communicates motion and trust with accessible contrast.
    - *Metric badges.* Emerald deltas highlight growth while respecting contrast ratios.
+   - *Profile palette.* Status banners, helper text, and preview gradients align ProfileBasicsForm with onboarding colour rules.【F:gigvora-frontend-reactjs/src/components/agency/ProfileBasicsForm.jsx†L187-L318】
 13. **Css, orientation, placement and arrangement changes.** Responsive grid orchestrates hero, stepper, and content zones across breakpoints.
    - *Stepper layout.* Five-step rail adapts from horizontal grid to stacked cards on smaller screens.
    - *Content stacking.* Sections maintain 8/16/24px rhythm across desktop and mobile.
@@ -110,30 +119,36 @@
 15. **Text Spacing.** Padding, chip gaps, and paragraph rhythm adhere to the 8pt system.
    - *Card spacing.* Persona cards and form sections maintain consistent vertical cadence for readability.
    - *Chip trays.* Story themes and signal buttons respect balanced gutters.
+   - *Copy rhythm.* Form helper text, counters, and preview shells follow the same 8/16/24px cadence for editorial clarity.【F:gigvora-frontend-reactjs/src/components/agency/ProfileBasicsForm.jsx†L187-L323】
 16. **Shaping.** Rounded-3xl cards, pill chips, and capsule buttons harmonise silhouettes.
    - *Persona shells.* Buttons adopt rounded-3xl corners with pill badges for state clarity.
    - *Toggle controls.* Switches and chips use soft radii consistent with core tokens.
 17. **Shadow, hover, glow and effects.** Hover lifts, focus rings, and gradient glows telegraph interactivity while respecting reduced motion.
    - *Stepper shadows.* Current and complete steps gain subtle elevation and color-coded glows.
    - *Interactive cards.* Persona and preference cards animate with accessible focus outlines.
+   - *Carousel affordances.* Primer controls and progress indicators lift subtly on hover, mirroring other onboarding affordances.【F:gigvora-frontend-reactjs/src/components/auth/onboarding/WorkspacePrimerCarousel.jsx†L99-L133】
 18. **Thumbnails.** Persona cards highlight signature moments, metrics, and badges, filling the imagery slot with purposeful data.
    - *Signature overlays.* Moment tiles stand in for imagery while supporting future media.
    - *Metric tiles.* Inline stats keep density without needing photos.
 19. **Images and media & Images and media previews.** Layout is media-ready with gradient placeholders and narrative panels.
    - *Media readiness.* Persona overviews welcome hero media or video without collapsing layout.
    - *Fallback storytelling.* Textual moments maintain engagement when imagery is unavailable.
+   - *Profile preview.* PanelDialog renders gradient hero and media slots so teams validate imagery before publishing.【F:gigvora-frontend-reactjs/src/components/agency/ProfileBasicsForm.jsx†L327-L380】
 20. **Button styling.** Gradient primaries, ghost secondary buttons, and dashed add-row buttons align with system tokens.
    - *Primary CTA.* Launch button uses accent gradient with disabled/launching states.
    - *Secondary actions.* Back, exit, and add-row controls reuse ghost/dashed variants.
 21. **Interactiveness.** Keyboard navigation, analytics tracking, and toggle states support premium interactivity.
    - *Analytics hooks.* Step view, persona selection, and completion fire structured events.
    - *Keyboard support.* Buttons, chips, and switches expose focus outlines and aria semantics.
+   - *Primer analytics.* Slide-change tracking keeps workspace teasers measurable for growth and onboarding teams while capturing persona pillar metadata for downstream segmentation.【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L197-L215】
+   - *Launch safeguards.* Inline invite messaging and disabled add buttons communicate the launch cap without modal interruptions.【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L647-L716】
 22. **Missing Components.** Wizard now covers persona journeys, invites, and preferences, with backlog tracking advanced concierge modules.
    - *Persona coverage.* Every primary persona has a card, insights, and modules.
    - *Concierge backlog.* Human-led onboarding and tutorial media stay on roadmap.
 23. **Design Changes.** Restructured layout introduces hero, stepper, persona cards, and guided review consistent with new design direction.
    - *Hero redesign.* Gradient hero and progress telemetry replace utilitarian headings.
    - *Guided review.* Launch checklist and milestone rail replace plain confirmation copy.
+   - *Primer rail.* Persona grid now pairs with a dedicated workspace primer column, mirroring premium network onboarding flows.【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L182-L214】
 24. **Design Duplication.** Shared persona data model, PropTypes, and toggle logic prevent forks across onboarding contexts.
    - *Persona data.* DEFAULT_PERSONAS powers both selection and wizard states.
    - *Utility reuse.* Focus signal and theme toggles standardise behaviour for future onboarding flows.
