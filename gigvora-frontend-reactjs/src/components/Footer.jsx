@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { BoltIcon, ShieldCheckIcon, SignalIcon } from '@heroicons/react/24/outline';
 import { LOGO_URL } from '../constants/branding.js';
 import { useNavigationChrome } from '../context/NavigationChromeContext.jsx';
+import DataStatus from './DataStatus.jsx';
 
 const STATUS_ICON_MAP = {
   signal: SignalIcon,
@@ -58,7 +59,7 @@ function renderSocialIcon(iconKey) {
 
 export default function Footer() {
   const [newsletterSubmitted, setNewsletterSubmitted] = useState(false);
-  const { footer } = useNavigationChrome();
+  const { footer, loading: chromeLoading, error: chromeError, lastFetchedAt, refresh } = useNavigationChrome();
 
   const navigationSections = Array.isArray(footer?.navigationSections) ? footer.navigationSections : [];
   const statusHighlights = Array.isArray(footer?.statusHighlights)
@@ -67,6 +68,23 @@ export default function Footer() {
         icon: resolveStatusIcon(highlight.icon),
       }))
     : [];
+  const statusMeta = statusHighlights.map((card) => ({
+    label: card.label,
+    value: card.status,
+    helper: card.detail,
+    icon: card.icon,
+  }));
+  const statusInsights = statusHighlights.map((card) => `${card.label}: ${card.status} — ${card.detail}`);
+  const statusState = chromeError ? 'error' : chromeLoading ? 'loading' : 'success';
+  const statusDescription = chromeError
+    ? 'We are serving cached platform telemetry while the live sync completes.'
+    : 'Uptime, support, and security telemetry stream directly from our trust centre.';
+  const handleResyncChrome = () => {
+    if (typeof refresh === 'function') {
+      refresh();
+    }
+  };
+
   const communityLinks = Array.isArray(footer?.communityPrograms) ? footer.communityPrograms : [];
   const officeLocations = Array.isArray(footer?.officeLocations) ? footer.officeLocations : [];
   const certifications = Array.isArray(footer?.certifications) ? footer.certifications : [];
@@ -96,24 +114,24 @@ export default function Footer() {
             </p>
             <div className="rounded-3xl border border-slate-200/80 bg-white/80 p-6 shadow-sm">
               <h3 className="text-sm font-semibold text-slate-900">Platform signals</h3>
-              <div className="mt-4 grid gap-4 sm:grid-cols-3">
-                {statusHighlights.map((card) => {
-                  const Icon = card.icon;
-                  return (
-                    <div key={card.id} className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-white">
-                          <Icon className="h-4 w-4" aria-hidden="true" />
-                        </span>
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">{card.label}</p>
-                          <p className="text-sm font-semibold text-slate-900">{card.status}</p>
-                        </div>
-                      </div>
-                      <p className="text-xs text-slate-500">{card.detail}</p>
-                    </div>
-                  );
-                })}
+              <div className="mt-4">
+                <DataStatus
+                  loading={chromeLoading}
+                  fromCache={Boolean(chromeError)}
+                  lastUpdated={lastFetchedAt}
+                  onRetry={handleResyncChrome}
+                  statusLabel="Platform health"
+                  state={statusState}
+                  title={chromeError ? 'Using cached platform signals' : 'Platform telemetry verified'}
+                  description={statusDescription}
+                  insights={statusInsights}
+                  meta={statusMeta}
+                  helpLink="/trust-center"
+                  helpLabel="Open trust centre"
+                  footnote="Status telemetry sourced from Gigvora trust centre"
+                  actionLabel={chromeError ? 'Retry sync' : undefined}
+                  onAction={chromeError ? handleResyncChrome : undefined}
+                />
               </div>
             </div>
             <div className="rounded-3xl border border-slate-200/80 bg-white/80 p-6 shadow-sm">

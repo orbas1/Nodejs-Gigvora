@@ -14,6 +14,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { classNames } from '../../utils/classNames.js';
 import { useNavigationChrome } from '../../context/NavigationChromeContext.jsx';
+import { formatRelativeTime, formatAbsolute } from '../../utils/date.js';
 
 const personaIcons = Object.freeze({
   user: UserCircleIcon,
@@ -43,7 +44,7 @@ function resolveIcon(key) {
 }
 
 export default function RoleSwitcher({ options, currentKey, onSelect }) {
-  const { personas } = useNavigationChrome();
+  const { personas, loading: chromeLoading, error: chromeError, lastFetchedAt, refresh } = useNavigationChrome();
   const personaMap = useMemo(() => {
     const map = new Map();
     if (Array.isArray(personas)) {
@@ -56,11 +57,13 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
     return map;
   }, [personas]);
 
-  if (!options.length) {
+  const optionList = Array.isArray(options) ? options : [];
+
+  if (!optionList.length) {
     return null;
   }
 
-  const activeOption = options.find((option) => option.key === currentKey) ?? options[0];
+  const activeOption = optionList.find((option) => option.key === currentKey) ?? optionList[0];
   const ActiveIcon = resolveIcon(activeOption.key);
   const activeBlueprint = personaMap.get(activeOption.key) ?? FALLBACK_BLUEPRINT;
   const activeFocusAreas = Array.isArray(activeBlueprint.focusAreas)
@@ -70,6 +73,19 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
     ? activeBlueprint.metrics
     : FALLBACK_BLUEPRINT.metrics;
   const activePrimaryCta = activeBlueprint.primaryCta ?? FALLBACK_BLUEPRINT.primaryCta;
+  const personaSyncBadge = chromeError
+    ? { label: 'Persona sync issue', tone: 'bg-rose-100 text-rose-700' }
+    : chromeLoading
+      ? { label: 'Syncing personas', tone: 'bg-sky-100 text-sky-700' }
+      : { label: 'Personas verified', tone: 'bg-emerald-100 text-emerald-700' };
+  const personaSyncStamp = lastFetchedAt
+    ? `Updated ${formatRelativeTime(lastFetchedAt)} • ${formatAbsolute(lastFetchedAt, { timeStyle: 'short' })}`
+    : '';
+  const handleResync = () => {
+    if (typeof refresh === 'function') {
+      refresh();
+    }
+  };
 
   return (
     <Menu as="div" className="relative inline-flex">
@@ -91,6 +107,40 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
         leaveTo="transform opacity-0 scale-95"
       >
         <Menu.Items className="absolute right-0 z-50 mt-2 w-[22rem] origin-top-right space-y-3 rounded-3xl border border-slate-200/70 bg-white p-4 text-sm shadow-xl focus:outline-none">
+          <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-3">
+            <span className="sr-only" aria-live="polite">
+              {chromeError
+                ? `Persona blueprint sync issue. ${chromeError}`
+                : chromeLoading
+                  ? 'Refreshing persona blueprints'
+                  : 'Persona blueprints verified'}
+            </span>
+            <div className="flex items-start justify-between gap-3">
+              <span
+                className={classNames(
+                  'inline-flex items-center rounded-full px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.35em]',
+                  personaSyncBadge.tone,
+                  chromeLoading ? 'animate-pulse' : '',
+                )}
+              >
+                {personaSyncBadge.label}
+              </span>
+              <button
+                type="button"
+                onClick={handleResync}
+                disabled={chromeLoading}
+                className="rounded-full border border-slate-200 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-slate-500 transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Resync
+              </button>
+            </div>
+            {personaSyncStamp ? <p className="mt-2 text-[0.65rem] text-slate-400">{personaSyncStamp}</p> : null}
+            {chromeError ? (
+              <p className="mt-1 text-[0.65rem] text-rose-500">
+                Using cached persona layouts until sync completes.
+              </p>
+            ) : null}
+          </div>
           <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-3">
             <p className="text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-slate-400">Current persona</p>
             <div className="mt-2 flex items-start justify-between gap-3">
@@ -126,7 +176,7 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
               ))}
             </dl>
           </div>
-          {options.map((option) => {
+          {optionList.map((option) => {
             const OptionIcon = resolveIcon(option.key);
             const blueprint = personaMap.get(option.key) ?? FALLBACK_BLUEPRINT;
             const focusAreas = Array.isArray(blueprint.focusAreas)
@@ -136,6 +186,7 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
             const primaryCta = blueprint.primaryCta ?? FALLBACK_BLUEPRINT.primaryCta;
             const timelineActive = option.timelineEnabled ?? blueprint.timelineEnabled ?? false;
             const destination = option.to ?? blueprint.defaultRoute ?? '#';
+            const journey = blueprint.metadata?.journey;
             return (
               <Menu.Item key={option.key}>
                 {({ active }) => (
@@ -206,6 +257,11 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
                         </div>
                       ))}
                     </dl>
+                    {journey ? (
+                      <span className="text-[0.6rem] uppercase tracking-[0.3em] text-slate-400/80">
+                        Journey • {journey}
+                      </span>
+                    ) : null}
                     <span className="text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-slate-400">
                       {primaryCta}
                     </span>

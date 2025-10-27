@@ -4,6 +4,7 @@ import {
   CheckCircleIcon,
   InboxStackIcon,
   InformationCircleIcon,
+  WrenchScrewdriverIcon,
 } from '@heroicons/react/24/outline';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/solid';
 import classNames from '../utils/classNames.js';
@@ -44,6 +45,14 @@ const STATE_CONFIG = {
     title: 'Updates applied successfully',
     description: 'We captured your changes and refreshed dependent analytics.',
     insights: ['Activity feed and notifications already reflect this update.'],
+  },
+  maintenance: {
+    icon: WrenchScrewdriverIcon,
+    iconTone: 'text-amber-600',
+    surface: 'border-amber-200 bg-amber-50/80',
+    title: 'Scheduled maintenance',
+    description: 'Live data is pausing briefly while we upgrade core services.',
+    insights: ['We queue analytics updates and replay them once maintenance closes.'],
   },
   error: {
     icon: ExclamationTriangleIcon,
@@ -92,6 +101,7 @@ export default function DataStatus({
   const errorMessage = typeof error === 'string' ? error : error?.message;
   const resolvedState = state ?? (loading ? 'loading' : errorMessage ? 'error' : empty ? 'empty' : 'ready');
   const statePreset = STATE_CONFIG[resolvedState] ?? STATE_CONFIG.ready;
+  const StateIcon = statePreset.icon ?? CheckCircleIcon;
   const displayTitle = title ?? statePreset.title;
   const displayDescription = description ?? (resolvedState === 'error' ? errorMessage ?? statePreset.description : statePreset.description);
   const metaList = Array.isArray(meta) ? meta : [];
@@ -104,9 +114,29 @@ export default function DataStatus({
       actionLabel ||
       helpLink,
   );
+  const srSegments = [label];
+  if (resolvedState === 'error') {
+    srSegments.push('Error state active');
+  } else if (resolvedState === 'loading') {
+    srSegments.push('Refreshing data');
+  } else if (resolvedState === 'maintenance') {
+    srSegments.push('Maintenance mode active');
+  }
+  if (displayTitle) {
+    srSegments.push(displayTitle);
+  }
+  if (displayDescription) {
+    srSegments.push(displayDescription);
+  }
+  const srMessage = srSegments.filter(Boolean).join('. ');
 
   return (
     <div className="space-y-4">
+      {srMessage ? (
+        <p className="sr-only" aria-live="polite">
+          {srMessage}
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
         <span className={classNames('inline-flex items-center gap-2 rounded-full px-3 py-1 font-semibold', badgeTone)}>
           <span aria-hidden="true" className={`inline-block h-2 w-2 rounded-full ${dotTone}`} />
@@ -139,7 +169,7 @@ export default function DataStatus({
                 resolvedState === 'loading' ? 'animate-spin' : '',
               )}
             >
-              <statePreset.icon className="h-5 w-5" aria-hidden="true" />
+              <StateIcon className="h-5 w-5" aria-hidden="true" />
             </span>
             <div className="space-y-2">
               {displayTitle ? <p className="text-sm font-semibold text-slate-900">{displayTitle}</p> : null}
@@ -158,17 +188,36 @@ export default function DataStatus({
           </div>
           {metaList.length ? (
             <dl className="grid gap-4 sm:grid-cols-2">
-              {metaList.map((item) => (
-                <div key={item.label} className="rounded-2xl border border-white/60 bg-white/70 p-4">
-                  <dt className="text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-slate-400">{item.label}</dt>
+              {metaList.map((item) => {
+                const ItemIcon = item.icon;
+                return (
+                  <div key={item.label} className="rounded-2xl border border-white/60 bg-white/70 p-4">
+                    <dt className="flex items-center gap-2 text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-slate-400">
+                      {ItemIcon ? <ItemIcon className="h-4 w-4 text-slate-300" aria-hidden="true" /> : null}
+                    <span>{item.label}</span>
+                  </dt>
                   <dd className="mt-1 text-sm font-semibold text-slate-900">{item.value}</dd>
                   {item.trend ? (
                     <p className={classNames('text-xs', item.positive ? 'text-emerald-600' : 'text-rose-600')}>
                       {item.trend}
                     </p>
                   ) : null}
-                </div>
-              ))}
+                  {item.helper ? (
+                    <p className="mt-1 text-[0.65rem] text-slate-400/90">{item.helper}</p>
+                  ) : null}
+                  {item.href ? (
+                    <a
+                      href={item.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-2 inline-flex text-[0.65rem] font-semibold text-accent transition hover:text-accentDark"
+                    >
+                      View detail
+                    </a>
+                  ) : null}
+                  </div>
+                );
+              })}
             </dl>
           ) : null}
           <div className="flex flex-wrap items-center gap-3">
@@ -205,11 +254,15 @@ DataStatus.propTypes = {
   fromCache: PropTypes.bool,
   lastUpdated: PropTypes.oneOfType([PropTypes.instanceOf(Date), PropTypes.string, PropTypes.number]),
   onRefresh: PropTypes.func,
-  error: PropTypes.shape({
-    message: PropTypes.string,
-  }),
+  onRetry: PropTypes.func,
+  error: PropTypes.oneOfType([
+    PropTypes.shape({
+      message: PropTypes.string,
+    }),
+    PropTypes.string,
+  ]),
   statusLabel: PropTypes.string,
-  state: PropTypes.oneOf(['loading', 'ready', 'success', 'error', 'empty']),
+  state: PropTypes.oneOf(['loading', 'ready', 'success', 'maintenance', 'error', 'empty']),
   title: PropTypes.string,
   description: PropTypes.string,
   empty: PropTypes.bool,
@@ -222,6 +275,9 @@ DataStatus.propTypes = {
       value: PropTypes.node.isRequired,
       trend: PropTypes.string,
       positive: PropTypes.bool,
+      helper: PropTypes.string,
+      href: PropTypes.string,
+      icon: PropTypes.elementType,
     }),
   ),
   footnote: PropTypes.string,

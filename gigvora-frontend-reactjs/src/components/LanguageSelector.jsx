@@ -5,6 +5,7 @@ import { Menu, Transition } from '@headlessui/react';
 import { CheckIcon, ChevronUpDownIcon, GlobeAltIcon } from '@heroicons/react/24/outline';
 import classNames from '../utils/classNames.js';
 import { useLanguage } from '../context/LanguageContext.jsx';
+import { useNavigationChrome } from '../context/NavigationChromeContext.jsx';
 import { formatRelativeTime } from '../utils/date.js';
 import { DEFAULT_LANGUAGE } from '../i18n/translations.js';
 
@@ -56,12 +57,26 @@ const FALLBACK_LANGUAGE = {
 
 export default function LanguageSelector({ variant = 'header', className }) {
   const { availableLanguages, language, setLanguage, t } = useLanguage();
+  const { loading: chromeLoading, error: chromeError, lastFetchedAt, refresh } = useNavigationChrome();
   const languages = Array.isArray(availableLanguages) && availableLanguages.length ? availableLanguages : [FALLBACK_LANGUAGE];
   const activeLanguage = languages.find((entry) => entry.code === language) ?? languages[0] ?? FALLBACK_LANGUAGE;
   const buttonStyles = BUTTON_STYLES[variant] ?? BUTTON_STYLES.header;
   const menuPosition = MENU_POSITION[variant] ?? MENU_POSITION.header;
   const activeBadge = STATUS_BADGES[activeLanguage.status] ?? { label: 'In localisation', tone: 'bg-slate-200 text-slate-600' };
   const activeUpdate = describeUpdate(activeLanguage.lastUpdated, language);
+  const verificationBadge = chromeError
+    ? { label: 'Locale sync issue', tone: 'bg-rose-100 text-rose-700' }
+    : chromeLoading
+      ? { label: 'Verifying locales', tone: 'bg-sky-100 text-sky-700' }
+      : { label: 'Locales verified', tone: 'bg-emerald-100 text-emerald-700' };
+  const lastVerification = describeUpdate(lastFetchedAt, language);
+  const upcomingLocales = languages.filter((entry) => entry.status && entry.status !== 'ga');
+  const supportPath = activeLanguage.metadata?.requestPath ?? '/support/localization';
+  const handleResync = () => {
+    if (typeof refresh === 'function') {
+      refresh();
+    }
+  };
 
   const handleChange = (code) => {
     if (code !== language) {
@@ -100,6 +115,40 @@ export default function LanguageSelector({ variant = 'header', className }) {
           )}
         >
           <div className="space-y-2 rounded-2xl bg-slate-50/80 p-3">
+            <span className="sr-only" aria-live="polite">
+              {chromeError
+                ? `Locale sync issue. ${chromeError}`
+                : chromeLoading
+                  ? 'Verifying locale catalogue'
+                  : 'Locale catalogue verified'}
+            </span>
+            <div className="flex items-center justify-between gap-3">
+              <span
+                className={classNames(
+                  'inline-flex items-center rounded-full px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.35em]',
+                  verificationBadge.tone,
+                  chromeLoading ? 'animate-pulse' : '',
+                )}
+              >
+                {verificationBadge.label}
+              </span>
+              <button
+                type="button"
+                onClick={handleResync}
+                disabled={chromeLoading}
+                className="rounded-full border border-slate-200 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-slate-500 transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Resync
+              </button>
+            </div>
+            {lastVerification ? (
+              <p className="text-[0.65rem] text-slate-400">{lastVerification}</p>
+            ) : null}
+            {chromeError ? (
+              <p className="text-[0.65rem] text-rose-500">
+                Using cached locales until sync completes. {chromeError}
+              </p>
+            ) : null}
             <p className="text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-slate-400">
               {t('language.menuTitle', 'Choose your language')}
             </p>
@@ -134,7 +183,7 @@ export default function LanguageSelector({ variant = 'header', className }) {
             Localisation coverage
           </p>
           <div className="max-h-60 overflow-y-auto">
-            {availableLanguages.map((option) => (
+            {languages.map((option) => (
               <Menu.Item key={option.code}>
                 {({ active }) => (
                   <button
@@ -157,6 +206,9 @@ export default function LanguageSelector({ variant = 'header', className }) {
                         <span className="text-[0.65rem] uppercase tracking-[0.3em] text-slate-400/80">
                           {option.region ?? 'Global'}
                         </span>
+                        {option.metadata?.localeCode ? (
+                          <span className="text-[0.65rem] text-slate-400/90">{option.metadata.localeCode}</span>
+                        ) : null}
                         {option.supportLead ? (
                           <span className="text-[0.65rem] text-slate-400">{option.supportLead}</span>
                         ) : null}
@@ -193,17 +245,47 @@ export default function LanguageSelector({ variant = 'header', className }) {
               </Menu.Item>
             ))}
           </div>
-          <div className="mt-2 rounded-2xl border border-slate-200/80 bg-white/60 p-3 text-xs text-slate-500">
-            <p className="font-semibold text-slate-700">Need another locale?</p>
-            <p className="mt-1 leading-relaxed">
-              Submit a localisation request so we can prioritise copy, QA, and support enablement for your market.
-            </p>
-            <Link
-              to="/support/localization"
-              className="mt-2 inline-flex items-center gap-2 rounded-full border border-accent/60 px-3 py-1.5 font-semibold text-accent transition hover:border-accent hover:text-accentDark"
-            >
-              Raise a request
-            </Link>
+          <div className="mt-2 space-y-3 rounded-2xl border border-slate-200/80 bg-white/60 p-3 text-xs text-slate-500">
+            <div>
+              <p className="font-semibold text-slate-700">Need another locale?</p>
+              <p className="mt-1 leading-relaxed">
+                Submit a localisation request so we can prioritise copy, QA, and support enablement for your market.
+              </p>
+              <Link
+                to={supportPath}
+                className="mt-2 inline-flex items-center gap-2 rounded-full border border-accent/60 px-3 py-1.5 font-semibold text-accent transition hover:border-accent hover:text-accentDark"
+              >
+                Raise a request
+              </Link>
+            </div>
+            {upcomingLocales.length ? (
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-3">
+                <p className="text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-slate-400">Beta & preview rollouts</p>
+                <ul className="mt-2 space-y-2">
+                  {upcomingLocales.map((locale) => {
+                    const coverageValue =
+                      typeof locale.coverage === 'number'
+                        ? Math.round(Math.min(Math.max(locale.coverage, 0), 100))
+                        : null;
+                    return (
+                      <li
+                        key={`upcoming-${locale.code}`}
+                        className="flex items-start justify-between gap-2 text-[0.7rem] text-slate-500"
+                      >
+                      <span className="flex items-center gap-2">
+                        <span aria-hidden="true">{locale.flag ?? '🌐'}</span>
+                        <span className="font-semibold text-slate-700">{locale.nativeLabel}</span>
+                      </span>
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.3em] text-slate-400">
+                        {STATUS_BADGES[locale.status]?.label ?? 'In review'}
+                        {coverageValue !== null ? ` • ${coverageValue}%` : ''}
+                      </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ) : null}
           </div>
         </Menu.Items>
       </Transition>
