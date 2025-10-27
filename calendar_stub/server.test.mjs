@@ -1,5 +1,8 @@
 import { after, afterEach, before, test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 import { createCalendarServer } from './server.mjs';
 
@@ -244,5 +247,128 @@ test('supports dynamic workspace fixtures', async () => {
     await new Promise((resolve, reject) => {
       customApp.close((error) => (error ? reject(error) : resolve()));
     });
+  }
+});
+
+test('loads combined dataset files with workspaces and events', async () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'calendar-stub-dataset-'));
+  const datasetPath = path.join(tmpDir, 'dataset.json');
+  const now = new Date();
+  const dataset = {
+    workspaces: [{ id: 888, slug: 'dataset-hub', name: 'Dataset Hub', timezone: 'UTC' }],
+    events: [
+      {
+        id: 123,
+        workspaceId: 888,
+        title: 'Dataset sync review',
+        eventType: 'project',
+        startsAt: new Date(now.getTime() + 30 * 60 * 1000).toISOString(),
+        endsAt: new Date(now.getTime() + 60 * 60 * 1000).toISOString(),
+        metadata: { ownerName: 'Dataset QA' },
+      },
+    ],
+  };
+  fs.writeFileSync(datasetPath, JSON.stringify(dataset), 'utf8');
+
+  const datasetApp = createCalendarServer({
+    logger: { info: () => {}, error: () => {} },
+    eventsFile: datasetPath,
+    workspaces: datasetPath,
+  });
+
+  await new Promise((resolve) => datasetApp.listen(0, '127.0.0.1', resolve));
+  const address = datasetApp.server.address();
+
+  try {
+    const response = await fetch(
+      `http://127.0.0.1:${address.port}/api/company/calendar/events?workspaceSlug=dataset-hub`,
+      {
+        headers: buildHeaders({ 'x-roles': 'calendar:view', 'x-user-id': undefined }),
+      },
+    );
+    assert.strictEqual(response.status, 200);
+    const payload = await response.json();
+    assert.strictEqual(payload.workspace.slug, 'dataset-hub');
+    assert.ok(payload.events.some((event) => event.title === 'Dataset sync review'));
+  } finally {
+    await new Promise((resolve, reject) => {
+      datasetApp.close((error) => (error ? reject(error) : resolve()));
+    });
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('persists events and workspaces to disk when configured', async () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'calendar-stub-persist-'));
+  const persistPath = path.join(tmpDir, 'persist.json');
+  const customWorkspaces = [{ id: 555, slug: 'persist-hub', name: 'Persist Hub', timezone: 'UTC' }];
+
+  const persistApp = createCalendarServer({
+    logger: { info: () => {}, error: () => {} },
+    seedEvents: [],
+    workspaces: customWorkspaces,
+    persistPath,
+  });
+
+  await new Promise((resolve) => persistApp.listen(0, '127.0.0.1', resolve));
+  const address = persistApp.server.address();
+
+  try {
+    const startsAt = new Date(Date.now() + 90 * 60 * 1000);
+    const endsAt = new Date(startsAt.getTime() + 30 * 60 * 1000);
+    const createResponse = await fetch(`http://127.0.0.1:${address.port}/api/company/calendar/events`, {
+      method: 'POST',
+      headers: buildHeaders({ 'Content-Type': 'application/json', 'x-roles': 'calendar:manage' }),
+      body: JSON.stringify({
+        workspaceId: 555,
+        title: 'Persisted sync',
+        eventType: 'gig',
+        startsAt: startsAt.toISOString(),
+        endsAt: endsAt.toISOString(),
+      }),
+    });
+    assert.strictEqual(createResponse.status, 201);
+    const created = await createResponse.json();
+
+    const firstSnapshot = JSON.parse(fs.readFileSync(persistPath, 'utf8'));
+    assert.ok(Array.isArray(firstSnapshot.events));
+    assert.strictEqual(firstSnapshot.events.length, 1);
+    assert.strictEqual(firstSnapshot.events[0].title, 'Persisted sync');
+    assert.ok(Array.isArray(firstSnapshot.workspaces));
+    assert.ok(firstSnapshot.workspaces.some((workspace) => workspace.slug === 'persist-hub'));
+    assert.ok(firstSnapshot.meta?.generatedAt);
+
+    const patchResponse = await fetch(
+      `http://127.0.0.1:${address.port}/api/company/calendar/events/${created.id}`,
+      {
+        method: 'PATCH',
+        headers: buildHeaders({ 'Content-Type': 'application/json', 'x-roles': 'calendar:manage' }),
+        body: JSON.stringify({ status: 'completed', metadata: { notes: 'QA review complete' } }),
+      },
+    );
+    assert.strictEqual(patchResponse.status, 200);
+
+    const updatedSnapshot = JSON.parse(fs.readFileSync(persistPath, 'utf8'));
+    const [updatedEvent] = updatedSnapshot.events;
+    assert.strictEqual(updatedEvent.status, 'completed');
+    assert.strictEqual(updatedEvent.metadata.notes, 'QA review complete');
+
+    const deleteResponse = await fetch(
+      `http://127.0.0.1:${address.port}/api/company/calendar/events/${created.id}`,
+      {
+        method: 'DELETE',
+        headers: buildHeaders({ 'x-roles': 'calendar:manage' }),
+      },
+    );
+    assert.strictEqual(deleteResponse.status, 204);
+
+    const finalSnapshot = JSON.parse(fs.readFileSync(persistPath, 'utf8'));
+    assert.ok(Array.isArray(finalSnapshot.events));
+    assert.strictEqual(finalSnapshot.events.length, 0);
+  } finally {
+    await new Promise((resolve, reject) => {
+      persistApp.close((error) => (error ? reject(error) : resolve()));
+    });
+    fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });

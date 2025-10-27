@@ -25,6 +25,7 @@ The server honours the following environment variables:
 | `CALENDAR_STUB_API_KEY` | Optional API key enforced against `x-api-key` or Bearer tokens. | _unset_ |
 | `CALENDAR_STUB_EVENTS_FILE` | Path to a JSON file containing seeded events. | _unset_ |
 | `CALENDAR_STUB_WORKSPACES_FILE` | Path to a JSON file containing workspace fixtures. | _unset_ |
+| `CALENDAR_STUB_PERSIST_FILE` | When set, mutations write back to this JSON dataset (events + workspaces). | _unset_ |
 | `CALENDAR_STUB_MIN_LATENCY_MS` | Minimum latency (ms) injected for calendar API requests. | `0` |
 | `CALENDAR_STUB_MAX_LATENCY_MS` | Maximum latency (ms). | `0` |
 
@@ -67,10 +68,15 @@ Developers can exercise failure modes without modifying code:
 ## Dynamic Fixtures
 
 - Supply `seedEvents` when constructing the server (useful for tests) or point
-  `CALENDAR_STUB_EVENTS_FILE` at a JSON array. Fixture entries can include either absolute `startsAt`
+  `CALENDAR_STUB_EVENTS_FILE` at either a JSON array **or** an object containing `{ events: [] }` (with
+  optional `{ workspaces: [] }`). Fixture entries can include either absolute `startsAt`
   timestamps or relative offsets (`startOffsetHours`, `endOffsetHours`).
 - Use `CALENDAR_STUB_WORKSPACES_FILE` or the `workspaces` option to override the available
   workspaces. `resetWorkspaces()` can refresh the in-memory catalogue at runtime.
+- Configure `CALENDAR_STUB_PERSIST_FILE` (or pass `persistPath` when instantiating the server) to
+  persist every POST/PATCH/DELETE mutation to disk. The stub emits a dataset matching the seeder
+  shape—`{ workspaces: [...], events: [...], meta: { generatedAt, schemaVersion } }`—so local QA
+  environments stay aligned with backend fixtures.
 - Call `resetEvents(null)` to reload the baseline fixtures, or `resetEvents([...])` to inject custom
   events during tests.
 

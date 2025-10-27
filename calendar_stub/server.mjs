@@ -98,9 +98,20 @@ function normaliseSlug(value) {
     .replace(/^-+|-+$/g, '') || null;
 }
 
+function extractWorkspaces(source) {
+  if (Array.isArray(source)) {
+    return source;
+  }
+  if (source && typeof source === 'object' && Array.isArray(source.workspaces)) {
+    return source.workspaces;
+  }
+  return null;
+}
+
 function normaliseWorkspaces(source) {
   const catalogSource = Array.isArray(source) ? source : loadJsonFile(source);
-  const list = Array.isArray(catalogSource) && catalogSource.length ? catalogSource : DEFAULT_WORKSPACES;
+  const extracted = extractWorkspaces(catalogSource);
+  const list = Array.isArray(extracted) && extracted.length ? extracted : DEFAULT_WORKSPACES;
   return list
     .map((workspace) => {
       const id = Number.parseInt(`${workspace.id}`, 10);
@@ -548,20 +559,40 @@ function serializeEvent(event, now = new Date()) {
   };
 }
 
-function resolveSeedEvents({ seedEvents, eventsFile, now }) {
+function resolveSeedDataset({ seedEvents, eventsFile, now }) {
   if (Array.isArray(seedEvents)) {
-    return seedEvents.map((item) => ensureEventShape(item, new Date(now)));
+    return {
+      events: seedEvents.map((item) => ensureEventShape(item, new Date(now))),
+      workspaces: null,
+    };
   }
 
   if (eventsFile) {
     const parsed = loadJsonFile(eventsFile);
-    if (!Array.isArray(parsed)) {
-      throw new Error('Calendar stub events file must export an array');
+    let eventBlueprints;
+    let workspaceBlueprints = null;
+
+    if (Array.isArray(parsed)) {
+      eventBlueprints = parsed;
+    } else if (parsed && typeof parsed === 'object') {
+      eventBlueprints = Array.isArray(parsed.events) ? parsed.events : [];
+      workspaceBlueprints = extractWorkspaces(parsed);
+    } else {
+      throw new Error('Calendar stub events file must export an array or an object with an events array');
     }
-    return normaliseEventFixtures(parsed, { now, allowEmpty: true }).map((item) => ensureEventShape(item, new Date(now)));
+
+    const events = normaliseEventFixtures(eventBlueprints, {
+      now,
+      allowEmpty: true,
+    }).map((item) => ensureEventShape(item, new Date(now)));
+
+    return { events, workspaces: workspaceBlueprints };
   }
 
-  return createDefaultEvents(now).map((item) => ensureEventShape(item, new Date(now)));
+  return {
+    events: createDefaultEvents(now).map((item) => ensureEventShape(item, new Date(now))),
+    workspaces: null,
+  };
 }
 
 function computeNextEventId(list) {
@@ -634,6 +665,7 @@ export function createCalendarServer(options = {}) {
     minLatencyMs = env.CALENDAR_STUB_MIN_LATENCY_MS,
     maxLatencyMs = env.CALENDAR_STUB_MAX_LATENCY_MS,
     scenarioHandlers,
+    persistPath = env.CALENDAR_STUB_PERSIST_FILE,
   } = options;
 
   const baseSeed = { seedEvents, eventsFile };
@@ -648,9 +680,42 @@ export function createCalendarServer(options = {}) {
   );
   const latencyFn =
     latencyProvider ?? createDefaultLatencyProvider({ minLatencyMs: minLatencyValue, maxLatencyMs: maxLatencyValue });
-  let workspaceCatalog = normaliseWorkspaces(workspaceSource);
-  let events = resolveSeedEvents({ ...baseSeed, now: Date.now() });
+  const dataset = resolveSeedDataset({ ...baseSeed, now: Date.now() });
+  let workspaceSeedSource = workspaceSource ?? dataset.workspaces;
+  let workspaceCatalog = normaliseWorkspaces(workspaceSeedSource);
+  let events = dataset.events;
   let nextEventId = computeNextEventId(events);
+  const persistFilePath = persistPath
+    ? path.isAbsolute(persistPath)
+      ? persistPath
+      : path.resolve(process.cwd(), persistPath)
+    : null;
+
+  function persistState() {
+    if (!persistFilePath) {
+      return;
+    }
+    const payload = {
+      workspaces: workspaceCatalog.map((workspace) => ({ ...workspace })),
+      events: events.map((event) => ({
+        ...event,
+        metadata: event.metadata != null ? structuredClone(event.metadata) : null,
+      })),
+      meta: {
+        generatedAt: new Date().toISOString(),
+        schemaVersion: 1,
+      },
+    };
+
+    try {
+      fs.mkdirSync(path.dirname(persistFilePath), { recursive: true });
+      fs.writeFileSync(persistFilePath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+    } catch (error) {
+      if (logger && typeof logger.error === 'function') {
+        logger.error({ error, persistFilePath }, 'calendar stub failed to persist state');
+      }
+    }
+  }
 
   const server = http.createServer(async (request, response) => {
     const requestId = randomUUID();
@@ -937,6 +1002,7 @@ export function createCalendarServer(options = {}) {
         events = [event, ...events];
         nextEventId = computeNextEventId(events);
         sendJson(response, request, origin, 201, serializeEvent(event));
+        persistState();
       } catch (error) {
         sendJson(response, request, origin, 400, { message: 'Invalid JSON payload', detail: error.message });
       }
@@ -953,7 +1019,16 @@ export function createCalendarServer(options = {}) {
         return;
       }
 
-      const existingIndex = events.findIndex((event) => event.id === eventId);
+      const numericEventId = toPositiveInteger(eventId);
+      const existingIndex = events.findIndex((event) => {
+        if (`${event.id}` === `${eventId}`) {
+          return true;
+        }
+        if (numericEventId == null) {
+          return false;
+        }
+        return toPositiveInteger(event.id) === numericEventId;
+      });
       if (existingIndex === -1) {
         sendJson(response, request, origin, 404, { message: 'Event not found' });
         return;
@@ -1013,6 +1088,7 @@ export function createCalendarServer(options = {}) {
 
         events[existingIndex] = updated;
         sendJson(response, request, origin, 200, serializeEvent(updated));
+        persistState();
       } catch (error) {
         sendJson(response, request, origin, 400, { message: 'Invalid JSON payload', detail: error.message });
       }
@@ -1029,14 +1105,32 @@ export function createCalendarServer(options = {}) {
         return;
       }
 
-      const existing = events.find((event) => event.id === eventId);
+      const numericEventId = toPositiveInteger(eventId);
+      const existing = events.find((event) => {
+        if (`${event.id}` === `${eventId}`) {
+          return true;
+        }
+        if (numericEventId == null) {
+          return false;
+        }
+        return toPositiveInteger(event.id) === numericEventId;
+      });
       if (!existing) {
         sendJson(response, request, origin, 404, { message: 'Event not found' });
         return;
       }
 
-      events = events.filter((event) => event.id !== eventId);
+      events = events.filter((event) => {
+        if (`${event.id}` === `${eventId}`) {
+          return false;
+        }
+        if (numericEventId == null) {
+          return true;
+        }
+        return toPositiveInteger(event.id) !== numericEventId;
+      });
       sendNoContent(response, request, origin);
+      persistState();
       return;
     }
 
@@ -1053,7 +1147,12 @@ export function createCalendarServer(options = {}) {
     },
     resetEvents(nextEvents = []) {
       if (nextEvents === null) {
-        events = resolveSeedEvents({ ...baseSeed, now: Date.now() });
+        const nextDataset = resolveSeedDataset({ ...baseSeed, now: Date.now() });
+        events = nextDataset.events;
+        if (workspaceSeedSource == null && Array.isArray(nextDataset.workspaces)) {
+          workspaceSeedSource = nextDataset.workspaces;
+          workspaceCatalog = normaliseWorkspaces(workspaceSeedSource);
+        }
       } else {
         if (!Array.isArray(nextEvents)) {
           throw new TypeError('resetEvents expects an array of events or null');
@@ -1062,15 +1161,22 @@ export function createCalendarServer(options = {}) {
           .filter((item) => Number.isFinite(Number(item.workspaceId)) && item.title);
       }
       nextEventId = computeNextEventId(events);
+      persistState();
     },
     getEvents() {
       return events.map((event) => serializeEvent(event));
     },
-    resetWorkspaces(nextWorkspaces = workspaceSource) {
-      workspaceCatalog = normaliseWorkspaces(nextWorkspaces);
+    resetWorkspaces(nextWorkspaces = workspaceSeedSource) {
+      workspaceSeedSource = nextWorkspaces;
+      workspaceCatalog = normaliseWorkspaces(workspaceSeedSource);
+      persistState();
     },
     getWorkspaces() {
       return workspaceCatalog.map((workspace) => ({ ...workspace }));
+    },
+    persistState,
+    getPersistPath() {
+      return persistFilePath;
     },
   };
 }
