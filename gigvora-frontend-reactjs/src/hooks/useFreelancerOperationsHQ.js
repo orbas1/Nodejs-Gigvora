@@ -8,73 +8,19 @@ import {
   syncOperationsHq,
 } from '../services/freelancerOperations.js';
 
-const FALLBACK_OPERATIONS = Object.freeze({
-  memberships: [
-    {
-      id: 'ops-core',
-      name: 'Operations core',
-      status: 'active',
-      role: 'Operations lead',
-      description: 'Full access to finance, compliance, and delivery orchestration.',
-      lastReviewedAt: new Date().toISOString(),
-    },
-    {
-      id: 'ops-compliance',
-      name: 'Compliance guild',
-      status: 'invited',
-      role: 'Contributor',
-      description: 'Collaborate on due diligence packs and document controls.',
-      lastReviewedAt: null,
-    },
-    {
-      id: 'ops-network',
-      name: 'Growth network',
-      status: 'available',
-      role: 'Pending',
-      description: 'Access co-selling pods, referrals, and partner briefs.',
-      lastReviewedAt: null,
-    },
-  ],
-  workflows: [
-    {
-      id: 'gig-onboarding',
-      title: 'Gig onboarding',
-      status: 'tracking',
-      completion: 72,
-      dueAt: new Date(Date.now() + 1000 * 60 * 60 * 48).toISOString(),
-      blockers: ['Awaiting client briefing sign-off'],
-    },
-    {
-      id: 'reg-audit',
-      title: 'Regulatory audit pack',
-      status: 'at-risk',
-      completion: 38,
-      dueAt: new Date(Date.now() + 1000 * 60 * 60 * 72).toISOString(),
-      blockers: ['Need updated ID documents'],
-    },
-  ],
-  notices: [
-    {
-      id: 'notice-kyc',
-      tone: 'warning',
-      title: 'Verify client KYC',
-      message: 'Upload a verified address document to keep payouts uninterrupted.',
-      createdAt: new Date().toISOString(),
-      acknowledged: false,
-    },
-  ],
-  metrics: {
-    activeWorkflows: 3,
-    escalations: 0,
-    automationCoverage: 64,
-    complianceScore: 92,
-    lastSyncedAt: new Date().toISOString(),
-  },
-  compliance: {
-    outstandingTasks: 2,
-    recentApprovals: 5,
-    nextReviewAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 5).toISOString(),
-  },
+const CACHE_TTL = 1000 * 30;
+const DEFAULT_METRICS = Object.freeze({
+  activeWorkflows: 0,
+  escalations: 0,
+  automationCoverage: 0,
+  complianceScore: 0,
+  lastSyncedAt: null,
+  currency: 'USD',
+});
+const DEFAULT_COMPLIANCE = Object.freeze({
+  outstandingTasks: 0,
+  recentApprovals: 0,
+  nextReviewAt: null,
 });
 
 const REQUEST_STATUS = Object.freeze({
@@ -88,27 +34,50 @@ export default function useFreelancerOperationsHQ({ freelancerId, enabled = true
   const [requestState, setRequestState] = useState({ status: REQUEST_STATUS.idle, error: null });
   const [acknowledgingId, setAcknowledgingId] = useState(null);
 
-  const safeId = freelancerId ?? 'demo-operations';
+  const isEnabled = Boolean(freelancerId) && enabled;
+  const cacheKey = freelancerId
+    ? `freelancer:operations-hq:${freelancerId}`
+    : 'freelancer:operations-hq:pending';
 
   const fetcher = useCallback(
     ({ signal, force } = {}) => {
-      if (!freelancerId || !enabled) {
-        return Promise.resolve(FALLBACK_OPERATIONS);
+      if (!isEnabled) {
+        return Promise.resolve(null);
       }
       return fetchOperationsHq(freelancerId, { signal, fresh: Boolean(force) });
     },
-    [enabled, freelancerId],
+    [freelancerId, isEnabled],
   );
 
-  const resource = useCachedResource(`freelancer:operations-hq:${safeId}`, fetcher, {
-    enabled,
-    dependencies: [safeId],
-    ttl: 1000 * 30,
+  const resource = useCachedResource(cacheKey, fetcher, {
+    enabled: isEnabled,
+    dependencies: [cacheKey],
+    ttl: CACHE_TTL,
   });
 
-  const operations = resource.data ?? FALLBACK_OPERATIONS;
-
   const refresh = useCallback((options) => resource.refresh(options), [resource]);
+
+  const operations = resource.data ?? null;
+  const memberships = useMemo(
+    () => (Array.isArray(operations?.memberships) ? operations.memberships : []),
+    [operations?.memberships],
+  );
+  const workflows = useMemo(
+    () => (Array.isArray(operations?.workflows) ? operations.workflows : []),
+    [operations?.workflows],
+  );
+  const notices = useMemo(
+    () => (Array.isArray(operations?.notices) ? operations.notices : []),
+    [operations?.notices],
+  );
+  const metrics = useMemo(
+    () => ({ ...DEFAULT_METRICS, ...(operations?.metrics ?? {}) }),
+    [operations?.metrics],
+  );
+  const compliance = useMemo(
+    () => ({ ...DEFAULT_COMPLIANCE, ...(operations?.compliance ?? {}) }),
+    [operations?.compliance],
+  );
 
   const handleMembershipRequest = useCallback(
     async (membershipId, payload = {}) => {
@@ -174,11 +143,11 @@ export default function useFreelancerOperationsHQ({ freelancerId, enabled = true
     () => ({
       ...resource,
       operations,
-      memberships: operations.memberships ?? [],
-      workflows: operations.workflows ?? [],
-      notices: operations.notices ?? [],
-      metrics: operations.metrics ?? FALLBACK_OPERATIONS.metrics,
-      compliance: operations.compliance ?? FALLBACK_OPERATIONS.compliance,
+      memberships,
+      workflows,
+      notices,
+      metrics,
+      compliance,
       refresh,
       requestMembership: handleMembershipRequest,
       updateMembership: handleMembershipUpdate,
@@ -193,10 +162,15 @@ export default function useFreelancerOperationsHQ({ freelancerId, enabled = true
       handleMembershipRequest,
       handleMembershipUpdate,
       handleSync,
+      memberships,
+      notices,
       operations,
       refresh,
       requestState,
       resource,
+      metrics,
+      compliance,
+      workflows,
     ],
   );
 }
