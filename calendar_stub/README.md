@@ -27,6 +27,10 @@ The server honours the following environment variables:
 | `CALENDAR_STUB_WORKSPACES_FILE` | Path to a JSON file containing workspace fixtures. | _unset_ |
 | `CALENDAR_STUB_MIN_LATENCY_MS` | Minimum latency (ms) injected for calendar API requests. | `0` |
 | `CALENDAR_STUB_MAX_LATENCY_MS` | Maximum latency (ms). | `0` |
+| `CALENDAR_STUB_RELEASE_CHANNEL` | Label describing the active deployment channel surfaced in metadata. | `stable` |
+| `CALENDAR_STUB_REGION` | Region tag exposed in metadata and telemetry. | `us-central` |
+| `CALENDAR_STUB_BUILD_NUMBER` | Optional build number appended to metadata responses. | _unset_ |
+| `CALENDAR_STUB_OWNER_TEAM` | Team responsible for the stub, displayed in metadata. | _unset_ |
 
 When no fixtures are supplied, the stub loads deterministic default events covering projects,
 interviews, gigs, mentorship, and volunteering across two sample workspaces sourced from
@@ -53,6 +57,9 @@ All API calls must include:
 - `POST /api/company/calendar/events` – create an event. Requires `workspaceId`, `title`, `startsAt`.
 - `PATCH /api/company/calendar/events/:id` – update an event.
 - `DELETE /api/company/calendar/events/:id` – delete an event.
+- `GET /api/system/calendar-meta` – retrieve integration metadata including allowed origins,
+  required headers, workspace catalogue, latency range, failure scenarios, release channel,
+  uptime telemetry, workspace summaries, and request header examples for orchestration tooling.
 
 ## Scenario Toggles & Latency Simulation
 
@@ -92,6 +99,13 @@ Event listing responses include:
 - `meta.availableWorkspaces` exposing workspace fixtures and permissions.
 - `meta.supportedEventTypes`, `meta.scenarios`, `meta.seedSource`, and `meta.latency` summarising
   stub capabilities.
+
+Metadata responses from `/api/system/calendar-meta` also expose:
+
+- `deployment` – release channel, region, build number, owner team, and stub version tags.
+- `telemetry` – uptime seconds, total seeded events, scenario counts, and the last event timestamp.
+- `workspaceSummary` – totals and default workspace pointers to align dashboards with fixtures.
+- `headerExamples` – sample `x-roles`, `x-api-key`, and `x-user-id` headers for read/write calls.
 
 All metadata values are normalised to mirror production validation. Unknown metadata keys are
 discarded, participant lists are trimmed to 20 entries, and workspace identifiers are coerced to

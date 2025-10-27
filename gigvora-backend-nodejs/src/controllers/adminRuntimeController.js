@@ -13,6 +13,7 @@ import {
   deleteMaintenanceWindow,
   sendMaintenanceBroadcast,
 } from '../services/maintenanceControlCentreService.js';
+import { getCalendarStubEnvironment } from '../services/calendarStubEnvironmentService.js';
 import logger from '../utils/logger.js';
 import { extractAdminActor, stampPayloadWithActor, coercePositiveInteger } from '../utils/adminRequestContext.js';
 
@@ -114,6 +115,11 @@ export async function sendMaintenanceNotification(req, res) {
   res.status(202).json(result);
 }
 
+export async function fetchCalendarStubEnvironmentController(req, res) {
+  const environment = await getCalendarStubEnvironment();
+  res.json(environment);
+}
+
 export default {
   listMaintenance,
   createMaintenance,
@@ -126,4 +132,5 @@ export default {
   updateMaintenanceWindowController,
   deleteMaintenanceWindowController,
   sendMaintenanceNotification,
+  fetchCalendarStubEnvironmentController,
 };

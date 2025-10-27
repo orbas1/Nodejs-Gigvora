@@ -13,6 +13,9 @@ let baselineEvents;
 before(async () => {
   process.env.CALENDAR_STUB_API_KEY = API_KEY;
   process.env.CALENDAR_STUB_ALLOWED_ORIGINS = ALLOWED_ORIGIN;
+  process.env.CALENDAR_STUB_RELEASE_CHANNEL = 'canary';
+  process.env.CALENDAR_STUB_REGION = 'us-west2';
+  process.env.CALENDAR_STUB_BUILD_NUMBER = '2024.10.3';
   app = createCalendarServer({
     logger: { info: () => {} },
   });
@@ -35,6 +38,9 @@ after(async () => {
   });
   delete process.env.CALENDAR_STUB_API_KEY;
   delete process.env.CALENDAR_STUB_ALLOWED_ORIGINS;
+  delete process.env.CALENDAR_STUB_RELEASE_CHANNEL;
+  delete process.env.CALENDAR_STUB_REGION;
+  delete process.env.CALENDAR_STUB_BUILD_NUMBER;
 });
 
 function buildHeaders(overrides = {}) {
@@ -127,6 +133,33 @@ test('creates a new event with manage permissions', async () => {
   const gigEvents = listPayload.eventsByType.gig || [];
   assert.ok(gigEvents.some((event) => event.id === created.id));
   assert.ok(listPayload.events.some((event) => event.id === created.id));
+});
+
+test('exposes integration metadata for orchestration tooling', async () => {
+  const response = await fetch(`${baseUrl}/api/system/calendar-meta`, {
+    headers: buildHeaders({ 'x-roles': 'calendar:view', 'x-user-id': undefined }),
+  });
+  assert.strictEqual(response.status, 200);
+  const payload = await response.json();
+  assert.strictEqual(payload.status, 'ok');
+  assert.strictEqual(payload.stub.service, 'calendar-stub');
+  assert.ok(Array.isArray(payload.stub.availableWorkspaces));
+  assert.ok(payload.stub.defaults.limit > 0);
+  assert.ok(Array.isArray(payload.stub.scenarios));
+  assert.ok(payload.stub.telemetry.uptimeSeconds >= 0);
+  assert.strictEqual(payload.stub.deployment.releaseChannel, 'canary');
+  assert.ok(payload.stub.headerExamples.manage['x-user-id']);
+  assert.ok(payload.stub.workspaceSummary.totalWorkspaces >= 1);
+});
+
+test('getMetadata mirrors the integration endpoint payload', () => {
+  const metadata = app.getMetadata();
+  assert.strictEqual(metadata.status, 'ok');
+  assert.strictEqual(metadata.stub.service, 'calendar-stub');
+  assert.ok(Array.isArray(metadata.stub.availableWorkspaces));
+  assert.strictEqual(metadata.stub.requiresApiKey, true);
+  assert.ok(metadata.stub.telemetry.totalEvents >= 0);
+  assert.strictEqual(metadata.stub.deployment.region, 'us-west2');
 });
 
 test('exposes slug filtering and default window range', async () => {
