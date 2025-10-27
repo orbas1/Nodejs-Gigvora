@@ -19,6 +19,26 @@ function buildFallback() {
         'Mentors, operators, and advisors guiding cohorts',
         'Recruiters and talent leads hiring with real-time telemetry',
       ],
+      heroInsightStats: [
+        {
+          id: 'global-network',
+          label: 'Global network',
+          value: '7,800+ mentors & specialists',
+          helper: 'Curated pods across 60+ countries keep every launch moving.',
+        },
+        {
+          id: 'cycle-time',
+          label: 'Cycle-time gains',
+          value: '38% faster programme launches',
+          helper: 'Unified rituals and playbooks streamline every mission.',
+        },
+        {
+          id: 'trust-score',
+          label: 'Enterprise trust',
+          value: '99.95% uptime · SOC2 monitored',
+          helper: 'Treasury, legal, and risk automation built into every workflow.',
+        },
+      ],
       heroValuePillars: [
         {
           id: 'command-centre',
@@ -137,6 +157,11 @@ export default function useHomeExperience({ enabled = true, limit = 6 } = {}) {
                 heroSubheading:
                   settingsResult.value?.heroSubheading ?? settingsResult.value?.hero?.subheading ?? undefined,
                 communityStats: settingsResult.value?.communityStats ?? [],
+                heroInsightStats:
+                  settingsResult.value?.heroInsightStats ??
+                  settingsResult.value?.hero?.insightStats ??
+                  settingsResult.value?.hero?.stats ??
+                  [],
                 ...settingsResult.value,
               }
             : buildFallback().settings;

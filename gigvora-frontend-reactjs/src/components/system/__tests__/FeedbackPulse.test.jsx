@@ -11,6 +11,7 @@ const ANALYTICS = {
   lastUpdated: '2024-05-11T22:50:00.000Z',
   reviewUrl: 'https://gigvora.com/ops/feedback',
   queueTarget: 6,
+  totalResponses: 312,
   segments: [
     { id: 'enterprise', label: 'Enterprise', score: 4.8, delta: 0.2, sampleSize: 124 },
     { id: 'smb', label: 'SMB', score: 4.3, delta: -0.1, sampleSize: 98 },
@@ -54,6 +55,8 @@ describe('FeedbackPulse', () => {
     expect(screen.getByText(/APAC queue depth/i)).toBeInTheDocument();
     expect(screen.getByText(/Localized status copy/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /review insights/i })).toBeInTheDocument();
+    expect(screen.getByText(/Total responses/i)).toBeInTheDocument();
+    expect(screen.getByText(/Queue load/i)).toBeInTheDocument();
   });
 
   it('invokes review handler when CTA clicked', async () => {

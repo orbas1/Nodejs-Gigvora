@@ -5,6 +5,9 @@ const path = require('path');
 const { QueryTypes } = require('sequelize');
 
 const DATA_FILE = path.resolve(__dirname, '../../../calendar_stub/data/company-calendar.json');
+const {
+  assertCompanyCalendarEventType,
+} = require('../../../shared-contracts/domain/platform/calendar/constants.js');
 const SEED_SOURCE = 'company-calendar-stub';
 const OWNER_EMAIL = 'mia@gigvora.com';
 const FALLBACK_WORKSPACE = {
@@ -15,6 +18,15 @@ const FALLBACK_WORKSPACE = {
   defaultCurrency: 'USD',
   membershipRole: 'owner',
 };
+
+let fixturesModulePromise;
+
+async function loadFixturesModule() {
+  if (!fixturesModulePromise) {
+    fixturesModulePromise = import('../../../calendar_stub/fixtures.mjs');
+  }
+  return fixturesModulePromise;
+}
 
 function loadDataset() {
   const raw = fs.readFileSync(DATA_FILE, 'utf8');
@@ -72,13 +84,19 @@ function computeEnd(now, blueprint, start) {
   return null;
 }
 
-function normaliseMetadata(metadata = {}) {
-  const cleaned = { ...metadata };
+function normaliseMetadata(metadata = {}, metadataNormalizer = null) {
+  let cleaned = metadata && typeof metadata === 'object' ? { ...metadata } : {};
+  if (metadataNormalizer) {
+    const normalised = metadataNormalizer(metadata ?? {});
+    if (normalised && typeof normalised === 'object') {
+      cleaned = { ...normalised };
+    }
+  }
   cleaned.seedSource = SEED_SOURCE;
   return cleaned;
 }
 
-function normaliseEvent(blueprint, now, workspaceId) {
+function normaliseEvent(blueprint, now, workspaceId, metadataNormalizer) {
   const id = Number.parseInt(`${blueprint.id}`, 10);
   if (!Number.isFinite(id) || id <= 0) {
     throw new Error(`Calendar blueprint id is invalid for "${blueprint.title}".`);
@@ -87,7 +105,12 @@ function normaliseEvent(blueprint, now, workspaceId) {
   if (!title) {
     throw new Error('Calendar blueprint title is required.');
   }
-  const eventType = `${blueprint.eventType}`.trim().toLowerCase();
+  let eventType;
+  try {
+    eventType = assertCompanyCalendarEventType(blueprint.eventType);
+  } catch (error) {
+    throw new Error(`Calendar blueprint eventType is invalid for "${blueprint.title}": ${error.message}`);
+  }
   const start = computeDate(now, blueprint.startsAt, blueprint.startOffsetHours ?? blueprint.offsetHours ?? 0);
   const end = computeEnd(now, blueprint, start);
 
@@ -99,7 +122,7 @@ function normaliseEvent(blueprint, now, workspaceId) {
     startsAt: start,
     endsAt: end,
     location: blueprint.location ? `${blueprint.location}` : null,
-    metadata: normaliseMetadata(blueprint.metadata || {}),
+    metadata: normaliseMetadata(blueprint.metadata || {}, metadataNormalizer),
     createdAt: now,
     updatedAt: now,
   };
@@ -112,6 +135,9 @@ module.exports = {
     if (!events.length) {
       return;
     }
+
+    const fixtures = await loadFixturesModule();
+    const metadataNormalizer = typeof fixtures.normaliseMetadata === 'function' ? fixtures.normaliseMetadata : null;
 
     await queryInterface.sequelize.transaction(async (transaction) => {
       const now = new Date();
@@ -225,7 +251,7 @@ module.exports = {
         if (!resolvedWorkspaceId) {
           return accumulator;
         }
-        accumulator.push(normaliseEvent(blueprint, now, resolvedWorkspaceId));
+        accumulator.push(normaliseEvent(blueprint, now, resolvedWorkspaceId, metadataNormalizer));
         return accumulator;
       }, []);
 

@@ -14,6 +14,7 @@ export const MaintenanceFeedbackSnapshot = sequelize.define(
     queueDepth: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     queueTarget: { type: DataTypes.INTEGER, allowNull: true },
     medianResponseMinutes: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    totalResponses: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     sentimentNarrative: { type: DataTypes.TEXT, allowNull: true },
     reviewUrl: { type: DataTypes.STRING(500), allowNull: true },
     segments: { type: jsonType, allowNull: false, defaultValue: [] },
@@ -44,7 +45,9 @@ export const MaintenanceOperationalSnapshot = sequelize.define(
     channels: { type: jsonType, allowNull: false, defaultValue: [] },
     warnings: { type: jsonType, allowNull: false, defaultValue: [] },
     escalations: { type: jsonType, allowNull: false, defaultValue: [] },
+    impacts: { type: jsonType, allowNull: false, defaultValue: [] },
     maintenanceWindow: { type: jsonType, allowNull: true },
+    nextUpdateAt: { type: DataTypes.DATE, allowNull: true },
   },
   { tableName: 'maintenance_operational_snapshots' },
 );

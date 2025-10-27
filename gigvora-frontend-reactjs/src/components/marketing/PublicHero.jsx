@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import clsx from 'clsx';
 import { ArrowUpRightIcon, PlayIcon } from '@heroicons/react/24/outline';
@@ -43,6 +43,27 @@ const DEFAULT_MEDIA = {
   posterUrl:
     'https://images.unsplash.com/photo-1587614295999-6c0c1a7af25b?auto=format&fit=crop&w=1280&q=80',
 };
+
+const DEFAULT_INSIGHT_STATS = [
+  {
+    id: 'global-network',
+    label: 'Global network',
+    value: '7,800+ mentors & specialists',
+    helper: 'Curated pods across 60+ countries keep every launch moving.',
+  },
+  {
+    id: 'cycle-time',
+    label: 'Cycle-time gains',
+    value: '38% faster programme launches',
+    helper: 'Unified rituals and playbooks streamline every mission.',
+  },
+  {
+    id: 'trust-score',
+    label: 'Enterprise trust',
+    value: '99.95% uptime · SOC2 monitored',
+    helper: 'Treasury, legal, and risk automation built into every workflow.',
+  },
+];
 
 function normaliseTickerItems(items) {
   if (!Array.isArray(items)) {
@@ -105,6 +126,46 @@ function normalisePersonaChips(chips) {
     .filter(Boolean);
 }
 
+function normaliseHeroStats(stats) {
+  if (!Array.isArray(stats)) {
+    return [];
+  }
+
+  return stats
+    .map((stat) => {
+      if (!stat) return null;
+      if (typeof stat === 'string') {
+        return {
+          id: stat,
+          label: stat,
+          value: null,
+          helper: null,
+        };
+      }
+
+      const label =
+        typeof stat.label === 'string' && stat.label.trim().length ? stat.label.trim() : null;
+      const value =
+        typeof stat.value === 'string' && stat.value.trim().length ? stat.value.trim() : null;
+      const helper =
+        typeof stat.helper === 'string' && stat.helper.trim().length
+          ? stat.helper.trim()
+          : null;
+
+      if (!label && !value && !helper) {
+        return null;
+      }
+
+      return {
+        id: stat.id ?? label ?? value ?? helper,
+        label: label ?? value ?? helper ?? '',
+        value,
+        helper,
+      };
+    })
+    .filter(Boolean);
+}
+
 export function PublicHero({
   componentId = 'public-hero',
   gradient = DEFAULT_GRADIENT,
@@ -126,8 +187,10 @@ export function PublicHero({
   valuePillars,
   media,
   mediaCaption,
+  insightStats,
 }) {
   const [reduceMotion, setReduceMotion] = useState(false);
+  const statsTrackedRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
@@ -225,6 +288,37 @@ export function PublicHero({
 
   const showMediaSkeleton = loading && !heroMedia.imageUrl && !hasVideo;
   const personaHighlights = normalisePersonaChips(personaChips);
+  const resolvedStats = useMemo(() => {
+    const normalised = normaliseHeroStats(insightStats);
+    if (normalised.length) {
+      return normalised;
+    }
+    return DEFAULT_INSIGHT_STATS;
+  }, [insightStats]);
+  const showStats = resolvedStats.length > 0;
+
+  useEffect(() => {
+    if (!showStats || statsTrackedRef.current) {
+      return;
+    }
+
+    analytics.track(
+      analyticsMetadata.statEventName ?? 'marketing_hero_stats_viewed',
+      {
+        heroId: componentId,
+        statCount: resolvedStats.length,
+      },
+      { source: analyticsMetadata.source ?? 'web_marketing_site' },
+    );
+
+    statsTrackedRef.current = true;
+  }, [
+    analyticsMetadata.source,
+    analyticsMetadata.statEventName,
+    componentId,
+    resolvedStats.length,
+    showStats,
+  ]);
 
   const handleAction = (action, actionType) => {
     analytics.track(
@@ -393,19 +487,42 @@ export function PublicHero({
                 'flex h-full items-center gap-10 whitespace-nowrap text-sm font-medium text-white/80',
                 reduceMotion ? 'justify-center px-8' : 'animate-[hero-ticker_24s_linear_infinite] pr-8',
               )}
+              role="list"
+              aria-live={reduceMotion ? 'polite' : 'off'}
             >
               {showTickerSkeleton
                 ? Array.from({ length: 4 }).map((_, index) => (
                     <span key={`skeleton-${index}`} className="block h-3 w-32 animate-pulse rounded-full bg-white/10" />
                   ))
                 : tickerRenderList.map((item, index) => (
-                    <span key={`${item}-${index}`} className="flex items-center gap-3">
+                    <span key={`${item}-${index}`} className="flex items-center gap-3" role="listitem">
                       <span className="inline-block h-2 w-2 rounded-full bg-accent" aria-hidden="true" />
                       {item}
                     </span>
                   ))}
             </div>
           </div>
+
+          {showStats ? (
+            <dl className="grid gap-4 pt-6 text-left sm:grid-cols-2 lg:grid-cols-3">
+              {resolvedStats.map((stat) => (
+                <div
+                  key={stat.id}
+                  className="rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-left shadow-[0_20px_60px_rgba(15,23,42,0.35)]"
+                >
+                  <dt className="text-xs font-semibold uppercase tracking-[0.28em] text-accent/90">
+                    {stat.label}
+                  </dt>
+                  {stat.value ? (
+                    <dd className="mt-2 text-lg font-semibold text-white">{stat.value}</dd>
+                  ) : null}
+                  {stat.helper ? (
+                    <p className="mt-1 text-xs text-white/70">{stat.helper}</p>
+                  ) : null}
+                </div>
+              ))}
+            </dl>
+          ) : null}
         </div>
 
         <div className="relative w-full max-w-xl self-center lg:max-w-2xl">
@@ -535,6 +652,7 @@ PublicHero.propTypes = {
     viewEventName: PropTypes.string,
     ctaEventName: PropTypes.string,
     pillarEventName: PropTypes.string,
+    statEventName: PropTypes.string,
   }),
   personaChips: PropTypes.arrayOf(
     PropTypes.oneOfType([
@@ -564,6 +682,17 @@ PublicHero.propTypes = {
     ),
   }),
   mediaCaption: PropTypes.string,
+  insightStats: PropTypes.arrayOf(
+    PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.shape({
+        id: PropTypes.string,
+        label: PropTypes.string,
+        value: PropTypes.string,
+        helper: PropTypes.string,
+      }),
+    ]),
+  ),
 };
 
 PublicHero.defaultProps = {
@@ -587,6 +716,7 @@ PublicHero.defaultProps = {
   valuePillars: undefined,
   media: undefined,
   mediaCaption: undefined,
+  insightStats: undefined,
 };
 
 export default PublicHero;

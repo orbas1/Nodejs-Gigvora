@@ -62,6 +62,7 @@ describe('PublicHero', () => {
           },
         ]}
         analyticsMetadata={{ source: 'unit-test', viewEventName: 'hero_view' }}
+        insightStats={[{ id: 'impact', label: 'Launch impact', value: '38% faster cycles' }]}
       />,
     );
 
@@ -70,9 +71,16 @@ describe('PublicHero', () => {
     expect(screen.getByText('Founders')).toBeInTheDocument();
     expect(screen.getByText('Agencies')).toBeInTheDocument();
     expect(screen.getByText('Verified launch telemetry')).toBeInTheDocument();
+    expect(screen.getByText('Launch impact')).toBeInTheDocument();
+    expect(screen.getByText('38% faster cycles')).toBeInTheDocument();
     expect(analyticsMock.track).toHaveBeenCalledWith(
       'hero_view',
       expect.objectContaining({ heroId: 'marketing-hero' }),
+      expect.objectContaining({ source: 'unit-test' }),
+    );
+    expect(analyticsMock.track).toHaveBeenCalledWith(
+      'marketing_hero_stats_viewed',
+      expect.objectContaining({ heroId: 'marketing-hero', statCount: 1 }),
       expect.objectContaining({ source: 'unit-test' }),
     );
   });
@@ -114,6 +122,7 @@ describe('ValuePillars', () => {
             highlights: ['AI nudges keep conversions high'],
             metric: { label: 'Pipeline lift', value: '34%' },
             action: { id: 'explore', label: 'See playbook', onClick: actionSpy },
+            audiences: ['Founders', 'Revenue teams'],
           },
           {
             id: 'trust',
@@ -122,6 +131,7 @@ describe('ValuePillars', () => {
             highlights: ['SOC2 ready with guardrails'],
             icon: 'ShieldCheckIcon',
             action: { label: 'Review trust centre', href: '/trust' },
+            personas: ['Finance'],
           },
         ]}
       />,
@@ -130,6 +140,9 @@ describe('ValuePillars', () => {
     expect(screen.getByText(/growth programs/i)).toBeInTheDocument();
     expect(screen.getByText(/34%/i)).toBeInTheDocument();
     expect(screen.getByText(/ai nudges keep conversions high/i)).toBeInTheDocument();
+    expect(screen.getByText(/founders/i)).toBeInTheDocument();
+    expect(screen.getByText(/revenue teams/i)).toBeInTheDocument();
+    expect(screen.getByText(/finance/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /see playbook/i }));
     expect(actionSpy).toHaveBeenCalledTimes(1);

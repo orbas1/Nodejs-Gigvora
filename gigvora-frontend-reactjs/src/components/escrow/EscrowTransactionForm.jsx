@@ -239,7 +239,7 @@ EscrowTransactionForm.propTypes = {
 
 EscrowTransactionForm.defaultProps = {
   accounts: [],
-  transactionTypes: ['project'],
+  transactionTypes: ['project', 'milestone', 'retainer', 'invoice', 'subscription'],
   defaultCurrency: 'USD',
   userId: null,
   transaction: null,

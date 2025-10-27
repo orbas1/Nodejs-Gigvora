@@ -194,7 +194,7 @@ export const AGENCY_TIMELINE_DISTRIBUTION_CHANNELS = Object.freeze([
   'social',
 ]);
 export const ESCROW_ACCOUNT_STATUSES = Object.freeze(['pending', 'active', 'suspended', 'closed']);
-export const ESCROW_TRANSACTION_TYPES = Object.freeze(['project', 'gig', 'milestone', 'retainer']);
+export const ESCROW_TRANSACTION_TYPES = Object.freeze(['project', 'gig', 'milestone', 'retainer', 'invoice', 'subscription', 'membership']);
 export const ESCROW_RELEASE_POLICY_TYPES = Object.freeze([
   'auto_release_after_hours',
   'client_confirmation',
@@ -217,6 +217,9 @@ export const ESCROW_TRANSACTION_STATUSES = Object.freeze([
   'initiated',
   'funded',
   'in_escrow',
+  'pending_release',
+  'held',
+  'paused',
   'released',
   'refunded',
   'cancelled',
