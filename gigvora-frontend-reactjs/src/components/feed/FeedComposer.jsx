@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { ArrowPathIcon, FaceSmileIcon, PaperAirplaneIcon, PhotoIcon } from '@heroicons/react/24/outline';
 import UserAvatar from '../UserAvatar.jsx';
 import EmojiQuickPickerPopover from '../popovers/EmojiQuickPickerPopover.jsx';
@@ -10,6 +10,9 @@ import {
   sanitiseExternalLink,
 } from '../../utils/contentModeration.js';
 import { MAX_CONTENT_LENGTH } from './feedHelpers.js';
+
+const STORAGE_BASE_KEY = 'gigvora:feed-composer-draft';
+const STORAGE_VERSION = 'v1';
 
 function MediaAttachmentPreview({ attachment, onRemove }) {
   if (!attachment) {
@@ -50,12 +53,155 @@ export default function FeedComposer({ onCreate, session, busy = false }) {
   const [error, setError] = useState(null);
   const [showEmojiTray, setShowEmojiTray] = useState(false);
   const [showGifTray, setShowGifTray] = useState(false);
+  const [draftStatus, setDraftStatus] = useState('idle');
+  const [draftSavedAt, setDraftSavedAt] = useState(null);
   const textareaId = useId();
   const linkInputId = useId();
   const mediaAltId = useId();
+  const saveTimeoutRef = useRef(null);
+
+  const storageKey = useMemo(() => {
+    const identifier = session?.id || session?.email || session?.handle || 'global';
+    return `${STORAGE_BASE_KEY}:${STORAGE_VERSION}:${identifier}`;
+  }, [session?.email, session?.handle, session?.id]);
+
+  const canUseStorage = useMemo(() => typeof window !== 'undefined' && !!window?.localStorage, []);
+
+  useEffect(() => {
+    if (!canUseStorage) {
+      return undefined;
+    }
+    try {
+      const stored = window.localStorage.getItem(storageKey);
+      if (!stored) {
+        return undefined;
+      }
+      const parsed = JSON.parse(stored);
+      if (parsed.mode) {
+        setMode(parsed.mode);
+      }
+      if (typeof parsed.content === 'string') {
+        setContent(parsed.content.slice(0, MAX_CONTENT_LENGTH));
+      }
+      if (typeof parsed.link === 'string') {
+        setLink(parsed.link);
+      }
+      if (parsed.attachment) {
+        setAttachment(parsed.attachment);
+        setAttachmentAlt(parsed.attachmentAlt ?? parsed.attachment?.alt ?? '');
+      }
+      if (parsed.savedAt) {
+        setDraftStatus('saved');
+        setDraftSavedAt(parsed.savedAt);
+      }
+    } catch (loadError) {
+      console.warn('Failed to hydrate feed composer draft', loadError);
+    }
+    return undefined;
+  }, [canUseStorage, storageKey]);
 
   const selectedOption = COMPOSER_OPTIONS.find((option) => option.id === mode) ?? COMPOSER_OPTIONS[0];
   const remainingCharacters = MAX_CONTENT_LENGTH - content.length;
+
+  const persistDraft = useCallback(() => {
+    if (!canUseStorage) {
+      return;
+    }
+    const trimmedContent = content.trim();
+    const payload = {
+      version: STORAGE_VERSION,
+      mode,
+      content: trimmedContent,
+      link: link.trim(),
+      attachment: attachment
+        ? {
+            id: attachment.id,
+            type: attachment.type,
+            url: attachment.url,
+            alt: attachmentAlt?.trim() || attachment.alt || '',
+          }
+        : null,
+      attachmentAlt: attachmentAlt?.trim() || '',
+    };
+
+    if (!payload.content && !payload.link && !payload.attachment) {
+      window.localStorage.removeItem(storageKey);
+      setDraftStatus('idle');
+      setDraftSavedAt(null);
+      return;
+    }
+
+    const savedAt = new Date().toISOString();
+    payload.savedAt = savedAt;
+    window.localStorage.setItem(storageKey, JSON.stringify(payload));
+    setDraftStatus('saved');
+    setDraftSavedAt(savedAt);
+  }, [attachment, attachmentAlt, canUseStorage, content, link, mode, storageKey]);
+
+  useEffect(() => {
+    if (!canUseStorage) {
+      return undefined;
+    }
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    const hasContent = Boolean(content.trim() || link.trim() || attachment);
+    if (!hasContent) {
+      window.localStorage.removeItem(storageKey);
+      setDraftStatus('idle');
+      setDraftSavedAt(null);
+      return undefined;
+    }
+
+    setDraftStatus('saving');
+    saveTimeoutRef.current = setTimeout(() => {
+      persistDraft();
+    }, 600);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [attachment, canUseStorage, content, link, persistDraft, storageKey]);
+
+  useEffect(
+    () => () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    },
+    [],
+  );
+
+  const draftStatusLabel = useMemo(() => {
+    if (draftStatus === 'saving') {
+      return 'Saving draft…';
+    }
+    if (draftStatus === 'saved' && draftSavedAt) {
+      const savedTime = new Date(draftSavedAt).getTime();
+      const difference = Date.now() - savedTime;
+      if (Number.isFinite(difference)) {
+        if (difference < 45_000) {
+          return 'Saved moments ago';
+        }
+        if (difference < 120_000) {
+          return 'Saved about a minute ago';
+        }
+      }
+      try {
+        return `Saved at ${new Intl.DateTimeFormat(undefined, {
+          hour: 'numeric',
+          minute: '2-digit',
+        }).format(new Date(draftSavedAt))}`;
+      } catch (formatError) {
+        return 'Draft saved';
+      }
+    }
+    return 'Autosave ready';
+  }, [draftSavedAt, draftStatus]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -112,6 +258,11 @@ export default function FeedComposer({ onCreate, session, busy = false }) {
       setAttachment(null);
       setAttachmentAlt('');
       setMode('update');
+      if (canUseStorage) {
+        window.localStorage.removeItem(storageKey);
+      }
+      setDraftStatus('idle');
+      setDraftSavedAt(null);
     } catch (composerError) {
       if (composerError instanceof ContentModerationError) {
         setError({ message: composerError.message, reasons: composerError.reasons });
@@ -129,6 +280,20 @@ export default function FeedComposer({ onCreate, session, busy = false }) {
   const handleRemoveAttachment = () => {
     setAttachment(null);
     setAttachmentAlt('');
+  };
+
+  const handleResetDraft = () => {
+    setContent('');
+    setLink('');
+    setAttachment(null);
+    setAttachmentAlt('');
+    setMode('update');
+    setError(null);
+    if (canUseStorage) {
+      window.localStorage.removeItem(storageKey);
+    }
+    setDraftStatus('idle');
+    setDraftSavedAt(null);
   };
 
   const disabled = submitting || busy;
@@ -301,17 +466,30 @@ export default function FeedComposer({ onCreate, session, busy = false }) {
           ) : null}
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
-          <p>Your update routes to followers, connections, and workspace partners.</p>
-          <button
-            type="submit"
-            disabled={disabled || !content.trim()}
-            className={`inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold text-white shadow-soft transition ${
-              disabled || !content.trim() ? 'cursor-not-allowed bg-accent/50' : 'bg-accent hover:bg-accentDark'
-            }`}
-          >
-            {submitting ? <ArrowPathIcon className="h-4 w-4 animate-spin" /> : <PaperAirplaneIcon className="h-4 w-4" />}
-            {submitting ? 'Publishing…' : 'Publish to timeline'}
-          </button>
+          <div className="space-y-1">
+            <p>Your update routes to followers, connections, and workspace partners.</p>
+            <p className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-400">{draftStatusLabel}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleResetDraft}
+              disabled={disabled || (!content && !link && !attachment)}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 transition hover:border-slate-300 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Clear draft
+            </button>
+            <button
+              type="submit"
+              disabled={disabled || !content.trim()}
+              className={`inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold text-white shadow-soft transition ${
+                disabled || !content.trim() ? 'cursor-not-allowed bg-accent/50' : 'bg-accent hover:bg-accentDark'
+              }`}
+            >
+              {submitting ? <ArrowPathIcon className="h-4 w-4 animate-spin" /> : <PaperAirplaneIcon className="h-4 w-4" />}
+              {submitting ? 'Publishing…' : 'Publish to timeline'}
+            </button>
+          </div>
         </div>
       </form>
     </section>
