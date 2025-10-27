@@ -52,6 +52,22 @@ const baseProfileHub = {
     ],
     pending: [],
   },
+  highlightReel: [
+    {
+      id: 'highlight-1',
+      label: 'FlowPilot marketplace rebuild',
+      metric: '+22% ARR lift',
+      description: 'Scaled lead conversion after the relaunch.',
+    },
+  ],
+  trustBadges: [
+    { id: 'network-signal', label: 'Trusted network', description: '50 engaged followers' },
+  ],
+  mutualConnections: [
+    { id: 'mutual-1', name: 'Avery Mentor', headline: 'Leadership Coach' },
+  ],
+  documents: { published: 3, drafts: 1 },
+  collaborations: { active: 5, favourites: 2 },
   workspace: {
     metrics: {
       followers: 42,
@@ -201,6 +217,12 @@ describe('ProfileHubWorkspace', () => {
     expect(screen.getByText('42 followers tuning into updates')).toBeInTheDocument();
     expect(screen.getByText(/Review and schedule pending timeline drafts\./i)).toBeInTheDocument();
     expect(screen.getByText('Founders Summit')).toBeInTheDocument();
+    expect(screen.getByText('+22% ARR lift')).toBeInTheDocument();
+    expect(screen.getByText('Trusted network')).toBeInTheDocument();
+    expect(screen.getByText('50 engaged followers')).toBeInTheDocument();
+    expect(screen.getByText('Avery Mentor')).toBeInTheDocument();
+    expect(screen.getByText('Portfolio docs')).toBeInTheDocument();
+    expect(screen.getByText('Collaborations')).toBeInTheDocument();
   });
 
   it('alerts when profile changes diverge from the saved baseline', async () => {

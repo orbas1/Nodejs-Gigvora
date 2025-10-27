@@ -264,6 +264,11 @@ export default function ProfileHubWorkspace({ userId, profileOverview, profileHu
   const pinnedCampaigns = Array.isArray(workspace.pinnedCampaigns) ? workspace.pinnedCampaigns : [];
   const cadenceGoal = workspace.cadenceGoal ?? null;
   const workspaceTimezone = workspace.timezone ?? profileDraft?.timezone ?? profileOverview?.timezone ?? '';
+  const highlightReel = Array.isArray(profileHub?.highlightReel) ? profileHub.highlightReel : [];
+  const trustBadges = Array.isArray(profileHub?.trustBadges) ? profileHub.trustBadges : [];
+  const mutualConnections = Array.isArray(profileHub?.mutualConnections) ? profileHub.mutualConnections : [];
+  const documentStats = profileHub?.documents ?? {};
+  const collaborationStats = profileHub?.collaborations ?? {};
   const completeness = useMemo(() => calculateProfileCompleteness(profileDraft), [profileDraft]);
   const completenessBarWidth = completeness.percent > 0 ? Math.min(100, completeness.percent) : 6;
   const hasUnsavedChanges = useMemo(
@@ -321,6 +326,34 @@ export default function ProfileHubWorkspace({ userId, profileOverview, profileHu
       });
     }
 
+    const publishedDocuments = safeNumber(documentStats.published);
+    const draftDocuments = safeNumber(documentStats.drafts);
+    if (publishedDocuments > 0 || draftDocuments > 0) {
+      cards.push({
+        id: 'documents',
+        label: 'Portfolio docs',
+        value: formatCompactNumber(publishedDocuments),
+        subLabel:
+          draftDocuments > 0
+            ? `${formatCompactNumber(draftDocuments)} drafts in review`
+            : 'All case studies live',
+      });
+    }
+
+    const activeCollaborations = safeNumber(collaborationStats.active);
+    const favouriteCollaborations = safeNumber(collaborationStats.favourites);
+    if (activeCollaborations > 0 || favouriteCollaborations > 0) {
+      cards.push({
+        id: 'collaborations',
+        label: 'Collaborations',
+        value: formatCompactNumber(activeCollaborations),
+        subLabel:
+          favouriteCollaborations > 0
+            ? `${formatCompactNumber(favouriteCollaborations)} favourites`
+            : 'Build your champion bench',
+      });
+    }
+
     return cards;
   }, [
     workspaceMetrics.followers,
@@ -338,6 +371,10 @@ export default function ProfileHubWorkspace({ userId, profileOverview, profileHu
     followerStats.active,
     connections,
     favouriteConnectionsCount,
+    documentStats.published,
+    documentStats.drafts,
+    collaborationStats.active,
+    collaborationStats.favourites,
   ]);
 
   const activePanel = PANELS.find((panel) => panel.id === activePanelId) ?? PANELS[0];
@@ -683,6 +720,28 @@ export default function ProfileHubWorkspace({ userId, profileOverview, profileHu
               </ul>
             </div>
           ) : null}
+          {highlightReel.length ? (
+            <div className="mt-4 rounded-3xl border border-slate-200/80 bg-white/70 p-4 shadow-sm">
+              <h3 className="text-sm font-semibold text-slate-700">Highlight reel</h3>
+              <ul className="mt-3 space-y-3 text-sm text-slate-600">
+                {highlightReel.slice(0, 3).map((highlight) => (
+                  <li key={highlight.id ?? highlight.label} className="space-y-1">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-medium text-slate-800">{highlight.label}</span>
+                      {highlight.metric ? (
+                        <span className="inline-flex items-center rounded-full bg-slate-900/90 px-2 py-0.5 text-xs font-semibold text-white shadow-sm">
+                          {highlight.metric}
+                        </span>
+                      ) : null}
+                    </div>
+                    {highlight.description ? (
+                      <p className="text-xs text-slate-500">{highlight.description}</p>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           {workspaceActions.length ? (
             <div className="mt-4 rounded-3xl border border-amber-200 bg-amber-50/80 p-4">
               <h3 className="text-sm font-semibold text-amber-700">Next actions</h3>
@@ -691,6 +750,39 @@ export default function ProfileHubWorkspace({ userId, profileOverview, profileHu
                   <li key={action} className="flex items-start gap-2">
                     <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400" aria-hidden="true" />
                     <span>{action}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {trustBadges.length ? (
+            <div className="mt-4 rounded-3xl border border-emerald-200 bg-emerald-50/80 p-4">
+              <h3 className="text-sm font-semibold text-emerald-700">Trust signals</h3>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {trustBadges.slice(0, 4).map((badge) => (
+                  <div
+                    key={badge.id ?? badge.label}
+                    className="rounded-2xl border border-emerald-200/70 bg-white/80 px-3 py-2 shadow-sm"
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">{badge.label}</p>
+                    {badge.description ? (
+                      <p className="mt-1 text-xs text-emerald-700">{badge.description}</p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {mutualConnections.length ? (
+            <div className="mt-4 rounded-3xl border border-slate-200 bg-white/70 p-4">
+              <h3 className="text-sm font-semibold text-slate-700">Mutual champions</h3>
+              <ul className="mt-3 space-y-2 text-sm text-slate-600">
+                {mutualConnections.slice(0, 4).map((connection) => (
+                  <li key={connection.id ?? connection.name} className="min-w-0">
+                    <p className="font-medium text-slate-800">{connection.name}</p>
+                    {connection.headline ? (
+                      <p className="text-xs text-slate-500">{connection.headline}</p>
+                    ) : null}
                   </li>
                 ))}
               </ul>
