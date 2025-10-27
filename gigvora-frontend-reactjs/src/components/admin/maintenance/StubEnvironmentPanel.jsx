@@ -179,15 +179,32 @@ export default function StubEnvironmentPanel({ environment, loading, onRefresh }
   const StatusIcon = status.icon;
   const metadata = environment?.metadata ?? {};
   const config = environment?.config ?? {};
+  const persisted = environment?.persisted ?? null;
+  const history = Array.isArray(environment?.history) ? environment.history : [];
   const allowedOrigins = metadata.allowedOrigins ?? config.allowedOrigins ?? [];
   const workspaces = metadata.availableWorkspaces ?? [];
   const scenarios = metadata.scenarios ?? [];
   const latency = metadata.latency ?? {};
   const workspaceSummary = metadata.workspaceSummary ?? {};
-  const deployment = metadata.deployment ?? {};
-  const telemetry = metadata.telemetry ?? {};
+  const persistedDeployment = {
+    releaseChannel: persisted?.releaseChannel ?? null,
+    region: persisted?.region ?? null,
+    buildNumber: persisted?.buildNumber ?? null,
+    ownerTeam: persisted?.ownerTeam ?? null,
+    version: persisted?.version ?? null,
+  };
+  const metadataDeployment = metadata.deployment ?? {};
+  const deployment = {
+    releaseChannel: metadataDeployment.releaseChannel ?? persistedDeployment.releaseChannel,
+    region: metadataDeployment.region ?? persistedDeployment.region,
+    buildNumber: metadataDeployment.buildNumber ?? persistedDeployment.buildNumber,
+    ownerTeam: metadataDeployment.ownerTeam ?? persistedDeployment.ownerTeam,
+    version: metadataDeployment.version ?? metadata.version ?? persistedDeployment.version,
+  };
+  const telemetry = metadata.telemetry ?? persisted?.lastTelemetry ?? {};
   const headerExamples = metadata.headerExamples ?? {};
-  const message = environment?.message || environment?.error || 'Preview stub connectivity from the control plane.';
+  const message =
+    environment?.message || environment?.error || persisted?.lastMessage || 'Preview stub connectivity from the control plane.';
   const checkedAtLabel = formatCheckedAt(environment?.checkedAt);
   const uptimeLabel = telemetry.uptimeSeconds != null ? formatUptime(telemetry.uptimeSeconds) : 'Live telemetry unavailable';
   const totalEvents =
@@ -204,6 +221,19 @@ export default function StubEnvironmentPanel({ environment, loading, onRefresh }
   const region = deployment.region || 'Not set';
   const ownerTeam = deployment.ownerTeam || 'Not assigned';
   const buildLabel = deployment.buildNumber ? `Build ${deployment.buildNumber}` : null;
+  const versionLabel = deployment.version ? `Version ${deployment.version}` : null;
+  const lastStoredStatus = persisted?.lastStatus || statusKey;
+  const lastSuccessLabel = persisted?.lastSuccessfulCheckAt
+    ? formatCheckedAt(persisted.lastSuccessfulCheckAt)
+    : 'No successful checks recorded';
+  const trackedChecksCount = Number.isFinite(persisted?.totalTrackedChecks)
+    ? persisted.totalTrackedChecks
+    : history.length;
+  const lastFailureEntry = history.find((entry) => entry.status === 'error');
+  const lastFailureTimeLabel = lastFailureEntry ? formatCheckedAt(lastFailureEntry.checkedAt) : 'No failures recorded';
+  const lastFailureMessage = lastFailureEntry?.error || lastFailureEntry?.message || null;
+  const persistedApiPreview = persisted?.apiKeyPreview ?? config.apiKeyPreview;
+  const recentHistory = history.slice(0, 5);
 
   const isDefaultWorkspace = (workspace) => {
     if (defaultWorkspaceId != null && workspace?.id != null) {
@@ -245,8 +275,26 @@ export default function StubEnvironmentPanel({ environment, loading, onRefresh }
             <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
               <dt className="font-semibold uppercase tracking-wide text-slate-400">API key</dt>
               <dd className="mt-1 text-slate-700">
-                {config.requiresApiKey ? config.apiKeyPreview || 'Required' : 'Not required'}
+                {config.requiresApiKey ? persistedApiPreview || 'Required' : 'Not required'}
               </dd>
+            </div>
+          </dl>
+          <dl className="mt-4 grid gap-4 text-xs text-slate-500 md:grid-cols-3">
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+              <dt className="font-semibold uppercase tracking-wide text-slate-400">Last successful check</dt>
+              <dd className="mt-1 text-slate-700">{lastSuccessLabel}</dd>
+            </div>
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+              <dt className="font-semibold uppercase tracking-wide text-slate-400">Tracked checks</dt>
+              <dd className="mt-1 text-slate-700">{trackedChecksCount.toLocaleString()}</dd>
+              <p className="mt-2 text-[11px] text-slate-500">Last recorded status: {lastStoredStatus}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+              <dt className="font-semibold uppercase tracking-wide text-slate-400">Last failure</dt>
+              <dd className="mt-1 text-slate-700">{lastFailureTimeLabel}</dd>
+              {lastFailureMessage ? (
+                <p className="mt-2 text-[11px] text-rose-600">{lastFailureMessage}</p>
+              ) : null}
             </div>
           </dl>
           <dl className="mt-4 grid gap-4 text-xs text-slate-500 md:grid-cols-4">
@@ -254,6 +302,7 @@ export default function StubEnvironmentPanel({ environment, loading, onRefresh }
               <dt className="font-semibold uppercase tracking-wide text-slate-400">Release channel</dt>
               <dd className="mt-1 text-slate-700">{releaseChannel}</dd>
               {buildLabel ? <p className="mt-2 text-[11px] text-slate-500">{buildLabel}</p> : null}
+              {versionLabel ? <p className="text-[11px] text-slate-500">{versionLabel}</p> : null}
             </div>
             <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
               <dt className="font-semibold uppercase tracking-wide text-slate-400">Region</dt>
@@ -368,6 +417,52 @@ export default function StubEnvironmentPanel({ environment, loading, onRefresh }
           <HeaderExample title="Write request" headers={headerExamples.manage} />
         </div>
       </div>
+
+      <div className="mt-8 rounded-2xl border border-slate-100 bg-white/80 p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Recent health checks</h3>
+          <span className="text-[11px] uppercase tracking-wide text-slate-400">
+            Showing {recentHistory.length} of {history.length}
+          </span>
+        </div>
+        {recentHistory.length ? (
+          <ul className="mt-4 divide-y divide-slate-100">
+            {recentHistory.map((check) => {
+              const checkStatus = STATUS_STYLES[check.status] ?? STATUS_STYLES.disabled;
+              return (
+                <li key={check.id || check.checkedAt} className="flex flex-wrap items-start justify-between gap-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={clsx(
+                        'inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide',
+                        checkStatus.badge,
+                        checkStatus.tone,
+                      )}
+                    >
+                      {checkStatus.label || check.status}
+                    </span>
+                    <p className="text-xs text-slate-500">{formatCheckedAt(check.checkedAt)}</p>
+                  </div>
+                  <div className="flex-1 text-xs text-slate-600">
+                    {check.message ? <p className="font-medium text-slate-600">{check.message}</p> : null}
+                    {check.error ? <p className="mt-1 text-rose-600">{check.error}</p> : null}
+                  </div>
+                  <div className="flex flex-col items-end gap-1 text-right text-[11px] text-slate-500">
+                    <span>
+                      Events: {check.telemetry?.totalEvents != null ? check.telemetry.totalEvents.toLocaleString() : '—'}
+                    </span>
+                    <span>Scenarios: {check.telemetry?.scenarioCount != null ? check.telemetry.scenarioCount : '—'}</span>
+                    <span>Channel: {check.deployment?.releaseChannel || '—'}</span>
+                    <span>Region: {check.deployment?.region || '—'}</span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="mt-4 text-xs text-slate-500">Health checks run once the admin console contacts the stub.</p>
+        )}
+      </div>
     </section>
   );
 }
@@ -439,6 +534,44 @@ StubEnvironmentPanel.propTypes = {
       requiresApiKey: PropTypes.bool,
       apiKeyPreview: PropTypes.string,
     }),
+    persisted: PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      slug: PropTypes.string,
+      lastStatus: PropTypes.string,
+      lastMessage: PropTypes.string,
+      lastError: PropTypes.string,
+      lastCheckedAt: PropTypes.string,
+      lastSuccessfulCheckAt: PropTypes.string,
+      totalTrackedChecks: PropTypes.number,
+      lastTelemetry: PropTypes.shape({
+        uptimeSeconds: PropTypes.number,
+        totalEvents: PropTypes.number,
+        scenarioCount: PropTypes.number,
+        lastEventStartsAt: PropTypes.string,
+      }),
+      requiresApiKey: PropTypes.bool,
+      apiKeyPreview: PropTypes.string,
+    }),
+    history: PropTypes.arrayOf(
+      PropTypes.shape({
+        id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        status: PropTypes.string,
+        checkedAt: PropTypes.string,
+        message: PropTypes.string,
+        error: PropTypes.string,
+        telemetry: PropTypes.shape({
+          uptimeSeconds: PropTypes.number,
+          totalEvents: PropTypes.number,
+          scenarioCount: PropTypes.number,
+          lastEventStartsAt: PropTypes.string,
+        }),
+        deployment: PropTypes.shape({
+          releaseChannel: PropTypes.string,
+          region: PropTypes.string,
+          buildNumber: PropTypes.string,
+        }),
+      }),
+    ),
   }),
   loading: PropTypes.bool,
   onRefresh: PropTypes.func,

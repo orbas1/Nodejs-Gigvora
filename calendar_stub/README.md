@@ -112,3 +112,19 @@ discarded, participant lists are trimmed to 20 entries, and workspace identifier
 slugs and positive integers. Use the included metadata to drive UI toggles (e.g., enabling retry
 flows when `rate-limit` scenarios are available) and to keep documentation consistent with the live
 contract.
+
+## Persistence & Health Recording
+
+The admin backend persists each connectivity probe so reliability teams can audit the stub history
+even when the service is offline. The `20240901101500-integration-stub-environments.cjs` migration
+creates the `integration_stub_environments` and `integration_stub_environment_checks` tables, and
+`20240901103000-integration-stub-environments-seed.cjs` seeds a canonical calendar stub record to
+hydrate dashboards out of the box. The maintenance controller uses
+`calendarStubEnvironmentService.getCalendarStubEnvironment` to update these tables on every fetch,
+and the React admin panel renders the stored history and last-known telemetry so operators can spot
+drift before scheduling maintenance.
+
+Persisted rows store the active release channel, region, owner team, build number, and semantic
+version alongside masked API previews and the most recent telemetry snapshot. The seed file hydrates
+those fields with production-like data (two workspaces, real scenario toggles, and telemetry totals)
+so local environments and CI dashboards surface meaningful records before the first live probe runs.

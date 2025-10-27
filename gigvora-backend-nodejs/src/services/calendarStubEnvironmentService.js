@@ -1,5 +1,12 @@
 import fetch from 'node-fetch';
 
+import sequelize from '../models/sequelizeClient.js';
+import {
+  IntegrationStubEnvironment,
+  IntegrationStubEnvironmentCheck,
+} from '../models/integrationEnvironmentModels.js';
+import logger from '../utils/logger.js';
+
 function parseList(value) {
   if (!value) {
     return [];
@@ -35,6 +42,243 @@ function maskApiKey(value) {
     return '*'.repeat(value.length);
   }
   return `${value.slice(0, 4)}…${value.slice(-2)}`;
+}
+
+const CALENDAR_ENVIRONMENT_SLUG = 'calendar-stub';
+
+function sanitizeStringArray(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return Array.from(
+    new Set(
+      value
+        .map((entry) => {
+          if (typeof entry === 'string') {
+            return entry.trim();
+          }
+          if (entry == null) {
+            return null;
+          }
+          return `${entry}`.trim();
+        })
+        .filter((entry) => entry && entry.length),
+    ),
+  );
+}
+
+function normaliseString(value) {
+  if (value == null) {
+    return null;
+  }
+  const text = typeof value === 'string' ? value.trim() : `${value}`.trim();
+  return text.length ? text : null;
+}
+
+function cloneForStorage(value) {
+  if (value == null) {
+    return null;
+  }
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch (error) {
+    logger.warn({ err: error }, 'Failed to clone stub metadata for storage');
+    return null;
+  }
+}
+
+function normaliseWorkspaceId(value) {
+  const numeric = Number.parseInt(`${value}`, 10);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function normaliseCheckedAt(value) {
+  if (!value) {
+    return new Date();
+  }
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return new Date();
+  }
+  return parsed;
+}
+
+function buildPersistenceConfig({ publicSettings, config, metadata }) {
+  const workspaceSummary = metadata?.workspaceSummary ?? {};
+  const fallbackWorkspaceSlug =
+    workspaceSummary.defaultWorkspaceSlug ?? publicSettings.workspaceSlug ?? null;
+  const fallbackWorkspaceId =
+    normaliseWorkspaceId(workspaceSummary.defaultWorkspaceId) ?? publicSettings.workspaceId ?? null;
+  const deployment = metadata?.deployment ?? {};
+  const persistenceDeployment = {
+    releaseChannel:
+      normaliseString(deployment.releaseChannel) ||
+      normaliseString(process.env.CALENDAR_STUB_RELEASE_CHANNEL),
+    region:
+      normaliseString(deployment.region) ||
+      normaliseString(process.env.CALENDAR_STUB_REGION),
+    buildNumber:
+      normaliseString(deployment.buildNumber) ||
+      normaliseString(process.env.CALENDAR_STUB_BUILD_NUMBER),
+    ownerTeam:
+      normaliseString(deployment.ownerTeam) ||
+      normaliseString(process.env.CALENDAR_STUB_OWNER_TEAM),
+    version:
+      normaliseString(metadata?.version ?? deployment.version ?? process.env.CALENDAR_STUB_VERSION),
+  };
+
+  return {
+    service: metadata?.service ?? 'calendar-stub',
+    baseUrl: publicSettings.baseUrl,
+    metadataEndpoint: publicSettings.metadataEndpoint,
+    eventsEndpoint: publicSettings.eventsEndpoint,
+    fallbackOrigin: metadata?.fallbackOrigin ?? publicSettings.fallbackOrigin,
+    allowedOrigins: sanitizeStringArray(metadata?.allowedOrigins ?? publicSettings.allowedOrigins ?? []),
+    viewRoles: sanitizeStringArray(metadata?.viewRoles ?? publicSettings.viewRoles ?? []),
+    manageRoles: sanitizeStringArray(metadata?.manageRoles ?? publicSettings.manageRoles ?? []),
+    workspaceSlug: fallbackWorkspaceSlug,
+    workspaceId: fallbackWorkspaceId,
+    releaseChannel: persistenceDeployment.releaseChannel,
+    region: persistenceDeployment.region,
+    buildNumber: persistenceDeployment.buildNumber,
+    ownerTeam: persistenceDeployment.ownerTeam,
+    version: persistenceDeployment.version,
+    requiresApiKey: config.requiresApiKey,
+    apiKeyPreview: config.apiKeyPreview,
+  };
+}
+
+async function persistCalendarStubSnapshot({ persistenceConfig, result }) {
+  try {
+    const metadataSnapshot = cloneForStorage(result.metadata);
+    const configSnapshot = cloneForStorage(result.config);
+    const checkedAtDate = normaliseCheckedAt(result.checkedAt);
+
+    const environmentRecord = await sequelize.transaction(async (transaction) => {
+      const [environment] = await IntegrationStubEnvironment.findOrCreate({
+        where: { slug: CALENDAR_ENVIRONMENT_SLUG },
+        defaults: {
+          slug: CALENDAR_ENVIRONMENT_SLUG,
+          ...persistenceConfig,
+          lastStatus: result.status,
+          lastMessage: result.message ?? null,
+          lastError: result.error ?? null,
+          lastCheckedAt: checkedAtDate,
+          lastMetadata: metadataSnapshot,
+          lastTelemetry: metadataSnapshot?.telemetry ?? null,
+        },
+        transaction,
+      });
+
+      await environment.update(
+        {
+          ...persistenceConfig,
+          lastStatus: result.status,
+          lastMessage: result.message ?? null,
+          lastError: result.error ?? null,
+          lastCheckedAt: checkedAtDate,
+          lastMetadata: metadataSnapshot,
+          lastTelemetry: metadataSnapshot?.telemetry ?? null,
+        },
+        { transaction },
+      );
+
+      await IntegrationStubEnvironmentCheck.create(
+        {
+          environmentId: environment.id,
+          status: result.status,
+          checkedAt: checkedAtDate,
+          message: result.message ?? null,
+          error: result.error ?? null,
+          metadata: metadataSnapshot,
+          config: configSnapshot,
+        },
+        { transaction },
+      );
+
+      return environment;
+    });
+
+    const persisted = environmentRecord?.toJSON?.() ?? environmentRecord ?? null;
+
+    if (!persisted?.id) {
+      return { persisted: null, history: [] };
+    }
+
+    const historyRows = await IntegrationStubEnvironmentCheck.findAll({
+      where: { environmentId: persisted.id },
+      order: [['checkedAt', 'DESC']],
+      limit: 10,
+    });
+
+    return {
+      persisted,
+      history: historyRows.map((row) => row.toJSON?.() ?? row),
+    };
+  } catch (error) {
+    logger.error({ err: error, slug: CALENDAR_ENVIRONMENT_SLUG }, 'Failed to persist calendar stub snapshot');
+    return { persisted: null, history: [] };
+  }
+}
+
+function buildHistorySummary(history = []) {
+  return history.map((row) => {
+    const telemetry = row.metadata?.telemetry ?? {};
+    const deployment = row.metadata?.deployment ?? {};
+    return {
+      id: row.id,
+      status: row.status,
+      checkedAt: row.checkedAt ? new Date(row.checkedAt).toISOString() : null,
+      message: row.message ?? null,
+      error: row.error ?? null,
+      telemetry: {
+        uptimeSeconds: telemetry.uptimeSeconds ?? null,
+        totalEvents: telemetry.totalEvents ?? null,
+        scenarioCount: telemetry.scenarioCount ?? null,
+        lastEventStartsAt: telemetry.lastEventStartsAt ?? null,
+      },
+      deployment: {
+        releaseChannel: deployment.releaseChannel ?? null,
+        region: deployment.region ?? null,
+        buildNumber: deployment.buildNumber ?? null,
+      },
+    };
+  });
+}
+
+function buildPersistedSummary(persisted, historySummaries) {
+  if (!persisted) {
+    return null;
+  }
+
+  const summary = {
+    id: persisted.id,
+    slug: persisted.slug,
+    service: persisted.service ?? 'calendar-stub',
+    baseUrl: persisted.baseUrl ?? null,
+    metadataEndpoint: persisted.metadataEndpoint ?? null,
+    eventsEndpoint: persisted.eventsEndpoint ?? null,
+    workspaceSlug: persisted.workspaceSlug ?? null,
+    workspaceId: persisted.workspaceId ?? null,
+    releaseChannel: persisted.releaseChannel ?? null,
+    region: persisted.region ?? null,
+    buildNumber: persisted.buildNumber ?? null,
+    ownerTeam: persisted.ownerTeam ?? null,
+    version: persisted.version ?? null,
+    lastStatus: persisted.lastStatus,
+    lastMessage: persisted.lastMessage,
+    lastError: persisted.lastError,
+    lastCheckedAt: persisted.lastCheckedAt ? new Date(persisted.lastCheckedAt).toISOString() : null,
+    lastTelemetry: persisted.lastTelemetry ?? null,
+    requiresApiKey: Boolean(persisted.requiresApiKey),
+    apiKeyPreview: persisted.apiKeyPreview ?? null,
+  };
+
+  const lastSuccess = historySummaries.find((entry) => entry.status === 'connected');
+  summary.lastSuccessfulCheckAt = lastSuccess?.checkedAt ?? null;
+  summary.totalTrackedChecks = historySummaries.length;
+
+  return summary;
 }
 
 export function resolveCalendarStubSettings(env = process.env) {
@@ -90,12 +334,25 @@ export async function getCalendarStubEnvironment({ signal } = {}) {
     apiKeyPreview: maskApiKey(apiKey),
   };
 
+  let persistenceConfig = buildPersistenceConfig({ publicSettings, config, metadata: null });
+
   if (!publicSettings.metadataEndpoint) {
-    return {
+    const result = {
       status: 'disabled',
       checkedAt,
+      baseUrl: publicSettings.baseUrl,
       config,
       message: 'Calendar stub metadata endpoint is not configured.',
+    };
+    const persistence = await persistCalendarStubSnapshot({
+      persistenceConfig,
+      result,
+    });
+    const historySummaries = buildHistorySummary(persistence.history);
+    return {
+      ...result,
+      persisted: buildPersistedSummary(persistence.persisted, historySummaries),
+      history: historySummaries,
     };
   }
 
@@ -114,11 +371,22 @@ export async function getCalendarStubEnvironment({ signal } = {}) {
       } catch (error) {
         detail = undefined;
       }
-      return {
+      const result = {
         status: 'error',
         checkedAt,
+        baseUrl: publicSettings.baseUrl,
         config,
         error: detail || `Calendar stub responded with ${response.status}.`,
+      };
+      const persistence = await persistCalendarStubSnapshot({
+        persistenceConfig,
+        result,
+      });
+      const historySummaries = buildHistorySummary(persistence.history);
+      return {
+        ...result,
+        persisted: buildPersistedSummary(persistence.persisted, historySummaries),
+        history: historySummaries,
       };
     }
 
@@ -135,12 +403,24 @@ export async function getCalendarStubEnvironment({ signal } = {}) {
       defaultWorkspaceSlug: publicSettings.workspaceSlug ?? null,
       defaultWorkspaceId: publicSettings.workspaceId ?? null,
     };
-    const deployment = stubMetadata.deployment ?? {
-      releaseChannel: process.env.CALENDAR_STUB_RELEASE_CHANNEL?.trim() || null,
-      region: process.env.CALENDAR_STUB_REGION?.trim() || null,
-      buildNumber: process.env.CALENDAR_STUB_BUILD_NUMBER?.trim() || null,
-      ownerTeam: process.env.CALENDAR_STUB_OWNER_TEAM?.trim() || null,
-      version: stubMetadata.version ?? null,
+    const deploymentSource = stubMetadata.deployment ?? {};
+    const deployment = {
+      releaseChannel:
+        normaliseString(deploymentSource.releaseChannel) ||
+        normaliseString(process.env.CALENDAR_STUB_RELEASE_CHANNEL),
+      region:
+        normaliseString(deploymentSource.region) ||
+        normaliseString(process.env.CALENDAR_STUB_REGION),
+      buildNumber:
+        normaliseString(deploymentSource.buildNumber) ||
+        normaliseString(process.env.CALENDAR_STUB_BUILD_NUMBER),
+      ownerTeam:
+        normaliseString(deploymentSource.ownerTeam) ||
+        normaliseString(process.env.CALENDAR_STUB_OWNER_TEAM),
+      version:
+        normaliseString(deploymentSource.version) ||
+        normaliseString(stubMetadata.version) ||
+        normaliseString(process.env.CALENDAR_STUB_VERSION),
     };
     const telemetry = stubMetadata.telemetry ?? {
       uptimeSeconds: null,
@@ -152,7 +432,7 @@ export async function getCalendarStubEnvironment({ signal } = {}) {
 
     const metadata = {
       service: stubMetadata.service ?? 'calendar-stub',
-      version: stubMetadata.version ?? null,
+      version: normaliseString(stubMetadata.version),
       allowedOrigins: Array.isArray(stubMetadata.allowedOrigins)
         ? stubMetadata.allowedOrigins
         : publicSettings.allowedOrigins,
@@ -172,7 +452,9 @@ export async function getCalendarStubEnvironment({ signal } = {}) {
       telemetry,
     };
 
-    return {
+    persistenceConfig = buildPersistenceConfig({ publicSettings, config, metadata });
+
+    const result = {
       status: 'connected',
       checkedAt,
       baseUrl: publicSettings.baseUrl,
@@ -180,12 +462,35 @@ export async function getCalendarStubEnvironment({ signal } = {}) {
       metadata,
       message: 'Calendar stub is reachable and hydrated.',
     };
-  } catch (error) {
+
+    const persistence = await persistCalendarStubSnapshot({
+      persistenceConfig,
+      result,
+    });
+    const historySummaries = buildHistorySummary(persistence.history);
+
     return {
+      ...result,
+      persisted: buildPersistedSummary(persistence.persisted, historySummaries),
+      history: historySummaries,
+    };
+  } catch (error) {
+    const result = {
       status: 'error',
       checkedAt,
+      baseUrl: publicSettings.baseUrl,
       config,
       error: error?.message || 'Failed to contact calendar stub.',
+    };
+    const persistence = await persistCalendarStubSnapshot({
+      persistenceConfig,
+      result,
+    });
+    const historySummaries = buildHistorySummary(persistence.history);
+    return {
+      ...result,
+      persisted: buildPersistedSummary(persistence.persisted, historySummaries),
+      history: historySummaries,
     };
   }
 }

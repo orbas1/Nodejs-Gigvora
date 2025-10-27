@@ -1,8 +1,95 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { jest } from '@jest/globals';
 
 jest.unstable_mockModule('node-fetch', () => ({
   default: jest.fn(),
 }));
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const sequelizeModulePath = path.join(__dirname, '..', '..', 'models', 'sequelizeClient.js');
+const integrationModelsModulePath = path.join(__dirname, '..', '..', 'models', 'integrationEnvironmentModels.js');
+
+const transactionMock = jest.fn(async (handler) => handler({ id: 'tx' }));
+const noop = () => {};
+const sequelizeMock = {
+  transaction: (...args) => transactionMock(...args),
+  getDialect: () => 'mysql',
+  models: {},
+  define: (name, attributes, options = {}) => {
+    const model = {
+      name,
+      attributes,
+      options,
+      associations: {},
+      hasMany: noop,
+      belongsTo: noop,
+      belongsToMany: noop,
+      hasOne: noop,
+      toJSON: () => ({}),
+    };
+    sequelizeMock.models[name] = model;
+    return model;
+  },
+  addHook: noop,
+  close: noop,
+};
+
+jest.unstable_mockModule(sequelizeModulePath, () => ({
+  default: sequelizeMock,
+  sequelize: sequelizeMock,
+}));
+
+const findOrCreateMock = jest.fn();
+const createCheckMock = jest.fn();
+const findAllChecksMock = jest.fn();
+
+jest.unstable_mockModule(integrationModelsModulePath, () => ({
+  IntegrationStubEnvironment: {
+    findOrCreate: (...args) => findOrCreateMock(...args),
+  },
+  IntegrationStubEnvironmentCheck: {
+    create: (...args) => createCheckMock(...args),
+    findAll: (...args) => findAllChecksMock(...args),
+  },
+}));
+
+let environmentState = null;
+let historyState = [];
+
+const resolveEnvironmentRecord = () => ({
+  id: environmentState.id,
+  slug: environmentState.slug,
+  update: async (values) => {
+    environmentState = { ...environmentState, ...values };
+    return { ...environmentState };
+  },
+  toJSON: () => ({ ...environmentState }),
+});
+
+findOrCreateMock.mockImplementation(async ({ defaults }) => {
+  if (!environmentState) {
+    environmentState = { id: 1, slug: 'calendar-stub', ...defaults };
+  }
+  return [resolveEnvironmentRecord(), false];
+});
+
+createCheckMock.mockImplementation(async (payload) => {
+  const entryId = (historyState?.length ?? 0) + 1;
+  const entry = {
+    ...payload,
+    id: entryId,
+    toJSON: () => ({ ...payload, id: entryId }),
+  };
+  historyState.unshift(entry);
+  return entry;
+});
+
+findAllChecksMock.mockImplementation(async () =>
+  historyState.map((entry) => ({ ...entry, toJSON: () => ({ ...entry }) })),
+);
 
 const fetch = (await import('node-fetch')).default;
 const { resolveCalendarStubSettings, getCalendarStubEnvironment } = await import('../calendarStubEnvironmentService.js');
@@ -23,6 +110,7 @@ const ENV_KEYS = [
   'CALENDAR_STUB_REGION',
   'CALENDAR_STUB_BUILD_NUMBER',
   'CALENDAR_STUB_OWNER_TEAM',
+  'CALENDAR_STUB_VERSION',
 ];
 
 const originalEnv = {};
@@ -33,6 +121,8 @@ ENV_KEYS.forEach((key) => {
 describe('calendarStubEnvironmentService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    environmentState = null;
+    historyState = [];
     process.env.CALENDAR_STUB_BASE_URL = 'http://localhost:4010';
     process.env.CALENDAR_STUB_API_KEY = 'integration-key';
     process.env.CALENDAR_STUB_ALLOWED_ORIGINS = 'http://localhost:4173';
@@ -45,6 +135,7 @@ describe('calendarStubEnvironmentService', () => {
     process.env.CALENDAR_STUB_REGION = 'us-central';
     process.env.CALENDAR_STUB_BUILD_NUMBER = '2024.10.1';
     process.env.CALENDAR_STUB_OWNER_TEAM = 'Integrations Platform';
+    process.env.CALENDAR_STUB_VERSION = '2024.10';
   });
 
   afterEach(() => {
@@ -149,6 +240,19 @@ describe('calendarStubEnvironmentService', () => {
     expect(result.metadata.telemetry.uptimeSeconds).toBe(1024);
     expect(result.metadata.deployment.ownerTeam).toBe('Integrations Platform');
     expect(result.metadata.headerExamples.manage['x-user-id']).toBe('<operator>');
+    expect(transactionMock).toHaveBeenCalled();
+    expect(findOrCreateMock).toHaveBeenCalled();
+    expect(createCheckMock).toHaveBeenCalled();
+    expect(findAllChecksMock).toHaveBeenCalled();
+    expect(result.persisted.lastStatus).toBe('connected');
+    expect(result.persisted.releaseChannel).toBe('stable');
+    expect(result.persisted.ownerTeam).toBe('Integrations Platform');
+    expect(result.persisted.version).toBe('2024.10');
+    expect(result.persisted.lastSuccessfulCheckAt).toBe(result.checkedAt);
+    expect(result.history).toHaveLength(1);
+    expect(result.history[0].status).toBe('connected');
+    expect(result.history[0].telemetry.totalEvents).toBe(6);
+    expect(result.history[0].deployment.releaseChannel).toBe('stable');
     expect(fetch).toHaveBeenCalledWith(
       'http://localhost:4010/api/system/calendar-meta',
       expect.objectContaining({ method: 'GET' }),
@@ -162,5 +266,8 @@ describe('calendarStubEnvironmentService', () => {
     expect(result.status).toBe('error');
     expect(result.error).toContain('ECONNREFUSED');
     expect(result.config.requiresApiKey).toBe(true);
+    expect(result.persisted.lastStatus).toBe('error');
+    expect(result.history).toHaveLength(1);
+    expect(result.history[0].status).toBe('error');
   });
 });
