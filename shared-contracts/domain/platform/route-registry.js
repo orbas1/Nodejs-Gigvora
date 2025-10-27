@@ -421,6 +421,11 @@ const ROUTE_COLLECTION_DEFINITIONS = {
         relativePath: 'maintenance',
       },
       {
+        path: 'dashboard/admin/release-operations',
+        module: 'pages/dashboards/admin/AdminReleaseEngineeringDashboard.jsx',
+        relativePath: 'release-operations',
+      },
+      {
         path: 'dashboard/admin/documents',
         module: 'pages/dashboards/admin/AdminDocumentsManagementPage.jsx',
         relativePath: 'documents',

@@ -2,6 +2,7 @@ import { createElement } from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ThemeProvider, useTheme } from '../ThemeProvider.tsx';
+import { DesignSystemProvider } from '../DesignSystemContext.jsx';
 
 vi.mock('../../services/analytics.js', () => {
   const analyticsMock = {
@@ -41,7 +42,8 @@ describe('ThemeProvider', () => {
   });
 
   it('exposes default theme tokens', () => {
-    const wrapper = ({ children }) => createElement(ThemeProvider, null, children);
+    const wrapper = ({ children }) =>
+      createElement(DesignSystemProvider, { autoLoad: false }, createElement(ThemeProvider, null, children));
     const { result } = renderHook(() => useTheme(), { wrapper });
 
     expect(result.current.mode).toBe('light');
@@ -50,7 +52,8 @@ describe('ThemeProvider', () => {
   });
 
   it('updates mode and accent tokens', async () => {
-    const wrapper = ({ children }) => createElement(ThemeProvider, null, children);
+    const wrapper = ({ children }) =>
+      createElement(DesignSystemProvider, { autoLoad: false }, createElement(ThemeProvider, null, children));
     const { result } = renderHook(() => useTheme(), { wrapper });
 
     await act(async () => {

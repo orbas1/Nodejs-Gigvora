@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import PersonaSelection, { personaShape, DEFAULT_PERSONAS_FOR_SELECTION } from './PersonaSelection.jsx';
 import WorkspacePrimerCarousel from './WorkspacePrimerCarousel.jsx';
+import { DEFAULT_PRIMER_HIGHLIGHTS, buildPersonaPrimerSlides } from './personaContent.js';
 import { listOnboardingPersonas, createOnboardingJourney } from '../../../services/onboarding.js';
 
 const STEP_SEQUENCE = [
@@ -37,83 +38,6 @@ const DEFAULT_INVITES = [{ email: '', role: 'Collaborator' }];
 const INVITE_LIMIT = 20;
 
 const EMAIL_REGEX = /^[^@\s]+@[^@\s]+\.[^@\s]+$/i;
-
-const DEFAULT_PRIMER_HIGHLIGHTS = [
-  'Personalise your hero, invites, and insights with persona-backed defaults.',
-  'Invite your core collaborators so approvals and rituals stay in sync.',
-  'Activate AI story starters, analytics, and executive briefs on launch.',
-];
-
-function createPersonaPrimerSlides(persona, insights) {
-  if (!persona) {
-    return [];
-  }
-
-  const modules = persona.recommendedModules ?? [];
-  const signatureMoments = persona.signatureMoments ?? [];
-  const heroMedia = persona.heroMedia ?? {};
-  const highlights = Array.isArray(persona.metadata?.primerHighlights) && persona.metadata.primerHighlights.length
-    ? persona.metadata.primerHighlights
-    : DEFAULT_PRIMER_HIGHLIGHTS;
-  const suggestedRoles = Array.isArray(persona.metadata?.recommendedRoles) ? persona.metadata.recommendedRoles : [];
-  const [winsInsight] = insights.filter((entry) => entry.label === 'Signature wins');
-  const metrics = (persona.metrics ?? []).slice(0, 2).map((metric) => ({
-    label: metric.label,
-    value: metric.value,
-  }));
-
-  const slides = [
-    {
-      id: `${persona.id}-overview`,
-      pill: persona.title,
-      title: `Launch the ${persona.title.toLowerCase()}`,
-      description: persona.subtitle || persona.headline || '',
-      metrics,
-      checklist: [
-        winsInsight?.value?.[0],
-        modules.length ? `Preloaded modules: ${modules.slice(0, 3).join(', ')}` : null,
-        highlights[0],
-      ].filter(Boolean),
-      media:
-        heroMedia.poster
-          ? {
-              type: 'image',
-              src: heroMedia.poster,
-              alt: heroMedia.alt || `${persona.title} hero media`,
-            }
-          : undefined,
-    },
-  ];
-
-  signatureMoments.forEach((moment, index) => {
-    slides.push({
-      id: `${persona.id}-moment-${index + 1}`,
-      pill: `Moment ${index + 1}`,
-      title: moment.label,
-      description: moment.description,
-      checklist: [
-        modules[index] ? `Align with ${modules[index]}` : null,
-        highlights[(index + 1) % highlights.length],
-      ].filter(Boolean),
-    });
-  });
-
-  slides.push({
-    id: `${persona.id}-collaboration`,
-    pill: 'Collaboration',
-    title: 'Invite collaborators and calibrate signals',
-    description:
-      'Confirm who publishes updates, reviews analytics, and approves storytelling so workflows stay coordinated.',
-    checklist: [
-      'Add at least one collaborator before launch',
-      persona.metrics?.[0]?.label ? `Track ${persona.metrics[0].label.toLowerCase()} from day one` : null,
-      suggestedRoles.length ? `Suggested roles: ${suggestedRoles.join(', ')}` : null,
-      highlights[(signatureMoments.length + 1) % highlights.length],
-    ].filter(Boolean),
-  });
-
-  return slides;
-}
 
 export default function OnboardingWizard({
   personas = DEFAULT_PERSONAS_FOR_SELECTION,
@@ -278,7 +202,7 @@ export default function OnboardingWizard({
   }, [invites, preferences, profile, selectedPersona]);
 
   const personaPrimerSlides = useMemo(() => {
-    return createPersonaPrimerSlides(selectedPersona, personaInsights);
+    return buildPersonaPrimerSlides(selectedPersona, personaInsights);
   }, [personaInsights, selectedPersona]);
 
   const primerHighlights = useMemo(() => {
