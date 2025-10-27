@@ -19,7 +19,7 @@ beforeEach(() => {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: vi.fn().mockImplementation((query) => ({
-      matches: query.includes('reduce'),
+      matches: false,
       media: query,
       onchange: null,
       addListener: vi.fn(),
@@ -65,6 +65,7 @@ describe('PublicHero', () => {
       />,
     );
 
+    expect(screen.getByRole('region', { name: /polished marketing hero/i })).toBeInTheDocument();
     expect(screen.getByText('A polished marketing hero')).toBeInTheDocument();
     expect(screen.getByText('Premium positioning across personas.')).toBeInTheDocument();
     expect(screen.getByText('Founders')).toBeInTheDocument();
@@ -96,6 +97,32 @@ describe('PublicHero', () => {
       expect.objectContaining({ action: 'primary', heroId: 'marketing-hero' }),
       expect.objectContaining({ source: 'unit-test' }),
     );
+  });
+
+  it('pauses the ticker animation on hover and focus', () => {
+    render(
+      <PublicHero
+        componentId="marketing-hero"
+        fallbackHeadline="A polished marketing hero"
+        fallbackSubheading="Premium positioning across personas."
+        fallbackTickerItems={[{ label: 'Verified launch telemetry' }, { label: 'Mentor pipeline review' }]}
+      />,
+    );
+
+    const ticker = screen.getByTestId('hero-ticker');
+    expect(ticker).toHaveStyle({ animationPlayState: 'running' });
+
+    fireEvent.mouseEnter(ticker);
+    expect(ticker).toHaveStyle({ animationPlayState: 'paused' });
+
+    fireEvent.mouseLeave(ticker);
+    expect(ticker).toHaveStyle({ animationPlayState: 'running' });
+
+    ticker.focus();
+    expect(ticker).toHaveStyle({ animationPlayState: 'paused' });
+
+    ticker.blur();
+    expect(ticker).toHaveStyle({ animationPlayState: 'running' });
   });
 });
 

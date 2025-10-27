@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import clsx from 'clsx';
 import { ArrowUpRightIcon, PlayIcon } from '@heroicons/react/24/outline';
@@ -128,6 +128,10 @@ export function PublicHero({
   mediaCaption,
 }) {
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [tickerPaused, setTickerPaused] = useState(false);
+  const heroHeadingId = useId();
+  const heroSubheadingId = useId();
+  const tickerListId = useId();
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
@@ -338,7 +342,12 @@ export function PublicHero({
   );
 
   return (
-    <section className={gradient.background}>
+    <section
+      className={gradient.background}
+      aria-labelledby={heroHeadingId}
+      aria-describedby={heroSubheadingId}
+      role="region"
+    >
       <div className="absolute inset-0">
         {gradient.overlays.map((overlay) => (
           <div key={overlay} className={overlay} aria-hidden="true" />
@@ -352,7 +361,10 @@ export function PublicHero({
               {eyebrow}
             </span>
 
-            <h1 className="text-balance text-3xl font-semibold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl">
+            <h1
+              id={heroHeadingId}
+              className="text-balance text-3xl font-semibold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl"
+            >
               {showCopySkeleton ? (
                 <span className="block h-12 w-3/4 animate-pulse rounded-full bg-white/10 sm:h-16" />
               ) : (
@@ -360,7 +372,10 @@ export function PublicHero({
               )}
             </h1>
 
-            <p className="text-pretty text-base text-slate-200 sm:text-xl">
+            <p
+              id={heroSubheadingId}
+              className="text-pretty text-base text-slate-200 sm:text-xl"
+            >
               {showCopySkeleton ? (
                 <span className="mt-2 block h-6 w-full max-w-md animate-pulse rounded-full bg-white/10" />
               ) : (
@@ -388,23 +403,39 @@ export function PublicHero({
             <div className={gradient.tickerFades.start} aria-hidden="true" />
             <div className={gradient.tickerFades.end} aria-hidden="true" />
 
-            <div
+            <ul
+              id={tickerListId}
+              role="list"
+              aria-label="Live activity pulses from Gigvora members"
+              tabIndex={!showTickerSkeleton && tickerData.length ? 0 : -1}
+              onFocus={() => setTickerPaused(true)}
+              onBlur={() => setTickerPaused(false)}
+              onMouseEnter={() => setTickerPaused(true)}
+              onMouseLeave={() => setTickerPaused(false)}
+              onTouchStart={() => setTickerPaused(true)}
+              onTouchEnd={() => setTickerPaused(false)}
               className={clsx(
-                'flex h-full items-center gap-10 whitespace-nowrap text-sm font-medium text-white/80',
+                'flex h-full list-none items-center gap-10 whitespace-nowrap text-sm font-medium text-white/80',
                 reduceMotion ? 'justify-center px-8' : 'animate-[hero-ticker_24s_linear_infinite] pr-8',
               )}
+              style={{ animationPlayState: reduceMotion || tickerPaused ? 'paused' : 'running' }}
+              data-testid="hero-ticker"
             >
               {showTickerSkeleton
                 ? Array.from({ length: 4 }).map((_, index) => (
-                    <span key={`skeleton-${index}`} className="block h-3 w-32 animate-pulse rounded-full bg-white/10" />
+                    <li
+                      key={`skeleton-${index}`}
+                      className="block h-3 w-32 animate-pulse rounded-full bg-white/10"
+                      aria-hidden="true"
+                    />
                   ))
                 : tickerRenderList.map((item, index) => (
-                    <span key={`${item}-${index}`} className="flex items-center gap-3">
+                    <li key={`${item}-${index}`} className="flex items-center gap-3">
                       <span className="inline-block h-2 w-2 rounded-full bg-accent" aria-hidden="true" />
-                      {item}
-                    </span>
+                      <span>{item}</span>
+                    </li>
                   ))}
-            </div>
+            </ul>
           </div>
         </div>
 
