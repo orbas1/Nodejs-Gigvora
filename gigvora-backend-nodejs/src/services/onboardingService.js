@@ -1,14 +1,47 @@
 import { Op } from 'sequelize';
-import sequelize from '../models/sequelizeClient.js';
+import baseSequelize from '../models/sequelizeClient.js';
 import {
-  OnboardingPersona,
-  OnboardingJourney,
-  OnboardingJourneyInvite,
+  OnboardingPersona as BaseOnboardingPersona,
+  OnboardingJourney as BaseOnboardingJourney,
+  OnboardingJourneyInvite as BaseOnboardingJourneyInvite,
   ONBOARDING_JOURNEY_STATUSES,
 } from '../models/onboardingModels.js';
 import { normaliseEmail, normaliseSlug } from '../utils/modelNormalizers.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
-import logger from '../utils/logger.js';
+import baseLogger from '../utils/logger.js';
+
+let dependencies = {
+  models: {
+    OnboardingPersona: BaseOnboardingPersona,
+    OnboardingJourney: BaseOnboardingJourney,
+    OnboardingJourneyInvite: BaseOnboardingJourneyInvite,
+  },
+  sequelize: baseSequelize,
+  logger: baseLogger,
+};
+
+export function __setDependencies({ models: overrides, sequelize, logger } = {}) {
+  dependencies = {
+    models: {
+      ...dependencies.models,
+      ...(overrides ?? {}),
+    },
+    sequelize: sequelize ?? dependencies.sequelize,
+    logger: logger ?? dependencies.logger,
+  };
+}
+
+export function __resetDependencies() {
+  dependencies = {
+    models: {
+      OnboardingPersona: BaseOnboardingPersona,
+      OnboardingJourney: BaseOnboardingJourney,
+      OnboardingJourneyInvite: BaseOnboardingJourneyInvite,
+    },
+    sequelize: baseSequelize,
+    logger: baseLogger,
+  };
+}
 
 const EMAIL_REGEX = /^[^@\s]+@[^@\s]+\.[^@\s]+$/i;
 
@@ -63,6 +96,7 @@ export async function listPersonas({ includeDeprecated = false } = {}) {
     : {
         status: 'active',
       };
+  const { OnboardingPersona } = dependencies.models;
   const personas = await OnboardingPersona.findAll({
     where,
     order: [
@@ -131,6 +165,7 @@ function sanitiseInvites(invites = []) {
 }
 
 async function archiveActiveJourneys({ userId, transaction }) {
+  const { OnboardingJourney } = dependencies.models;
   await OnboardingJourney.update(
     { status: 'archived' },
     {
@@ -219,6 +254,7 @@ export async function startJourney({ actor, payload }) {
     throw new ValidationError('Persona selection is required.');
   }
 
+  const { OnboardingPersona, OnboardingJourney, OnboardingJourneyInvite } = dependencies.models;
   const persona = await OnboardingPersona.findOne({
     where: {
       slug: personaKey,
@@ -238,7 +274,7 @@ export async function startJourney({ actor, payload }) {
 
   const journeyPayload = buildJourneyPayload({ persona, userId, profile, preferences, invites });
 
-  const result = await sequelize.transaction(async (transaction) => {
+  const result = await dependencies.sequelize.transaction(async (transaction) => {
     await archiveActiveJourneys({ userId, transaction });
 
     const journey = await OnboardingJourney.create(journeyPayload, { transaction });
@@ -257,7 +293,7 @@ export async function startJourney({ actor, payload }) {
     return { journey, inviteRecords };
   });
 
-  logger.info(
+  dependencies.logger.info(
     {
       event: 'onboarding.journey.started',
       userId,
@@ -281,4 +317,6 @@ export default {
   listPersonas,
   startJourney,
   ONBOARDING_JOURNEY_STATUSES,
+  __setDependencies,
+  __resetDependencies,
 };
