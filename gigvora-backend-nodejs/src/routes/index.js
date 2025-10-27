@@ -65,6 +65,7 @@ import formBlueprintRoutes from './formBlueprintRoutes.js';
 import presenceRoutes from './presenceRoutes.js';
 import onboardingRoutes from './onboardingRoutes.js';
 import navigationRoutes from './navigationRoutes.js';
+import releaseEngineeringRoutes from './releaseEngineeringRoutes.js';
 
 const router = Router();
 
@@ -125,6 +126,7 @@ const routeDefinitions = [
   ['/reputation', reputationRoutes],
   ['/runtime', runtimeRoutes],
   ['/explorer', explorerRoutes],
+  ['/release-engineering', releaseEngineeringRoutes],
   ['/search', searchRoutes],
   ['/support', supportRoutes],
   ['/trust', trustRoutes],

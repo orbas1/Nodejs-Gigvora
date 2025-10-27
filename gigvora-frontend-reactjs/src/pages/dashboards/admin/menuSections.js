@@ -9,6 +9,12 @@ export const ADMIN_MENU_SECTIONS = [
         sectionId: 'admin-runtime-health',
       },
       {
+        name: 'Release operations',
+        description: 'Build pipelines, release digest automation, and rollout telemetry.',
+        tags: ['ops'],
+        href: '/dashboard/admin/release-operations',
+      },
+      {
         name: 'Data governance',
         description: 'PII inventory, retention policies, and audit cadence across bounded contexts.',
         tags: ['compliance', 'data'],
