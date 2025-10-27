@@ -18,7 +18,12 @@ const fallbackChrome = Object.freeze({
         'Editorial canon reviewed quarterly with AI prompts tuned for English-first teams and global partners.',
       direction: 'ltr',
       isDefault: true,
-      metadata: { localeCode: 'en-GB', requestPath: '/support/localization' },
+      metadata: {
+        localeCode: 'en-GB',
+        requestPath: '/support/localization',
+        supportChannel: 'Concierge desk • Slack #loc-en',
+        playbooks: ['Global tone checks', 'Premium narrative QA'],
+      },
     },
     {
       code: 'fr',
@@ -34,7 +39,12 @@ const fallbackChrome = Object.freeze({
         'Trust, billing, and marketplace surfaces are fully translated with weekly QA on mentorship copy.',
       direction: 'ltr',
       isDefault: false,
-      metadata: { localeCode: 'fr-FR', requestPath: '/support/localization/french' },
+      metadata: {
+        localeCode: 'fr-FR',
+        requestPath: '/support/localization/french',
+        supportChannel: 'Paris studio • Slack #loc-fr',
+        playbooks: ['Mentorship voice', 'Billing localisation reviews'],
+      },
     },
     {
       code: 'es',
@@ -50,7 +60,12 @@ const fallbackChrome = Object.freeze({
         'Marketplace, wallet, and mentorship journeys include in-market tone while knowledge base updates ship twice weekly.',
       direction: 'ltr',
       isDefault: false,
-      metadata: { localeCode: 'es-ES', requestPath: '/support/localization/spanish' },
+      metadata: {
+        localeCode: 'es-ES',
+        requestPath: '/support/localization/spanish',
+        supportChannel: 'Madrid pod • Slack #loc-es',
+        playbooks: ['LATAM narrative QA', 'Finance glossary upkeep'],
+      },
     },
     {
       code: 'pt',
@@ -66,7 +81,12 @@ const fallbackChrome = Object.freeze({
         'Core dashboards and billing flows localised; professional services copy is in beta with feedback loops every sprint.',
       direction: 'ltr',
       isDefault: false,
-      metadata: { localeCode: 'pt-PT', requestPath: '/support/localization/portuguese' },
+      metadata: {
+        localeCode: 'pt-PT',
+        requestPath: '/support/localization/portuguese',
+        supportChannel: 'Lisbon guild • Slack #loc-pt',
+        playbooks: ['Beta release QA', 'Compliance copy alignment'],
+      },
     },
     {
       code: 'it',
@@ -81,7 +101,12 @@ const fallbackChrome = Object.freeze({
       summary:
         'Navigation, invoicing, and mentorship modules complete; supply-side insights land in May localisation drop.',
       direction: 'ltr',
-      metadata: { localeCode: 'it-IT', requestPath: '/support/localization/italian' },
+      metadata: {
+        localeCode: 'it-IT',
+        requestPath: '/support/localization/italian',
+        supportChannel: 'Milan partners • Slack #loc-it',
+        playbooks: ['Marketplace tone audit', 'Mentor editorial QA'],
+      },
     },
     {
       code: 'de',
@@ -95,7 +120,12 @@ const fallbackChrome = Object.freeze({
       lastUpdated: '2024-04-12T12:25:00Z',
       summary: 'Enterprise billing, compliance, and analytics dashboards fully reviewed with legal-approved terminology.',
       direction: 'ltr',
-      metadata: { localeCode: 'de-DE', requestPath: '/support/localization/german' },
+      metadata: {
+        localeCode: 'de-DE',
+        requestPath: '/support/localization/german',
+        supportChannel: 'Berlin chapter • Slack #loc-de',
+        playbooks: ['Enterprise terminology audits', 'Trust centre QA'],
+      },
     },
     {
       code: 'pl',
@@ -109,7 +139,12 @@ const fallbackChrome = Object.freeze({
       lastUpdated: '2024-03-28T07:00:00Z',
       summary: 'Hiring workflows and compliance rails complete; mentor marketing copy undergoing editorial QA.',
       direction: 'ltr',
-      metadata: { localeCode: 'pl-PL', requestPath: '/support/localization/polish' },
+      metadata: {
+        localeCode: 'pl-PL',
+        requestPath: '/support/localization/polish',
+        supportChannel: 'Warsaw desk • Slack #loc-pl',
+        playbooks: ['CEE onboarding scripts', 'Mentor messaging QA'],
+      },
     },
     {
       code: 'hi',
@@ -124,7 +159,12 @@ const fallbackChrome = Object.freeze({
       summary:
         'Dashboard chrome, jobs, and messaging flows in preview; finance and legal copy due next localisation cycle.',
       direction: 'ltr',
-      metadata: { localeCode: 'hi-IN', requestPath: '/support/localization/hindi' },
+      metadata: {
+        localeCode: 'hi-IN',
+        requestPath: '/support/localization/hindi',
+        supportChannel: 'Bengaluru hub • Slack #loc-hi',
+        playbooks: ['Preview QA', 'Support macros localisation'],
+      },
     },
     {
       code: 'ar',
@@ -139,7 +179,12 @@ const fallbackChrome = Object.freeze({
       summary:
         'RTL layout, navigation, and trust centre localised; analytics wording under joint review with compliance leads.',
       direction: 'rtl',
-      metadata: { localeCode: 'ar-AE', requestPath: '/support/localization/arabic' },
+      metadata: {
+        localeCode: 'ar-AE',
+        requestPath: '/support/localization/arabic',
+        supportChannel: 'Dubai studio • Slack #loc-ar',
+        playbooks: ['RTL layout QA', 'Compliance phrasing review'],
+      },
     },
     {
       code: 'ru',
@@ -154,7 +199,12 @@ const fallbackChrome = Object.freeze({
       summary:
         'Marketplace and onboarding flows translated; compliance language is in stakeholder review ahead of GA.',
       direction: 'ltr',
-      metadata: { localeCode: 'ru-RU', requestPath: '/support/localization/russian' },
+      metadata: {
+        localeCode: 'ru-RU',
+        requestPath: '/support/localization/russian',
+        supportChannel: 'Tallinn pod • Slack #loc-ru',
+        playbooks: ['Marketplace tone QA', 'Legal terminology audit'],
+      },
     },
   ],
   personas: [
@@ -171,7 +221,14 @@ const fallbackChrome = Object.freeze({
       primaryCta: 'Open member hub',
       defaultRoute: '/dashboard/user',
       timelineEnabled: true,
-      metadata: { journey: 'member' },
+      metadata: {
+        journey: 'member',
+        supportLead: 'Member concierge desk',
+        status: 'operational',
+        analyticsKey: 'persona_member',
+      },
+      playbooks: ['Member onboarding review', 'Mentor activation scripts'],
+      lastReviewedAt: '2024-05-10T09:00:00Z',
     },
     {
       key: 'founder',
@@ -186,7 +243,14 @@ const fallbackChrome = Object.freeze({
       primaryCta: 'Review founder workspace',
       defaultRoute: '/dashboard/founder',
       timelineEnabled: true,
-      metadata: { journey: 'founder' },
+      metadata: {
+        journey: 'founder',
+        supportLead: 'Capital concierge',
+        status: 'operational',
+        analyticsKey: 'persona_founder',
+      },
+      playbooks: ['Investor updates', 'Funding diligence workflow'],
+      lastReviewedAt: '2024-05-12T11:30:00Z',
     },
     {
       key: 'freelancer',
@@ -201,7 +265,14 @@ const fallbackChrome = Object.freeze({
       primaryCta: 'Open freelancer studio',
       defaultRoute: '/dashboard/freelancer',
       timelineEnabled: true,
-      metadata: { journey: 'freelancer' },
+      metadata: {
+        journey: 'freelancer',
+        supportLead: 'Creator success',
+        status: 'operational',
+        analyticsKey: 'persona_freelancer',
+      },
+      playbooks: ['Portfolio refresh checklist', 'Client billing toolkit'],
+      lastReviewedAt: '2024-05-08T08:45:00Z',
     },
     {
       key: 'agency',
@@ -216,7 +287,14 @@ const fallbackChrome = Object.freeze({
       primaryCta: 'Open agency control centre',
       defaultRoute: '/dashboard/agency',
       timelineEnabled: true,
-      metadata: { journey: 'agency' },
+      metadata: {
+        journey: 'agency',
+        supportLead: 'Agency partnerships',
+        status: 'operational',
+        analyticsKey: 'persona_agency',
+      },
+      playbooks: ['Pipeline reporting', 'Collaboration best practices'],
+      lastReviewedAt: '2024-05-11T14:15:00Z',
     },
     {
       key: 'company',
@@ -231,7 +309,14 @@ const fallbackChrome = Object.freeze({
       primaryCta: 'Navigate company HQ',
       defaultRoute: '/dashboard/company',
       timelineEnabled: true,
-      metadata: { journey: 'company' },
+      metadata: {
+        journey: 'company',
+        supportLead: 'Enterprise concierge',
+        status: 'operational',
+        analyticsKey: 'persona_company',
+      },
+      playbooks: ['Talent operations rollout', 'Global compliance readiness'],
+      lastReviewedAt: '2024-05-09T16:20:00Z',
     },
     {
       key: 'headhunter',
@@ -246,7 +331,14 @@ const fallbackChrome = Object.freeze({
       primaryCta: 'Enter search operations',
       defaultRoute: '/dashboard/headhunter',
       timelineEnabled: true,
-      metadata: { journey: 'headhunter' },
+      metadata: {
+        journey: 'headhunter',
+        supportLead: 'Talent marketplace desk',
+        status: 'operational',
+        analyticsKey: 'persona_headhunter',
+      },
+      playbooks: ['Candidate outreach cadences', 'Client pipeline syncs'],
+      lastReviewedAt: '2024-05-07T12:10:00Z',
     },
     {
       key: 'mentor',
@@ -261,7 +353,14 @@ const fallbackChrome = Object.freeze({
       primaryCta: 'Visit mentor lounge',
       defaultRoute: '/dashboard/mentor',
       timelineEnabled: true,
-      metadata: { journey: 'mentor' },
+      metadata: {
+        journey: 'mentor',
+        supportLead: 'Mentor enablement',
+        status: 'operational',
+        analyticsKey: 'persona_mentor',
+      },
+      playbooks: ['Session preparation', 'Impact recap templates'],
+      lastReviewedAt: '2024-05-06T17:40:00Z',
     },
     {
       key: 'admin',
@@ -276,7 +375,14 @@ const fallbackChrome = Object.freeze({
       primaryCta: 'Manage platform admin',
       defaultRoute: '/dashboard/admin',
       timelineEnabled: false,
-      metadata: { journey: 'admin' },
+      metadata: {
+        journey: 'admin',
+        supportLead: 'Operations command',
+        status: 'operational',
+        analyticsKey: 'persona_admin',
+      },
+      playbooks: ['Policy governance', 'Security reviews'],
+      lastReviewedAt: '2024-05-04T09:55:00Z',
     },
   ],
   footer: {
@@ -341,6 +447,34 @@ const fallbackChrome = Object.freeze({
       { label: 'Connect on LinkedIn', href: 'https://linkedin.com/company/gigvora', icon: 'linkedin' },
       { label: 'Like on Facebook', href: 'https://facebook.com/gigvora', icon: 'facebook' },
     ],
+    statusPage: {
+      title: 'Navigation services operational',
+      description: 'Locales, personas, and footer payloads refreshed every 15 minutes with SLA-backed telemetry.',
+      state: 'ready',
+      url: '/status',
+      helpLabel: 'Open status centre',
+      lastReviewedAt: '2024-05-20T09:30:00Z',
+      insights: [
+        'Telemetry monitors localisation syncs, persona blueprints, and footer QA signals.',
+        'Ops publishes maintenance windows 48 hours in advance for regional rollouts.',
+      ],
+      incidents: [
+        {
+          id: 'nav-20240518',
+          label: 'Mentor messaging latency (resolved)',
+          occurredAt: '2024-05-18T16:00:00Z',
+          resolvedAt: '2024-05-18T16:45:00Z',
+          summary: 'Temporary queue backlog while scaling mentor messaging nodes in EU.',
+        },
+      ],
+      footnote: 'Follow @GigvoraOps for live updates.',
+    },
+    dataResidency: [
+      { region: 'EU', city: 'Frankfurt, DE', status: 'Primary' },
+      { region: 'UK', city: 'London, UK', status: 'Secondary' },
+      { region: 'NA', city: 'Toronto, CA', status: 'Secondary' },
+      { region: 'APAC', city: 'Singapore, SG', status: 'Edge cache' },
+    ],
   },
 });
 
@@ -387,6 +521,13 @@ export function NavigationChromeProvider({ children }) {
             socialLinks: Array.isArray(payload.footer.socialLinks)
               ? payload.footer.socialLinks
               : fallbackChrome.footer.socialLinks,
+            statusPage:
+              payload.footer.statusPage && typeof payload.footer.statusPage === 'object'
+                ? { ...fallbackChrome.footer.statusPage, ...payload.footer.statusPage }
+                : fallbackChrome.footer.statusPage,
+            dataResidency: Array.isArray(payload.footer.dataResidency)
+              ? payload.footer.dataResidency
+              : fallbackChrome.footer.dataResidency,
           }
         : fallbackChrome.footer;
 
