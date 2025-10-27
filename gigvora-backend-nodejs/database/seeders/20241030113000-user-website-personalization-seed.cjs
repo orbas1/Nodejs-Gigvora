@@ -73,6 +73,38 @@ const buildPersonalizationSubscriptions = (timestampIso) => ({
   updatedAt: timestampIso,
 });
 
+const buildPersonalizationAccessibility = (timestampIso) => ({
+  altText: {
+    enforcement: 'required',
+    autoGenerate: true,
+    requireForMedia: true,
+  },
+  media: {
+    captionPolicy: 'preferred',
+    transcripts: true,
+    audioDescription: 'summary',
+  },
+  content: {
+    readingStyle: 'inclusive',
+    inclusiveLanguage: true,
+    plainLanguage: true,
+  },
+  localisation: {
+    autoTranslate: true,
+    languages: ['en', 'es'],
+    defaultLanguage: 'en',
+    signLanguage: 'none',
+  },
+  compliance: {
+    contrast: true,
+    focus: true,
+    keyboard: true,
+    owner: 'Experience Studio',
+    lastReviewedAt: timestampIso,
+  },
+  updatedAt: timestampIso,
+});
+
 module.exports = {
   async up(queryInterface) {
     await queryInterface.sequelize.transaction(async (transaction) => {
@@ -90,6 +122,7 @@ module.exports = {
         const theme = buildPersonalizationTheme(timestampIso);
         const layout = buildPersonalizationLayout(timestampIso);
         const subscriptions = buildPersonalizationSubscriptions(timestampIso);
+        const accessibility = buildPersonalizationAccessibility(timestampIso);
 
         const [existing] = await queryInterface.sequelize.query(
           'SELECT id FROM user_website_preferences WHERE userId = ?',
@@ -103,6 +136,7 @@ module.exports = {
               personalization_theme: theme,
               personalization_layout: layout,
               personalization_subscriptions: subscriptions,
+              personalization_accessibility: accessibility,
               updatedAt: timestampIso,
             },
             { userId: user.id },
@@ -128,6 +162,7 @@ module.exports = {
                 personalization_theme: theme,
                 personalization_layout: layout,
                 personalization_subscriptions: subscriptions,
+                personalization_accessibility: accessibility,
                 createdAt: timestampIso,
                 updatedAt: timestampIso,
               },
@@ -157,6 +192,7 @@ module.exports = {
             personalization_theme: null,
             personalization_layout: null,
             personalization_subscriptions: null,
+            personalization_accessibility: null,
           },
           { userId: user.id },
           { transaction },

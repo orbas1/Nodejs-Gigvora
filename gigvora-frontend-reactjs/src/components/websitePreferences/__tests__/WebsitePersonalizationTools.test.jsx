@@ -55,6 +55,24 @@ function renderTools(overrides = {}) {
         aiSummaries: true,
         previewEnabled: false,
       },
+      accessibility: {
+        altText: { enforcement: 'required', autoGenerate: true, requireForMedia: true },
+        media: { captionPolicy: 'required', transcripts: true, audioDescription: 'summary' },
+        content: { readingStyle: 'inclusive', inclusiveLanguage: true, plainLanguage: true },
+        localisation: {
+          autoTranslate: true,
+          languages: ['en'],
+          defaultLanguage: 'en',
+          signLanguage: 'none',
+        },
+        compliance: {
+          contrast: true,
+          focus: true,
+          keyboard: true,
+          owner: 'Experience Studio',
+          lastReviewedAt: '2024-01-01T00:00:00.000Z',
+        },
+      },
     },
   };
 
@@ -84,6 +102,9 @@ describe('WebsitePersonalizationTools', () => {
     const { onSaved } = renderTools();
 
     await userEvent.click(screen.getByRole('button', { name: /obsidian/i }));
+    await userEvent.selectOptions(screen.getByLabelText(/Alt text enforcement/i), 'recommended');
+    await userEvent.click(screen.getByLabelText(/Generate AI alt text suggestions/i));
+    await userEvent.click(screen.getByLabelText(/Auto-translate new content/i));
 
     const saveButton = screen.getByRole('button', { name: /save personalisation/i });
     expect(saveButton).not.toBeDisabled();
@@ -96,6 +117,10 @@ describe('WebsitePersonalizationTools', () => {
         expect.objectContaining({
           personalization: expect.objectContaining({
             theme: expect.objectContaining({ preset: 'obsidian' }),
+            accessibility: expect.objectContaining({
+              altText: expect.objectContaining({ enforcement: 'recommended', autoGenerate: false }),
+              localisation: expect.objectContaining({ autoTranslate: false }),
+            }),
           }),
         }),
       );
