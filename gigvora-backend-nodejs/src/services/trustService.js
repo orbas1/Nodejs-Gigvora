@@ -768,7 +768,7 @@ export async function releaseEscrowTransaction(transactionId, payload = {}, opti
       throw new ValidationError('Escrow transaction is in an unknown status');
     }
 
-    if (!['in_escrow', 'funded', 'disputed'].includes(transactionRecord.status)) {
+    if (!['in_escrow', 'funded', 'pending_release', 'held', 'paused', 'disputed'].includes(transactionRecord.status)) {
       throw new ValidationError('Only in-progress escrow transactions can be released');
     }
 
@@ -816,7 +816,7 @@ export async function refundEscrowTransaction(transactionId, payload = {}, optio
       throw new ValidationError('Escrow transaction is in an unknown status');
     }
 
-    if (!['in_escrow', 'funded', 'disputed'].includes(transactionRecord.status)) {
+    if (!['in_escrow', 'funded', 'pending_release', 'held', 'paused', 'disputed'].includes(transactionRecord.status)) {
       throw new ValidationError('Only active escrow transactions can be refunded');
     }
 

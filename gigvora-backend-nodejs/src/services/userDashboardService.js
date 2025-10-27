@@ -87,9 +87,14 @@ const TERMINAL_STATUSES = new Set(['withdrawn', 'rejected', 'hired']);
 const OFFER_STATUSES = new Set(['offered', 'hired']);
 const INTERVIEW_STATUSES = new Set(['interview']);
 const FOLLOW_UP_STATUSES = new Set(['submitted', 'under_review', 'shortlisted', 'interview', 'offered']);
-const ESCROW_PENDING_STATUSES = new Set(['initiated', 'funded', 'in_escrow', 'disputed']);
+const ESCROW_PENDING_STATUSES = new Set(['initiated', 'funded', 'in_escrow', 'pending_release', 'held', 'paused', 'disputed']);
 const ESCROW_RELEASED_STATUSES = new Set(['released']);
 const ESCROW_REFUND_STATUSES = new Set(['refunded']);
+const INVOICE_READY_STATUSES = new Set(['released', 'completed']);
+const SUBSCRIPTION_TRANSACTION_TYPES = new Set(['subscription', 'retainer', 'membership']);
+const ACTIVE_SUBSCRIPTION_STATUSES = new Set(['initiated', 'funded', 'in_escrow', 'scheduled']);
+const PAUSED_SUBSCRIPTION_STATUSES = new Set(['paused', 'on_hold']);
+const CANCELLED_SUBSCRIPTION_STATUSES = new Set(['cancelled', 'voided', 'refunded']);
 
 function normalizeUserId(userId) {
   const numeric = Number(userId);
@@ -792,6 +797,281 @@ function normaliseMoney(value) {
   return Number.parseFloat(numeric.toFixed(2));
 }
 
+function toCounterpartyName(counterparty) {
+  if (!counterparty) {
+    return null;
+  }
+  if (counterparty.companyName) {
+    return counterparty.companyName;
+  }
+  const parts = [counterparty.firstName, counterparty.lastName]
+    .map((part) => (typeof part === 'string' ? part.trim() : ''))
+    .filter(Boolean);
+  if (parts.length) {
+    return parts.join(' ');
+  }
+  return counterparty.email ?? counterparty.handle ?? null;
+}
+
+function parseDate(value) {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date;
+}
+
+function computeMilestoneInsights(releaseQueue, defaultCurrency) {
+  if (!Array.isArray(releaseQueue) || releaseQueue.length === 0) {
+    return {
+      currency: defaultCurrency,
+      totalAmount: 0,
+      overdueAmount: 0,
+      dueSoonCount: 0,
+      upcomingCount: 0,
+      averageCycleDays: null,
+      items: [],
+    };
+  }
+
+  const now = Date.now();
+  let totalAmount = 0;
+  let overdueAmount = 0;
+  let dueSoonCount = 0;
+  const cycleDurations = [];
+
+  const items = releaseQueue.map((transaction) => {
+    const amount = normaliseMoney(transaction.amount ?? 0);
+    totalAmount += amount;
+
+    const scheduledAt = parseDate(transaction.scheduledReleaseAt) ?? parseDate(transaction.createdAt);
+    const createdAt = parseDate(transaction.createdAt) ?? parseDate(transaction.scheduledReleaseAt);
+    const cycleDays = scheduledAt && createdAt ? differenceInDays(createdAt, scheduledAt) : null;
+    if (cycleDays != null) {
+      cycleDurations.push(cycleDays);
+    }
+
+    let status = 'scheduled';
+    let risk = 'neutral';
+    if (scheduledAt) {
+      const scheduledTime = scheduledAt.getTime();
+      if (scheduledTime < now) {
+        status = 'overdue';
+        risk = 'critical';
+        overdueAmount += amount;
+      } else if (scheduledTime - now <= 1000 * 60 * 60 * 48) {
+        status = 'due_soon';
+        risk = 'warning';
+        dueSoonCount += 1;
+      }
+    }
+
+    return {
+      id: transaction.id,
+      transactionId: transaction.id,
+      reference: transaction.reference,
+      label: transaction.milestoneLabel ?? transaction.reference ?? `Milestone #${transaction.id}`,
+      amount,
+      currencyCode: transaction.currencyCode ?? defaultCurrency,
+      counterpartyId: transaction.counterpartyId ?? transaction.counterparty?.id ?? null,
+      counterpartyName: toCounterpartyName(transaction.counterparty),
+      scheduledReleaseAt: transaction.scheduledReleaseAt ?? null,
+      createdAt: transaction.createdAt ?? null,
+      hasOpenDispute: Boolean(transaction.hasOpenDispute),
+      disputeCount: Array.isArray(transaction.disputes) ? transaction.disputes.length : 0,
+      status,
+      risk,
+    };
+  });
+
+  const averageCycleDays =
+    cycleDurations.length > 0
+      ? Number.parseFloat((cycleDurations.reduce((sum, value) => sum + value, 0) / cycleDurations.length).toFixed(1))
+      : null;
+
+  return {
+    currency: defaultCurrency,
+    totalAmount: Number.parseFloat(totalAmount.toFixed(2)),
+    overdueAmount: Number.parseFloat(overdueAmount.toFixed(2)),
+    dueSoonCount,
+    upcomingCount: items.length,
+    averageCycleDays,
+    items,
+  };
+}
+
+function computeInvoiceInsights(transactions, defaultCurrency) {
+  if (!Array.isArray(transactions) || transactions.length === 0) {
+    return {
+      currency: defaultCurrency,
+      readyCount: 0,
+      readyTotal: 0,
+      topClients: [],
+      nextInvoiceNumber: `INV-${new Date().getFullYear()}-0001`,
+      items: [],
+    };
+  }
+
+  const ready = transactions.filter((transaction) => {
+    if (!INVOICE_READY_STATUSES.has(String(transaction.status ?? '').toLowerCase())) {
+      return false;
+    }
+    const metadata = transaction.metadata ?? {};
+    return !metadata.invoiceId && !metadata.invoice?.id;
+  });
+
+  const readyTotal = ready.reduce((sum, transaction) => sum + normaliseMoney(transaction.netAmount ?? transaction.amount ?? 0), 0);
+
+  const clientMap = new Map();
+  ready.forEach((transaction) => {
+    const counterpartyId = transaction.counterpartyId ?? transaction.counterparty?.id ?? transaction.metadata?.clientId ?? 'unassigned';
+    const current = clientMap.get(counterpartyId) ?? {
+      id: counterpartyId,
+      name: toCounterpartyName(transaction.counterparty) ?? transaction.metadata?.clientName ?? 'Unassigned client',
+      amount: 0,
+      count: 0,
+    };
+    current.amount += normaliseMoney(transaction.netAmount ?? transaction.amount ?? 0);
+    current.count += 1;
+    clientMap.set(counterpartyId, current);
+  });
+
+  const topClients = Array.from(clientMap.values())
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 5)
+    .map((client) => ({
+      ...client,
+      amount: Number.parseFloat(client.amount.toFixed(2)),
+    }));
+
+  const invoiceNumbers = transactions
+    .map((transaction) => {
+      const metadata = transaction.metadata ?? {};
+      return metadata.invoice?.number ?? metadata.invoiceNumber ?? null;
+    })
+    .filter(Boolean);
+
+  let nextInvoiceNumber = `INV-${new Date().getFullYear()}-${String(invoiceNumbers.length + 1).padStart(4, '0')}`;
+  const numericSuffixes = invoiceNumbers
+    .map((value) => String(value).match(/(\d+)$/)?.[1])
+    .filter(Boolean)
+    .map((suffix) => Number.parseInt(suffix, 10))
+    .filter((value) => Number.isFinite(value));
+  if (numericSuffixes.length) {
+    const max = Math.max(...numericSuffixes) + 1;
+    nextInvoiceNumber = `INV-${new Date().getFullYear()}-${String(max).padStart(4, '0')}`;
+  }
+
+  const items = ready.map((transaction) => ({
+    id: transaction.id,
+    transactionId: transaction.id,
+    reference: transaction.reference,
+    label: transaction.milestoneLabel ?? transaction.reference ?? `Invoice ${transaction.id}`,
+    amount: normaliseMoney(transaction.netAmount ?? transaction.amount ?? 0),
+    currencyCode: transaction.currencyCode ?? defaultCurrency,
+    counterpartyId: transaction.counterpartyId ?? transaction.counterparty?.id ?? null,
+    counterpartyName: toCounterpartyName(transaction.counterparty),
+    releasedAt: transaction.releasedAt ?? null,
+    type: transaction.type ?? null,
+    metadata: transaction.metadata ?? {},
+  }));
+
+  return {
+    currency: defaultCurrency,
+    readyCount: ready.length,
+    readyTotal: Number.parseFloat(readyTotal.toFixed(2)),
+    topClients,
+    nextInvoiceNumber,
+    items,
+  };
+}
+
+function computeSubscriptionInsights(transactions, defaultCurrency) {
+  if (!Array.isArray(transactions) || transactions.length === 0) {
+    return {
+      currency: defaultCurrency,
+      activeCount: 0,
+      pausedCount: 0,
+      cancelledCount: 0,
+      monthlyRecurringRevenue: 0,
+      items: [],
+    };
+  }
+
+  const subscriptionTransactions = transactions.filter((transaction) => {
+    const type = String(transaction.type ?? '').toLowerCase();
+    const billingModel = String(transaction.metadata?.billingModel ?? '').toLowerCase();
+    return SUBSCRIPTION_TRANSACTION_TYPES.has(type) || billingModel === 'subscription' || billingModel === 'retainer';
+  });
+
+  if (!subscriptionTransactions.length) {
+    return {
+      currency: defaultCurrency,
+      activeCount: 0,
+      pausedCount: 0,
+      cancelledCount: 0,
+      monthlyRecurringRevenue: 0,
+      items: [],
+    };
+  }
+
+  let activeCount = 0;
+  let pausedCount = 0;
+  let cancelledCount = 0;
+  let mrr = 0;
+
+  const items = subscriptionTransactions.map((transaction) => {
+    const metadata = transaction.metadata ?? {};
+    const rawStatus = String(metadata.subscriptionStatus ?? transaction.status ?? '').toLowerCase();
+    let status = 'active';
+    if (PAUSED_SUBSCRIPTION_STATUSES.has(rawStatus)) {
+      status = 'paused';
+    } else if (CANCELLED_SUBSCRIPTION_STATUSES.has(rawStatus)) {
+      status = 'cancelled';
+    }
+
+    if (status === 'active') {
+      activeCount += 1;
+      mrr += normaliseMoney(metadata.recurringAmount ?? transaction.amount ?? 0);
+    } else if (status === 'paused') {
+      pausedCount += 1;
+    } else {
+      cancelledCount += 1;
+    }
+
+    const intervalDays = Number.parseInt(metadata.billingIntervalDays ?? metadata.billingInterval ?? 0, 10);
+    const averageCycleDays = Number.isFinite(intervalDays) && intervalDays > 0 ? intervalDays : null;
+
+    return {
+      id: transaction.id,
+      transactionId: transaction.id,
+      reference: transaction.reference,
+      name: metadata.subscriptionName ?? transaction.milestoneLabel ?? transaction.reference ?? `Subscription ${transaction.id}`,
+      amount: normaliseMoney(metadata.recurringAmount ?? transaction.amount ?? 0),
+      currencyCode: transaction.currencyCode ?? defaultCurrency,
+      counterpartyId: transaction.counterpartyId ?? transaction.counterparty?.id ?? null,
+      counterpartyName: toCounterpartyName(transaction.counterparty),
+      nextRenewalAt: metadata.nextBillingAt ?? transaction.scheduledReleaseAt ?? null,
+      lastCollectedAt: transaction.releasedAt ?? metadata.lastBilledAt ?? null,
+      status,
+      averageCycleDays,
+      metadata,
+    };
+  });
+
+  return {
+    currency: defaultCurrency,
+    activeCount,
+    pausedCount,
+    cancelledCount,
+    monthlyRecurringRevenue: Number.parseFloat(mrr.toFixed(2)),
+    items,
+  };
+}
+
 function sanitizeEscrowTransaction(transactionInstance) {
   if (!transactionInstance) return null;
   const base =
@@ -995,7 +1275,7 @@ function buildEscrowManagementSection({
   );
 
   const releaseQueue = sanitizedTransactions
-    .filter((transaction) => ESCROW_PENDING_STATUSES.has(transaction.status))
+    .filter((transaction) => ESCROW_PENDING_STATUSES.has(transaction.status) && transaction.status !== 'paused')
     .sort((a, b) => {
       const aReference = a.scheduledReleaseAt ?? a.createdAt ?? null;
       const bReference = b.scheduledReleaseAt ?? b.createdAt ?? null;
@@ -1009,6 +1289,10 @@ function buildEscrowManagementSection({
     (sum, account) => sum + normaliseMoney(account.currentBalance ?? 0),
     0,
   );
+
+  const milestoneInsights = computeMilestoneInsights(releaseQueue, defaultCurrency);
+  const invoiceInsights = computeInvoiceInsights(sanitizedTransactions, defaultCurrency);
+  const subscriptionInsights = computeSubscriptionInsights(sanitizedTransactions, defaultCurrency);
 
   return {
     access: {
@@ -1041,6 +1325,11 @@ function buildEscrowManagementSection({
       recent: sanitizedTransactions.slice(0, 25),
       releaseQueue,
       disputes: openDisputes,
+    },
+    milestones: milestoneInsights,
+    billing: {
+      invoices: invoiceInsights,
+      subscriptions: subscriptionInsights,
     },
     permissions: {
       canCreateAccount: true,
