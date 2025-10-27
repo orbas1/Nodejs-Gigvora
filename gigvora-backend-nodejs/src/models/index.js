@@ -15750,6 +15750,11 @@ export const UserWebsitePreference = sequelize.define(
       allowNull: true,
       field: 'personalization_subscriptions',
     },
+    personalizationAccessibility: {
+      type: jsonType,
+      allowNull: true,
+      field: 'personalization_accessibility',
+    },
   },
   { tableName: 'user_website_preferences' },
 );
@@ -15779,6 +15784,22 @@ UserWebsitePreference.prototype.toPublicObject = function toPublicObject() {
       subscriptions: normalizeObject(
         plain.personalizationSubscriptions ?? { categories: [] },
         { categories: [] },
+      ),
+      accessibility: normalizeObject(
+        plain.personalizationAccessibility ?? {
+          altText: {},
+          media: {},
+          content: {},
+          localisation: {},
+          compliance: {},
+        },
+        {
+          altText: {},
+          media: {},
+          content: {},
+          localisation: {},
+          compliance: {},
+        },
       ),
     },
     createdAt: plain.createdAt,

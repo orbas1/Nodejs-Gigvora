@@ -55,6 +55,8 @@ describe('userWebsitePreferenceService', () => {
     );
     expect(payload.personalization.subscriptions.channels.email).toBe(true);
     expect(payload.personalization.subscriptions.categories.length).toBeGreaterThan(0);
+    expect(payload.personalization.accessibility.altText.enforcement).toBe('required');
+    expect(payload.personalization.accessibility.media.captionPolicy).toBe('required');
   });
 
   it('sanitizes and persists personalization payloads', async () => {
@@ -83,6 +85,7 @@ describe('userWebsitePreferenceService', () => {
             theme: storedPayload.personalizationTheme,
             layout: storedPayload.personalizationLayout,
             subscriptions: storedPayload.personalizationSubscriptions,
+            accessibility: storedPayload.personalizationAccessibility,
           },
           createdAt: '2024-01-01T00:00:00.000Z',
           updatedAt: '2024-01-01T00:00:00.000Z',
@@ -136,6 +139,28 @@ describe('userWebsitePreferenceService', () => {
             { id: 'capital', enabled: 'true', frequency: 'real-time', channel: 'email' },
           ],
         },
+        accessibility: {
+          altText: { enforcement: 'recommended', autoGenerate: 'false', requireForMedia: 'yes' },
+          media: {
+            captionPolicy: 'preferred',
+            transcripts: 'true',
+            audioDescription: 'full',
+          },
+          content: { readingStyle: 'technical', inclusiveLanguage: 'on', plainLanguage: 0 },
+          localisation: {
+            autoTranslate: '1',
+            languages: ['en', 'fr', 'xx', 12],
+            defaultLanguage: 'fr',
+            signLanguage: 'asl',
+          },
+          compliance: {
+            contrast: 'false',
+            focus: 'true',
+            keyboard: 'yes',
+            owner: '  Accessibility Council  ',
+            lastReviewedAt: '2024-03-01T12:00:00Z',
+          },
+        },
       },
     });
 
@@ -167,11 +192,27 @@ describe('userWebsitePreferenceService', () => {
     expect(payloadArg.personalizationSubscriptions.categories).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: 'capital', frequency: 'real-time' })]),
     );
+    expect(payloadArg.personalizationAccessibility).toEqual(
+      expect.objectContaining({
+        altText: expect.objectContaining({ enforcement: 'recommended', autoGenerate: false }),
+        media: expect.objectContaining({ captionPolicy: 'preferred', audioDescription: 'full' }),
+        content: expect.objectContaining({ readingStyle: 'technical', plainLanguage: false }),
+        localisation: expect.objectContaining({ defaultLanguage: 'fr', languages: ['en', 'fr'] }),
+        compliance: expect.objectContaining({
+          contrast: false,
+          focus: true,
+          keyboard: true,
+          owner: 'Accessibility Council',
+        }),
+      }),
+    );
 
     expect(preferenceRecord.save).toHaveBeenCalled();
 
     expect(result.personalization.theme.preset).toBe('obsidian');
     expect(result.personalization.layout.template).toBe('publisher');
     expect(result.personalization.subscriptions.channels.push).toBe(true);
+    expect(result.personalization.accessibility.media.captionPolicy).toBe('preferred');
+    expect(result.personalization.accessibility.localisation.languages).toEqual(['en', 'fr']);
   });
 });

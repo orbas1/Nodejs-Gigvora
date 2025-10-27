@@ -207,6 +207,37 @@ export const DEFAULT_WEBSITE_PREFERENCES = {
       categories: DEFAULT_SUBSCRIPTION_CATEGORIES,
       updatedAt: null,
     },
+    accessibility: {
+      altText: {
+        enforcement: 'required',
+        autoGenerate: true,
+        requireForMedia: true,
+      },
+      media: {
+        captionPolicy: 'required',
+        transcripts: true,
+        audioDescription: 'summary',
+      },
+      content: {
+        readingStyle: 'inclusive',
+        inclusiveLanguage: true,
+        plainLanguage: true,
+      },
+      localisation: {
+        autoTranslate: true,
+        languages: ['en'],
+        defaultLanguage: 'en',
+        signLanguage: 'none',
+      },
+      compliance: {
+        contrast: true,
+        focus: true,
+        keyboard: true,
+        owner: '',
+        lastReviewedAt: null,
+      },
+      updatedAt: null,
+    },
   },
 };
 

@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import ThemeSwitcher from './components/ThemeSwitcher.jsx';
 import LayoutManager from './components/LayoutManager.jsx';
 import ContentSubscriptions from './components/ContentSubscriptions.jsx';
+import AccessibilityExperience from './components/AccessibilityExperience.jsx';
 import { clonePreferences, withDefaults } from './defaults.js';
 import websitePreferencesShape from './propTypes.js';
 import { saveWebsitePreferences } from '../../services/websitePreferences.js';
@@ -48,6 +49,19 @@ function clonePersonalization(personalization) {
         ? personalization.subscriptions.categories.map((category) => ({ ...category }))
         : [],
     },
+    accessibility: {
+      ...(personalization.accessibility ?? {}),
+      altText: { ...(personalization.accessibility?.altText ?? {}) },
+      media: { ...(personalization.accessibility?.media ?? {}) },
+      content: { ...(personalization.accessibility?.content ?? {}) },
+      localisation: {
+        ...(personalization.accessibility?.localisation ?? {}),
+        languages: Array.isArray(personalization.accessibility?.localisation?.languages)
+          ? [...personalization.accessibility.localisation.languages]
+          : [],
+      },
+      compliance: { ...(personalization.accessibility?.compliance ?? {}) },
+    },
   };
 }
 
@@ -80,6 +94,10 @@ export default function WebsitePersonalizationTools({ userId, preferences = null
     setDraft((current) => ({ ...current, subscriptions: { ...current.subscriptions, ...next } }));
   };
 
+  const handleAccessibilityChange = (next) => {
+    setDraft((current) => ({ ...current, accessibility: { ...next } }));
+  };
+
   const handleReset = () => {
     setDraft(initialPersonalization);
     setStatus(null);
@@ -110,6 +128,10 @@ export default function WebsitePersonalizationTools({ userId, preferences = null
             : [],
           updatedAt: new Date().toISOString(),
         },
+        accessibility: {
+          ...(draft.accessibility ? JSON.parse(JSON.stringify(draft.accessibility)) : {}),
+          updatedAt: new Date().toISOString(),
+        },
       };
       const response = await saveWebsitePreferences(userId, payload);
       setStatus('Personalisation updated');
@@ -124,7 +146,12 @@ export default function WebsitePersonalizationTools({ userId, preferences = null
     }
   };
 
-  const personalizationUpdatedAt = baseline.personalization?.theme?.updatedAt ?? baseline.updatedAt;
+  const personalizationUpdatedAt =
+    baseline.personalization?.accessibility?.updatedAt ||
+    baseline.personalization?.subscriptions?.updatedAt ||
+    baseline.personalization?.layout?.updatedAt ||
+    baseline.personalization?.theme?.updatedAt ||
+    baseline.updatedAt;
 
   return (
     <section className="mt-10 rounded-4xl border border-slate-200 bg-white px-6 py-8 shadow-sm">
@@ -162,6 +189,11 @@ export default function WebsitePersonalizationTools({ userId, preferences = null
         <ThemeSwitcher value={draft.theme} onChange={handleThemeChange} canEdit={canEdit && !saving} />
         <LayoutManager value={draft.layout} onChange={handleLayoutChange} canEdit={canEdit && !saving} />
         <ContentSubscriptions value={draft.subscriptions} onChange={handleSubscriptionsChange} canEdit={canEdit && !saving} />
+        <AccessibilityExperience
+          value={draft.accessibility}
+          onChange={handleAccessibilityChange}
+          canEdit={canEdit && !saving}
+        />
       </div>
 
       <div className="mt-8 text-sm">

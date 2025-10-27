@@ -147,6 +147,12 @@ const SUBSCRIPTION_CATEGORY_REGISTRY = new Map(
   DEFAULT_SUBSCRIPTION_CATEGORIES.map((category) => [category.id, category]),
 );
 
+const ACCESSIBILITY_ALT_ENFORCEMENTS = ['required', 'recommended', 'optional'];
+const ACCESSIBILITY_CAPTION_POLICIES = ['required', 'preferred', 'optional'];
+const ACCESSIBILITY_AUDIO_DESCRIPTION = ['off', 'summary', 'full'];
+const ACCESSIBILITY_READING_STYLES = ['inclusive', 'executive', 'technical'];
+const ACCESSIBILITY_SIGN_LANGUAGES = ['none', 'bsl', 'asl'];
+
 const normalizeChannelValue = (value) => {
   if (typeof value !== 'string') {
     return value;
@@ -185,6 +191,37 @@ const DEFAULT_PERSONALIZATION = {
     aiSummaries: true,
     previewEnabled: false,
     categories: DEFAULT_SUBSCRIPTION_CATEGORIES,
+    updatedAt: null,
+  },
+  accessibility: {
+    altText: {
+      enforcement: 'required',
+      autoGenerate: true,
+      requireForMedia: true,
+    },
+    media: {
+      captionPolicy: 'required',
+      transcripts: true,
+      audioDescription: 'summary',
+    },
+    content: {
+      readingStyle: 'inclusive',
+      inclusiveLanguage: true,
+      plainLanguage: true,
+    },
+    localisation: {
+      autoTranslate: true,
+      languages: ['en'],
+      defaultLanguage: 'en',
+      signLanguage: 'none',
+    },
+    compliance: {
+      contrast: true,
+      focus: true,
+      keyboard: true,
+      owner: '',
+      lastReviewedAt: null,
+    },
     updatedAt: null,
   },
 };
@@ -814,6 +851,124 @@ function sanitizePersonalizationSubscriptions(subscriptions) {
   };
 }
 
+function sanitizeAccessibilityAltText(altText) {
+  const enforcement = ACCESSIBILITY_ALT_ENFORCEMENTS.includes(altText?.enforcement)
+    ? altText.enforcement
+    : DEFAULT_PERSONALIZATION.accessibility.altText.enforcement;
+
+  return {
+    enforcement,
+    autoGenerate: sanitizeBoolean(
+      altText?.autoGenerate ?? DEFAULT_PERSONALIZATION.accessibility.altText.autoGenerate,
+    ),
+    requireForMedia: sanitizeBoolean(
+      altText?.requireForMedia ?? DEFAULT_PERSONALIZATION.accessibility.altText.requireForMedia,
+    ),
+  };
+}
+
+function sanitizeAccessibilityMedia(media) {
+  const captionPolicy = ACCESSIBILITY_CAPTION_POLICIES.includes(media?.captionPolicy)
+    ? media.captionPolicy
+    : DEFAULT_PERSONALIZATION.accessibility.media.captionPolicy;
+
+  const audioDescription = ACCESSIBILITY_AUDIO_DESCRIPTION.includes(media?.audioDescription)
+    ? media.audioDescription
+    : DEFAULT_PERSONALIZATION.accessibility.media.audioDescription;
+
+  return {
+    captionPolicy,
+    transcripts: sanitizeBoolean(
+      media?.transcripts ?? DEFAULT_PERSONALIZATION.accessibility.media.transcripts,
+    ),
+    audioDescription,
+  };
+}
+
+function sanitizeAccessibilityContent(content) {
+  const readingStyle = ACCESSIBILITY_READING_STYLES.includes(content?.readingStyle)
+    ? content.readingStyle
+    : DEFAULT_PERSONALIZATION.accessibility.content.readingStyle;
+
+  return {
+    readingStyle,
+    inclusiveLanguage: sanitizeBoolean(
+      content?.inclusiveLanguage ?? DEFAULT_PERSONALIZATION.accessibility.content.inclusiveLanguage,
+    ),
+    plainLanguage: sanitizeBoolean(
+      content?.plainLanguage ?? DEFAULT_PERSONALIZATION.accessibility.content.plainLanguage,
+    ),
+  };
+}
+
+function sanitizeAccessibilityLanguages(languages) {
+  if (!Array.isArray(languages)) {
+    return [...DEFAULT_PERSONALIZATION.accessibility.localisation.languages];
+  }
+  const unique = new Set();
+  languages.forEach((value) => {
+    if (typeof value !== 'string') {
+      return;
+    }
+    const normalized = value.trim().toLowerCase();
+    if (SUPPORTED_LANGUAGES.includes(normalized)) {
+      unique.add(normalized);
+    }
+  });
+  if (!unique.size) {
+    return [...DEFAULT_PERSONALIZATION.accessibility.localisation.languages];
+  }
+  return Array.from(unique);
+}
+
+function sanitizeAccessibilityLocalisation(localisation) {
+  const languages = sanitizeAccessibilityLanguages(localisation?.languages);
+  const defaultLanguageCandidate = typeof localisation?.defaultLanguage === 'string'
+    ? localisation.defaultLanguage.trim().toLowerCase()
+    : null;
+  const defaultLanguage = languages.includes(defaultLanguageCandidate)
+    ? defaultLanguageCandidate
+    : languages[0];
+
+  const signLanguage = ACCESSIBILITY_SIGN_LANGUAGES.includes(localisation?.signLanguage)
+    ? localisation.signLanguage
+    : DEFAULT_PERSONALIZATION.accessibility.localisation.signLanguage;
+
+  return {
+    autoTranslate: sanitizeBoolean(
+      localisation?.autoTranslate ?? DEFAULT_PERSONALIZATION.accessibility.localisation.autoTranslate,
+    ),
+    languages,
+    defaultLanguage,
+    signLanguage,
+  };
+}
+
+function sanitizeAccessibilityCompliance(compliance) {
+  const defaults = DEFAULT_PERSONALIZATION.accessibility.compliance;
+  return {
+    contrast: sanitizeBoolean(compliance?.contrast ?? defaults.contrast),
+    focus: sanitizeBoolean(compliance?.focus ?? defaults.focus),
+    keyboard: sanitizeBoolean(compliance?.keyboard ?? defaults.keyboard),
+    owner: sanitizeOptionalString(compliance?.owner ?? defaults.owner, {
+      field: 'personalization.accessibility.compliance.owner',
+      maxLength: 80,
+    }),
+    lastReviewedAt: sanitizeTimestamp(compliance?.lastReviewedAt, { allowNull: true }),
+  };
+}
+
+function sanitizePersonalizationAccessibility(accessibility) {
+  return {
+    altText: sanitizeAccessibilityAltText(accessibility?.altText ?? {}),
+    media: sanitizeAccessibilityMedia(accessibility?.media ?? {}),
+    content: sanitizeAccessibilityContent(accessibility?.content ?? {}),
+    localisation: sanitizeAccessibilityLocalisation(accessibility?.localisation ?? {}),
+    compliance: sanitizeAccessibilityCompliance(accessibility?.compliance ?? {}),
+    updatedAt: sanitizeTimestamp(accessibility?.updatedAt, { allowNull: true }),
+  };
+}
+
 function sanitizeAbout(about) {
   return {
     title: sanitizeOptionalString(about.title ?? '', { field: 'about.title', maxLength: 60 }),
@@ -873,6 +1028,9 @@ function buildPayload(payload) {
   const personalizationSubscriptions = sanitizePersonalizationSubscriptions(
     merged.personalization?.subscriptions ?? {},
   );
+  const personalizationAccessibility = sanitizePersonalizationAccessibility(
+    merged.personalization?.accessibility ?? {},
+  );
   return {
     settings: {
       siteTitle: sanitizeString(merged.settings.siteTitle ?? DEFAULT_PREFERENCES.settings.siteTitle, {
@@ -902,6 +1060,7 @@ function buildPayload(payload) {
     personalizationTheme,
     personalizationLayout,
     personalizationSubscriptions,
+    personalizationAccessibility,
   };
 }
 

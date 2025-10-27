@@ -166,6 +166,37 @@ export const websitePreferencesShape = PropTypes.shape({
         }),
       ),
     }),
+    accessibility: PropTypes.shape({
+      altText: PropTypes.shape({
+        enforcement: PropTypes.oneOf(['required', 'recommended', 'optional']),
+        autoGenerate: PropTypes.bool,
+        requireForMedia: PropTypes.bool,
+      }),
+      media: PropTypes.shape({
+        captionPolicy: PropTypes.oneOf(['required', 'preferred', 'optional']),
+        transcripts: PropTypes.bool,
+        audioDescription: PropTypes.oneOf(['summary', 'full', 'off']),
+      }),
+      content: PropTypes.shape({
+        readingStyle: PropTypes.oneOf(['inclusive', 'executive', 'technical']),
+        inclusiveLanguage: PropTypes.bool,
+        plainLanguage: PropTypes.bool,
+      }),
+      localisation: PropTypes.shape({
+        autoTranslate: PropTypes.bool,
+        languages: PropTypes.arrayOf(PropTypes.string),
+        defaultLanguage: PropTypes.string,
+        signLanguage: PropTypes.oneOf(['none', 'bsl', 'asl']),
+      }),
+      compliance: PropTypes.shape({
+        contrast: PropTypes.bool,
+        focus: PropTypes.bool,
+        keyboard: PropTypes.bool,
+        owner: PropTypes.string,
+        lastReviewedAt: PropTypes.string,
+      }),
+      updatedAt: PropTypes.string,
+    }),
   }),
   updatedAt: PropTypes.string,
 });
