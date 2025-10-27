@@ -1,23 +1,25 @@
 import { formatRelativeTime } from '../../utils/date.js';
 
 function FilterButton({ id, label, description, count, active, onSelect, disabled }) {
+  const countLabel = count === 0 ? '0' : `${count}`;
   return (
     <button
       type="button"
       onClick={() => onSelect?.(id)}
-      className={`flex flex-1 flex-col gap-2 rounded-3xl border px-4 py-4 text-left transition focus:outline-none focus:ring-2 focus:ring-accent/30 sm:px-5 sm:py-5 ${
+      className={`inline-flex items-center gap-3 rounded-full border px-4 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-accent/30 ${
         active
           ? 'border-accent bg-accentSoft text-accent shadow-sm'
-          : 'border-slate-200 bg-white text-slate-700 hover:border-accent/40 hover:shadow-sm'
+          : 'border-slate-200 bg-white text-slate-600 hover:border-accent/40 hover:text-slate-900'
       }`}
       aria-pressed={active}
       disabled={disabled}
+      title={description}
+      aria-label={`${label}. ${description}. ${count === 0 ? 'No updates available' : `${count} updates available`}`}
     >
-      <span className="text-sm font-semibold text-current">{label}</span>
-      <span className="text-xs text-slate-500">{description}</span>
-      <span className="mt-3 inline-flex items-center gap-2 text-[0.7rem] font-semibold uppercase tracking-wide text-slate-400">
+      <span>{label}</span>
+      <span className="inline-flex items-center gap-2 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-400">
         <span className="inline-flex h-2 w-2 rounded-full bg-accent" aria-hidden="true" />
-        {count === 0 ? 'No posts yet' : `${count} update${count === 1 ? '' : 's'}`}
+        {countLabel}
       </span>
     </button>
   );
@@ -39,34 +41,31 @@ export default function ActivityFilters({
   const freshnessLabel = loading ? 'Refreshing…' : fromCache ? 'Showing cached activity' : 'Live timeline';
   const totalLabel = total === 1 ? '1 update' : `${total} updates`;
   return (
-    <section className="rounded-[28px] border border-slate-200 bg-white/95 p-5 shadow-sm sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Timeline focus</p>
-          <h2 className="text-lg font-semibold text-slate-900">Curate your feed</h2>
-          <p className="text-sm text-slate-500">
-            Dial between opportunities, media drops, and mission-critical signals without losing the premium rhythm.
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-2 text-right text-xs text-slate-500">
-          <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 font-semibold uppercase tracking-wide text-slate-500">
+    <section className="rounded-3xl border border-slate-200 bg-white/95 px-5 py-4 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="inline-flex items-center gap-2 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-400">
+          <span className="inline-flex h-2 w-2 rounded-full bg-accent" aria-hidden="true" />
+          Timeline focus
+        </span>
+        <div className="flex flex-wrap items-center gap-2 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-400">
+          <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2 py-1 text-slate-500">
             {freshnessLabel}
           </span>
-          <span>{`Updated ${formattedUpdatedAt}`}</span>
-          <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-400">{totalLabel}</span>
+          <span className="hidden text-slate-400 sm:inline">Updated {formattedUpdatedAt}</span>
+          <span className="text-slate-300">{totalLabel}</span>
           <button
             type="button"
             onClick={() => onRefresh?.()}
             disabled={loading}
-            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-wide transition ${
-              loading ? 'bg-accent/30 text-white' : 'bg-accent text-white hover:bg-accentDark'
+            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[0.65rem] transition ${
+              loading ? 'bg-accent/20 text-accentDark' : 'bg-accent text-white hover:bg-accentDark'
             }`}
           >
-            {loading ? 'Refreshing…' : 'Refresh feed'}
+            {loading ? 'Refreshing…' : 'Refresh'}
           </button>
         </div>
       </div>
-      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+      <div className="mt-4 flex flex-wrap gap-2">
         {filters.map((filter) => (
           <FilterButton
             key={filter.id}
@@ -80,19 +79,15 @@ export default function ActivityFilters({
           />
         ))}
       </div>
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-xs text-slate-500">
-        <span className="inline-flex items-center gap-2">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-slate-50/80 px-4 py-2 text-[0.75rem] text-slate-500">
+        <span className="inline-flex items-center gap-2 text-[0.65rem] font-medium uppercase tracking-wide text-slate-400">
           <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400" aria-hidden="true" />
           {newItems > 0
-            ? `${newItems} new draft${newItems === 1 ? '' : 's'} ready to publish`
-            : 'Craft the next story right from the composer above.'}
+            ? `${newItems} draft${newItems === 1 ? '' : 's'} ready to publish`
+            : 'Composer ready for your next update'}
         </span>
-        <span className="inline-flex items-center gap-2 text-[0.7rem] font-semibold uppercase tracking-wide text-slate-400">
-          Filter tips
-          <span className="hidden sm:inline">•</span>
-          <span className="text-slate-500">
-            Combine filters with search soon — saved segments roll out next.
-          </span>
+        <span className="text-[0.65rem] font-semibold uppercase tracking-wide text-slate-300">
+          {fromCache ? 'Cached view' : 'Live data'}
         </span>
       </div>
     </section>

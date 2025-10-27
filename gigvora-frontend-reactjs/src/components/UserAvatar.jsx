@@ -8,9 +8,14 @@ const SIZE_MAP = {
 };
 
 function buildAvatarUrl(name, seedOverride) {
-  const seed = seedOverride || name || 'Gigvora';
-  const encoded = encodeURIComponent(seed.trim() || 'Gigvora');
-  return `https://api.dicebear.com/7.x/thumbs/svg?backgroundColor=99C1FF,EEF2FF&seed=${encoded}`;
+  const seed = `${seedOverride || name || 'Gigvora member'}`.trim() || 'Gigvora member';
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash << 5) - hash + seed.charCodeAt(index);
+    hash |= 0;
+  }
+  const avatarIndex = (Math.abs(hash) % 70) + 1;
+  return `https://i.pravatar.cc/256?img=${avatarIndex}`;
 }
 
 export default function UserAvatar({

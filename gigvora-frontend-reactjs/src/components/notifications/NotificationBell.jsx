@@ -5,6 +5,7 @@ import { BellIcon } from '@heroicons/react/24/outline';
 import useNotificationCenter from '../../hooks/useNotificationCenter.js';
 import analytics from '../../services/analytics.js';
 import NotificationCenter from './NotificationCenter.jsx';
+import { classNames } from '../../utils/classNames.js';
 
 function formatBadgeCount(count) {
   if (!count) {
@@ -19,7 +20,7 @@ function formatBadgeCount(count) {
   return `${count}`;
 }
 
-export default function NotificationBell({ session, feedPosts, onOpen }) {
+export default function NotificationBell({ session, feedPosts, onOpen, variant = 'compact' }) {
   const {
     notifications,
     unreadNotificationCount,
@@ -74,18 +75,32 @@ export default function NotificationBell({ session, feedPosts, onOpen }) {
     }
   };
 
+  const isDock = variant === 'dock';
+  const wrapperClass = classNames('relative', 'hidden lg:block');
+  const buttonClass = isDock
+    ? 'group flex h-[4.5rem] w-20 flex-col items-center justify-center gap-1 rounded-none border-b-2 border-transparent px-2 text-[0.7rem] font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-900'
+    : 'relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-accent hover:text-accent';
+  const iconWrapperClass = isDock
+    ? 'relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition group-hover:border-slate-300 group-hover:shadow'
+    : 'relative inline-flex h-5 w-5 items-center justify-center';
+  const badgeClass = isDock
+    ? 'absolute -top-1 -right-1 inline-flex min-h-[1.25rem] min-w-[1.25rem] items-center justify-center rounded-full bg-accent px-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-white shadow-lg'
+    : 'absolute -top-1 -right-1 inline-flex min-h-[1.4rem] min-w-[1.4rem] items-center justify-center rounded-full bg-accent px-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-white shadow-lg';
+  const ariaLabel = badgeLabel ? `${badgeLabel} unread notifications` : 'Notifications';
+
   return (
-    <Popover className="relative hidden lg:block">
-      <Popover.Button
-        className="relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-accent hover:text-accent"
-        aria-label={badgeLabel ? `${badgeLabel} unread notifications` : 'Notifications'}
-      >
-        <BellIcon className="h-5 w-5" aria-hidden="true" />
-        {badgeLabel ? (
-          <span className="absolute -top-1 -right-1 inline-flex min-h-[1.4rem] min-w-[1.4rem] items-center justify-center rounded-full bg-accent px-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-white shadow-lg">
-            {badgeLabel}
-          </span>
-        ) : null}
+    <Popover className={wrapperClass}>
+      <Popover.Button className={buttonClass} aria-label={ariaLabel}>
+        <span className={iconWrapperClass}>
+          <BellIcon
+            className={classNames(
+              isDock ? 'h-5 w-5 text-slate-500 transition group-hover:text-slate-900' : 'h-5 w-5',
+            )}
+            aria-hidden="true"
+          />
+          {badgeLabel ? <span className={badgeClass}>{badgeLabel}</span> : null}
+        </span>
+        {isDock ? <span className="leading-tight">Notifications</span> : null}
       </Popover.Button>
       <Transition
         as={Fragment}
@@ -120,10 +135,12 @@ NotificationBell.propTypes = {
   }),
   feedPosts: PropTypes.arrayOf(PropTypes.object),
   onOpen: PropTypes.func,
+  variant: PropTypes.oneOf(['compact', 'dock']),
 };
 
 NotificationBell.defaultProps = {
   session: null,
   feedPosts: [],
   onOpen: undefined,
+  variant: 'compact',
 };

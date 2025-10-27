@@ -144,6 +144,7 @@ export default function MobileNavigation({
   onClose,
   isAuthenticated,
   primaryNavigation,
+  quickNavigation,
   marketingNavigation,
   marketingSearch,
   onLogout,
@@ -155,6 +156,7 @@ export default function MobileNavigation({
   trendingEntries,
 }) {
   const resolvedPrimaryNavigation = useMemo(() => primaryNavigation ?? [], [primaryNavigation]);
+  const quickNavItems = useMemo(() => quickNavigation ?? [], [quickNavigation]);
   const sessionId = session?.id ?? null;
   const personaPulse = useMemo(() => {
     if (Array.isArray(navigationPulse) && navigationPulse.length > 0) {
@@ -221,6 +223,11 @@ export default function MobileNavigation({
     [currentRoleKey, onClose, onMarketingSearch, sessionId],
   );
 
+  const creationStudioNav = useMemo(
+    () => quickNavItems.find((item) => item.id === 'studio'),
+    [quickNavItems],
+  );
+
   return (
     <Transition show={open} as={Fragment}>
       <Dialog as="div" className="relative z-50 lg:hidden" onClose={onClose}>
@@ -270,16 +277,30 @@ export default function MobileNavigation({
                       <PrimaryNavItem key={item.id} item={item} variant="mobile" onNavigate={onClose} />
                     ))}
                   </nav>
+                  {quickNavItems.length ? (
+                    <div className="space-y-2 pt-2">
+                      <p className="px-1 text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-slate-400">
+                        Quick actions
+                      </p>
+                      <div className="space-y-2">
+                        {quickNavItems.map((item) => (
+                          <PrimaryNavItem key={item.id} item={item} variant="mobile" onNavigate={onClose} />
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                   <PersonaPulse insights={personaPulse} />
                   <TrendingQuickLinks entries={personaTrending} onNavigate={handleTrendingNavigate} />
                   <div className="grid gap-2">
-                    <Link
-                      to="/dashboard/user/creation-studio"
-                      onClick={onClose}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-accent px-5 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-accentDark"
-                    >
-                      <SparklesIcon className="h-4 w-4" /> Launch Creation Studio
-                    </Link>
+                    {creationStudioNav ? (
+                      <Link
+                        to={creationStudioNav.to}
+                        onClick={onClose}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-accent px-5 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-accentDark"
+                      >
+                        <SparklesIcon className="h-4 w-4" /> Launch {creationStudioNav.label}
+                      </Link>
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => {
@@ -344,6 +365,16 @@ MobileNavigation.propTypes = {
       label: PropTypes.string.isRequired,
       to: PropTypes.string.isRequired,
       badge: PropTypes.string,
+      placement: PropTypes.string,
+    }),
+  ),
+  quickNavigation: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      to: PropTypes.string.isRequired,
+      badge: PropTypes.string,
+      placement: PropTypes.string,
     }),
   ),
   marketingNavigation: PropTypes.arrayOf(
@@ -408,6 +439,7 @@ MobileNavigation.propTypes = {
 
 MobileNavigation.defaultProps = {
   primaryNavigation: [],
+  quickNavigation: [],
   marketingNavigation: [],
   marketingSearch: null,
   onLogout: undefined,
