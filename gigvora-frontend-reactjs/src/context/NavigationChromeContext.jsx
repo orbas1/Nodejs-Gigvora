@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
-import { fetchNavigationChrome } from '../services/publicSite.js';
+import { buildNavigationGovernanceSnapshot } from '@shared-contracts/domain/platform/navigation-governance.js';
+import { fetchNavigationChrome, fetchNavigationGovernance } from '../services/publicSite.js';
 
 const fallbackChrome = Object.freeze({
   locales: [
@@ -344,6 +345,11 @@ const fallbackChrome = Object.freeze({
   },
 });
 
+const fallbackGovernance = buildNavigationGovernanceSnapshot({
+  locales: fallbackChrome.locales,
+  personas: fallbackChrome.personas,
+});
+
 const NavigationChromeContext = createContext(null);
 
 export function NavigationChromeProvider({ children }) {
@@ -351,6 +357,7 @@ export function NavigationChromeProvider({ children }) {
     locales: fallbackChrome.locales,
     personas: fallbackChrome.personas,
     footer: fallbackChrome.footer,
+    governance: fallbackGovernance,
     loading: true,
     error: null,
     lastFetchedAt: null,
@@ -362,38 +369,50 @@ export function NavigationChromeProvider({ children }) {
     }
 
     try {
-      const payload = await fetchNavigationChrome();
-      const locales = Array.isArray(payload?.locales) && payload.locales.length ? payload.locales : fallbackChrome.locales;
-      const personas = Array.isArray(payload?.personas) && payload.personas.length
-        ? payload.personas
+      const [chromePayload, governancePayload] = await Promise.all([
+        fetchNavigationChrome(),
+        fetchNavigationGovernance().catch(() => null),
+      ]);
+
+      const locales = Array.isArray(chromePayload?.locales) && chromePayload.locales.length
+        ? chromePayload.locales
+        : fallbackChrome.locales;
+      const personas = Array.isArray(chromePayload?.personas) && chromePayload.personas.length
+        ? chromePayload.personas
         : fallbackChrome.personas;
-      const footer = payload?.footer && typeof payload.footer === 'object'
+      const footer = chromePayload?.footer && typeof chromePayload.footer === 'object'
         ? {
-            navigationSections: Array.isArray(payload.footer.navigationSections)
-              ? payload.footer.navigationSections
+            navigationSections: Array.isArray(chromePayload.footer.navigationSections)
+              ? chromePayload.footer.navigationSections
               : fallbackChrome.footer.navigationSections,
-            statusHighlights: Array.isArray(payload.footer.statusHighlights)
-              ? payload.footer.statusHighlights
+            statusHighlights: Array.isArray(chromePayload.footer.statusHighlights)
+              ? chromePayload.footer.statusHighlights
               : fallbackChrome.footer.statusHighlights,
-            communityPrograms: Array.isArray(payload.footer.communityPrograms)
-              ? payload.footer.communityPrograms
+            communityPrograms: Array.isArray(chromePayload.footer.communityPrograms)
+              ? chromePayload.footer.communityPrograms
               : fallbackChrome.footer.communityPrograms,
-            officeLocations: Array.isArray(payload.footer.officeLocations)
-              ? payload.footer.officeLocations
+            officeLocations: Array.isArray(chromePayload.footer.officeLocations)
+              ? chromePayload.footer.officeLocations
               : fallbackChrome.footer.officeLocations,
-            certifications: Array.isArray(payload.footer.certifications)
-              ? payload.footer.certifications
+            certifications: Array.isArray(chromePayload.footer.certifications)
+              ? chromePayload.footer.certifications
               : fallbackChrome.footer.certifications,
-            socialLinks: Array.isArray(payload.footer.socialLinks)
-              ? payload.footer.socialLinks
+            socialLinks: Array.isArray(chromePayload.footer.socialLinks)
+              ? chromePayload.footer.socialLinks
               : fallbackChrome.footer.socialLinks,
           }
         : fallbackChrome.footer;
+
+      const governance =
+        governancePayload && typeof governancePayload === 'object' && governancePayload.version
+          ? governancePayload
+          : buildNavigationGovernanceSnapshot({ locales, personas });
 
       setState({
         locales,
         personas,
         footer,
+        governance,
         loading: false,
         error: null,
         lastFetchedAt: new Date().toISOString(),
@@ -414,17 +433,20 @@ export function NavigationChromeProvider({ children }) {
     refresh({ silent: true });
   }, [refresh]);
 
+  const { locales, personas, footer, governance, loading, error, lastFetchedAt } = state;
+
   const value = useMemo(
     () => ({
-      locales: state.locales,
-      personas: state.personas,
-      footer: state.footer,
-      loading: state.loading,
-      error: state.error,
-      lastFetchedAt: state.lastFetchedAt,
+      locales,
+      personas,
+      footer,
+      governance,
+      loading,
+      error,
+      lastFetchedAt,
       refresh,
     }),
-    [state, refresh],
+    [locales, personas, footer, governance, loading, error, lastFetchedAt, refresh],
   );
 
   return <NavigationChromeContext.Provider value={value}>{children}</NavigationChromeContext.Provider>;

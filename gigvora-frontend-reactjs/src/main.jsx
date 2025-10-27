@@ -8,6 +8,7 @@ import { MessagingProvider } from './context/MessagingContext.jsx';
 import { NavigationChromeProvider } from './context/NavigationChromeContext.jsx';
 import { LanguageProvider } from './context/LanguageContext.jsx';
 import { ThemeProvider } from './context/ThemeProvider.tsx';
+import { DesignSystemProvider } from './context/DesignSystemContext.jsx';
 import { DataFetchingProvider } from './context/DataFetchingLayer.js';
 
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
@@ -42,13 +43,15 @@ async function bootstrap() {
             <NavigationChromeProvider>
               <LanguageProvider>
                 <SessionProvider>
-                  <ThemeProvider>
-                    <DataFetchingProvider>
-                      <MessagingProvider>
-                        <AppComponent />
-                      </MessagingProvider>
-                    </DataFetchingProvider>
-                  </ThemeProvider>
+                  <DesignSystemProvider>
+                    <ThemeProvider>
+                      <DataFetchingProvider>
+                        <MessagingProvider>
+                          <AppComponent />
+                        </MessagingProvider>
+                      </DataFetchingProvider>
+                    </ThemeProvider>
+                  </DesignSystemProvider>
                 </SessionProvider>
               </LanguageProvider>
             </NavigationChromeProvider>
