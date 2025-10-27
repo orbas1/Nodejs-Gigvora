@@ -10,6 +10,7 @@ import {
   SparklesIcon,
 } from '@heroicons/react/24/outline';
 import analytics from '../../services/analytics.js';
+import PersonaChip from '../ui/PersonaChip.jsx';
 
 const ICON_MAP = {
   SparklesIcon,
@@ -230,18 +231,18 @@ export function ValuePillars({ pillars, loading = false, analyticsMetadata = {} 
               </div>
             </div>
 
-            {pillar.audiences?.length ? (
-              <ul className="flex flex-wrap gap-2 text-xs font-medium text-white/70">
-                {pillar.audiences.map((audience) => (
-                  <li
+            {Array.isArray(pillar.audiences) && pillar.audiences.length ? (
+              <div className="flex flex-wrap gap-2 text-xs font-medium text-white/70">
+                {pillar.audiences.filter(Boolean).map((audience) => (
+                  <PersonaChip
                     key={`${pillar.id}-${audience}`}
-                    className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[0.7rem] uppercase tracking-[0.25em]"
-                  >
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
-                    {audience}
-                  </li>
+                    label={audience}
+                    tone="accent"
+                    size="sm"
+                    labelClassName="uppercase tracking-[0.25em]"
+                  />
                 ))}
-              </ul>
+              </div>
             ) : null}
 
             <p className="text-sm leading-relaxed text-white/80">{pillar.description}</p>
