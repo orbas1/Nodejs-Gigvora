@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types';
-import { Fragment, useCallback, useMemo } from 'react';
+import { Fragment, useCallback, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Menu, Transition } from '@headlessui/react';
 import { CheckIcon, ChevronUpDownIcon, GlobeAltIcon } from '@heroicons/react/24/outline';
@@ -76,6 +76,55 @@ export default function LanguageSelector({ variant = 'header', className }) {
   const activeLocaleCode = activeLanguage.metadata?.localeCode ?? activeLanguage.localeCode;
   const activeDirection = activeLanguage.direction === 'rtl' ? 'Right-to-left layout ready' : 'Left-to-right layout';
   const localisationRequestPath = activeLanguage.metadata?.requestPath ?? '/support/localization';
+  const activePlaybooks = Array.isArray(activeLanguage.metadata?.playbooks)
+    ? activeLanguage.metadata.playbooks
+    : [];
+  const activeSupportChannel = activeLanguage.metadata?.supportChannel;
+
+  const syncDocumentMetadata = useCallback((option) => {
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    const root = document.documentElement;
+    if (!root) {
+      return;
+    }
+
+    const nextDirection = option?.direction;
+    if (nextDirection) {
+      root.dataset.languageDirection = nextDirection;
+    } else {
+      delete root.dataset.languageDirection;
+    }
+
+    const nextLocaleCode = option?.metadata?.localeCode ?? option?.localeCode;
+    if (nextLocaleCode) {
+      root.dataset.localeCode = nextLocaleCode;
+    } else {
+      delete root.dataset.localeCode;
+    }
+
+    if (option?.status) {
+      root.dataset.languageStatus = option.status;
+    } else {
+      delete root.dataset.languageStatus;
+    }
+
+    if (typeof option?.coverage === 'number') {
+      root.dataset.languageCoverage = String(Math.round(option.coverage));
+    } else {
+      delete root.dataset.languageCoverage;
+    }
+
+    if (option?.supportLead) {
+      root.dataset.languageSupport = option.supportLead;
+    } else {
+      delete root.dataset.languageSupport;
+    }
+
+    root.dataset.language = option?.code ?? FALLBACK_LANGUAGE.code;
+  }, []);
 
   const handleChange = useCallback(
     (option) => {
@@ -86,18 +135,11 @@ export default function LanguageSelector({ variant = 'header', className }) {
 
       setLanguage(nextCode);
 
-      if (typeof document !== 'undefined') {
-        if (option?.direction) {
-          document.documentElement.dataset.languageDirection = option.direction;
-        } else if (document.documentElement.dataset.languageDirection) {
-          delete document.documentElement.dataset.languageDirection;
-        }
+      syncDocumentMetadata(option);
 
-        if (option?.metadata?.localeCode) {
-          document.documentElement.dataset.localeCode = option.metadata.localeCode;
-        } else if (document.documentElement.dataset.localeCode) {
-          delete document.documentElement.dataset.localeCode;
-        }
+      if (typeof document !== 'undefined') {
+        document.documentElement.lang = nextCode;
+        document.documentElement.dir = option?.direction ?? document.documentElement.dir;
       }
 
       if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
@@ -108,13 +150,44 @@ export default function LanguageSelector({ variant = 'header', className }) {
               localeCode: option?.metadata?.localeCode ?? null,
               status: option?.status ?? null,
               coverage: option?.coverage ?? null,
+              supportLead: option?.supportLead ?? null,
             },
           }),
         );
       }
+
+      if (typeof window !== 'undefined') {
+        try {
+          const payload = {
+            event: 'gigvora_language_change',
+            language: nextCode,
+            localeCode: option?.metadata?.localeCode ?? null,
+            status: option?.status ?? null,
+            coverage: option?.coverage ?? null,
+          };
+          if (Array.isArray(window.dataLayer)) {
+            window.dataLayer.push(payload);
+          }
+          if (window.analytics && typeof window.analytics.track === 'function') {
+            window.analytics.track('language_changed', payload);
+          }
+          if (window.sessionStorage) {
+            window.sessionStorage.setItem('gigvora:last-language-change', JSON.stringify({
+              ...payload,
+              occurredAt: new Date().toISOString(),
+            }));
+          }
+        } catch (error) {
+          console.warn('Unable to persist language analytics payload', error);
+        }
+      }
     },
-    [language, setLanguage],
+    [language, setLanguage, syncDocumentMetadata],
   );
+
+  useEffect(() => {
+    syncDocumentMetadata(activeLanguage);
+  }, [activeLanguage, syncDocumentMetadata]);
 
   return (
     <Menu as="div" className={classNames('relative', variant === 'mobile' ? 'w-full' : '', className)}>
@@ -172,6 +245,19 @@ export default function LanguageSelector({ variant = 'header', className }) {
                   {activeLanguage.supportLead ? (
                     <p className="text-[0.65rem] text-slate-400/80">Led by {activeLanguage.supportLead}</p>
                   ) : null}
+                  {activeSupportChannel ? (
+                    <p className="text-[0.65rem] text-slate-400/80">Concierge: {activeSupportChannel}</p>
+                  ) : null}
+                  {activePlaybooks.length ? (
+                    <ul className="mt-2 space-y-1 text-[0.65rem] text-slate-400">
+                      {activePlaybooks.map((entry) => (
+                        <li key={entry} className="flex items-center gap-2">
+                          <span className="inline-flex h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
+                          <span>{entry}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </div>
               </div>
               <span
@@ -200,6 +286,13 @@ export default function LanguageSelector({ variant = 'header', className }) {
                         ? 'bg-accentSoft/60 text-accent'
                         : 'text-slate-600 hover:bg-slate-100',
                     )}
+                    data-language-code={option.code}
+                    data-language-status={option.status}
+                    data-language-coverage={
+                      typeof option.coverage === 'number' ? Math.round(option.coverage) : undefined
+                    }
+                    data-locale-code={option.metadata?.localeCode ?? option.localeCode ?? undefined}
+                    aria-current={option.code === language ? 'true' : undefined}
                   >
                     <div className="flex flex-1 items-start gap-3">
                       <span className="mt-1 text-base" aria-hidden="true">
@@ -219,6 +312,9 @@ export default function LanguageSelector({ variant = 'header', className }) {
                         </span>
                         {option.supportLead ? (
                           <span className="text-[0.65rem] text-slate-400">{option.supportLead}</span>
+                        ) : null}
+                        {option.metadata?.supportChannel ? (
+                          <span className="text-[0.65rem] text-slate-400">{option.metadata.supportChannel}</span>
                         ) : null}
                         <div className="mt-2 flex items-center gap-2">
                           <div className="h-1.5 flex-1 rounded-full bg-slate-100">

@@ -99,6 +99,7 @@ export default function DataStatus({
   helpLink,
   helpLabel = 'Open support centre',
   children,
+  timeline,
 }) {
   const resolvedLastUpdated = resolveDate(lastUpdated);
   const label = fromCache ? 'Offline snapshot' : statusLabel;
@@ -121,6 +122,7 @@ export default function DataStatus({
       helpLink,
   );
   const statusAriaLive = ['error', 'degraded', 'maintenance'].includes(resolvedState) ? 'assertive' : 'polite';
+  const timelineItems = Array.isArray(timeline) ? timeline : [];
 
   return (
     <div className="space-y-4" data-state={resolvedState}>
@@ -215,6 +217,37 @@ export default function DataStatus({
           {footnote ? <p className="text-[0.65rem] uppercase tracking-[0.3em] text-slate-400">{footnote}</p> : null}
         </div>
       ) : null}
+      {timelineItems.length ? (
+        <div className="space-y-3">
+          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-slate-400">Recent updates</p>
+          <ol className="space-y-3">
+            {timelineItems.map((item) => {
+              const timestamp = resolveDate(item.timestamp ?? item.occurredAt ?? item.resolvedAt);
+              return (
+                <li
+                  key={item.id ?? item.label}
+                  className="space-y-2 rounded-3xl border border-slate-200/80 bg-white/80 p-4 shadow-sm"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-slate-900">{item.label}</p>
+                    {item.status ? (
+                      <span className="inline-flex rounded-full border border-slate-200 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.3em] text-slate-500">
+                        {item.status}
+                      </span>
+                    ) : null}
+                  </div>
+                  {item.description ? <p className="text-xs text-slate-500">{item.description}</p> : null}
+                  {timestamp ? (
+                    <p title={formatAbsolute(timestamp)} className="text-[0.65rem] uppercase tracking-[0.3em] text-slate-400">
+                      Updated {formatRelativeTime(timestamp)}
+                    </p>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      ) : null}
       {children ? <div className="space-y-6">{children}</div> : null}
     </div>
   );
@@ -229,7 +262,7 @@ DataStatus.propTypes = {
     message: PropTypes.string,
   }),
   statusLabel: PropTypes.string,
-    state: PropTypes.oneOf(['loading', 'ready', 'success', 'degraded', 'maintenance', 'error', 'empty']),
+  state: PropTypes.oneOf(['loading', 'ready', 'success', 'degraded', 'maintenance', 'error', 'empty']),
   title: PropTypes.string,
   description: PropTypes.string,
   empty: PropTypes.bool,
@@ -248,4 +281,15 @@ DataStatus.propTypes = {
   helpLink: PropTypes.string,
   helpLabel: PropTypes.string,
   children: PropTypes.node,
+  timeline: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string,
+      label: PropTypes.string.isRequired,
+      timestamp: PropTypes.oneOfType([PropTypes.instanceOf(Date), PropTypes.string, PropTypes.number]),
+      occurredAt: PropTypes.oneOfType([PropTypes.instanceOf(Date), PropTypes.string, PropTypes.number]),
+      resolvedAt: PropTypes.oneOfType([PropTypes.instanceOf(Date), PropTypes.string, PropTypes.number]),
+      status: PropTypes.string,
+      description: PropTypes.string,
+    }),
+  ),
 };
