@@ -54,6 +54,7 @@ function sanitisePersonaOutput(persona) {
     signatureMoments: Array.isArray(persona.signatureMoments) ? persona.signatureMoments : [],
     recommendedModules: Array.isArray(persona.recommendedModules) ? persona.recommendedModules : [],
     heroMedia: persona.heroMedia ?? {},
+    metadata: persona.metadata ?? {},
   };
 }
 
@@ -173,7 +174,9 @@ function buildJourneyPayload({ persona, userId, profile, preferences, invites })
         metrics: persona.metrics,
         signatureMoments: persona.signatureMoments,
         recommendedModules: persona.recommendedModules,
+        heroMedia: persona.heroMedia,
       },
+      personaMetadata: persona.metadata,
     },
   };
 }
@@ -188,6 +191,8 @@ function sanitiseJourneyOutput(journey, persona, invites, preferences, profile) 
       subtitle: persona.subtitle,
       headline: persona.headline,
       recommendedModules: Array.isArray(persona.recommendedModules) ? persona.recommendedModules : [],
+      heroMedia: persona.heroMedia ?? {},
+      metadata: persona.metadata ?? {},
     },
     profile,
     preferences: {

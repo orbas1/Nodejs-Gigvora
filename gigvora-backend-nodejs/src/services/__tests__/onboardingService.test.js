@@ -83,6 +83,7 @@ describe('onboardingService', () => {
         signatureMoments: ['Board prep'],
         recommendedModules: ['governance'],
         heroMedia: { poster: 'advisor.jpg' },
+        metadata: { primaryCta: 'Coach founders' },
       },
       {
         slug: 'founder',
@@ -94,6 +95,7 @@ describe('onboardingService', () => {
         signatureMoments: null,
         recommendedModules: null,
         heroMedia: null,
+        metadata: null,
       },
     ]);
 
@@ -118,6 +120,7 @@ describe('onboardingService', () => {
         signatureMoments: ['Board prep'],
         recommendedModules: ['governance'],
         heroMedia: { poster: 'advisor.jpg' },
+        metadata: { primaryCta: 'Coach founders' },
       },
       {
         id: 'founder',
@@ -129,6 +132,7 @@ describe('onboardingService', () => {
         signatureMoments: [],
         recommendedModules: [],
         heroMedia: {},
+        metadata: {},
       },
     ]);
   });
@@ -161,6 +165,8 @@ describe('onboardingService', () => {
       metrics: ['NPS 74'],
       signatureMoments: ['Investor briefings'],
       recommendedModules: ['fundraising'],
+      heroMedia: { poster: 'founder.jpg', alt: 'Founder' },
+      metadata: { primaryCta: 'Launch brand' },
     });
 
     journeyModel.create.mockImplementation(async (payload) => ({
@@ -216,6 +222,7 @@ describe('onboardingService', () => {
         personaId: 91,
         personaKey: 'founder',
         personaTitle: 'Founder',
+        userId: 402,
         invitedCount: 2,
         profileCompanyName: 'Gigvora Labs',
         profileRole: 'Founder',
@@ -227,7 +234,9 @@ describe('onboardingService', () => {
           personaSnapshot: expect.objectContaining({
             subtitle: 'Build unstoppable companies',
             signatureMoments: ['Investor briefings'],
+            heroMedia: { poster: 'founder.jpg', alt: 'Founder' },
           }),
+          personaMetadata: { primaryCta: 'Launch brand' },
         }),
       }),
       expect.objectContaining({ transaction: transactionContext }),
@@ -250,6 +259,8 @@ describe('onboardingService', () => {
         subtitle: 'Build unstoppable companies',
         headline: 'Scale faster',
         recommendedModules: ['fundraising'],
+        heroMedia: { poster: 'founder.jpg', alt: 'Founder' },
+        metadata: { primaryCta: 'Launch brand' },
       },
       profile: {
         companyName: 'Gigvora Labs',
@@ -297,6 +308,44 @@ describe('onboardingService', () => {
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 
+  it('requires an authenticated actor id', async () => {
+    await expect(
+      startJourney({
+        actor: null,
+        payload: {
+          personaKey: 'advisor',
+          profile: { companyName: 'Org', role: 'Ops', timezone: 'UTC' },
+          invites: [{ email: 'ally@example.com' }],
+        },
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it('validates that at least one collaborator invite is provided', async () => {
+    personaModel.findOne.mockResolvedValue({
+      id: 1,
+      slug: 'advisor',
+      title: 'Advisor',
+      subtitle: 'Guide',
+      headline: 'Lead',
+      benefits: [],
+      metrics: [],
+      signatureMoments: [],
+      recommendedModules: [],
+    });
+
+    await expect(
+      startJourney({
+        actor: { id: 7 },
+        payload: {
+          personaKey: 'advisor',
+          profile: { companyName: 'Org', role: 'Ops', timezone: 'UTC' },
+          invites: [],
+        },
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
   it('validates invite email addresses', async () => {
     personaModel.findOne.mockResolvedValue({
       id: 5,
@@ -320,5 +369,97 @@ describe('onboardingService', () => {
         },
       }),
     ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it('normalises profiles, preferences, and invite payloads to production defaults', async () => {
+    const fixedNow = new Date('2025-02-10T12:13:14.000Z');
+    jest.useFakeTimers().setSystemTime(fixedNow);
+
+    personaModel.findOne.mockResolvedValue({
+      id: 77,
+      slug: 'advisor',
+      title: 'Advisor',
+      subtitle: 'Guide',
+      headline: 'Lead',
+      benefits: ['Support'],
+      metrics: ['NPS 70'],
+      signatureMoments: ['Kickoff'],
+      recommendedModules: ['governance'],
+      heroMedia: { poster: 'advisor.jpg', alt: 'Advisor hero' },
+      metadata: { primaryCta: 'Begin mentoring' },
+    });
+
+    journeyModel.create.mockImplementation(async (payload) => ({ ...payload, id: 'journey-999', launchedAt: fixedNow }));
+    inviteModel.bulkCreate.mockImplementation(async (records) =>
+      records.map((record) => ({ ...record, id: `invite-${record.email}`, invitedAt: fixedNow })),
+    );
+
+    const result = await startJourney({
+      actor: { id: 55 },
+      payload: {
+        personaKey: 'advisor',
+        profile: {
+          companyName: '  Advisor Guild  ',
+          role: '  Principal  ',
+          timezone: '  Europe/London  ',
+        },
+        preferences: {
+          digestCadence: null,
+          updates: undefined,
+          enableAiDrafts: undefined,
+          focusSignals: [null, 'Executive'],
+          storyThemes: [' Growth  ', 'Growth'],
+        },
+        invites: [
+          { email: 'mentor@example.com ', role: ' Mentor ' },
+          { email: 'Mentor@example.com' },
+        ],
+      },
+    });
+
+    expect(journeyModel.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        personaId: 77,
+        userId: 55,
+        profileCompanyName: 'Advisor Guild',
+        profileRole: 'Principal',
+        profileTimezone: 'Europe/London',
+        preferencesDigestCadence: 'weekly',
+        preferencesUpdatesEnabled: true,
+        preferencesEnableAiDrafts: true,
+        preferencesFocusSignals: ['Executive'],
+        preferencesStoryThemes: ['Growth'],
+        invitedCount: 1,
+        metadata: expect.objectContaining({
+          personaSnapshot: expect.objectContaining({ heroMedia: { poster: 'advisor.jpg', alt: 'Advisor hero' } }),
+          personaMetadata: { primaryCta: 'Begin mentoring' },
+        }),
+      }),
+      expect.any(Object),
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        profile: expect.objectContaining({
+          companyName: 'Advisor Guild',
+          role: 'Principal',
+          timezone: 'Europe/London',
+        }),
+        preferences: expect.objectContaining({
+          digestCadence: 'weekly',
+          updates: true,
+          enableAiDrafts: true,
+          focusSignals: ['Executive'],
+          storyThemes: ['Growth'],
+        }),
+        invites: [expect.objectContaining({ email: 'mentor@example.com', role: 'Mentor' })],
+        invitedCount: 1,
+        launchedAt: fixedNow.toISOString(),
+        persona: expect.objectContaining({
+          heroMedia: { poster: 'advisor.jpg', alt: 'Advisor hero' },
+          metadata: { primaryCta: 'Begin mentoring' },
+        }),
+      }),
+    );
   });
 });
