@@ -3,6 +3,10 @@ import PropTypes from 'prop-types';
 import clsx from 'clsx';
 import { ArrowUpRightIcon, PlayIcon } from '@heroicons/react/24/outline';
 import analytics from '../../services/analytics.js';
+import ButtonSuite from '../common/ButtonSuite.jsx';
+import BrandBadge from '../ui/BrandBadge.jsx';
+import PersonaChip from '../ui/PersonaChip.jsx';
+import InsightStatBlock from '../ui/InsightStatBlock.jsx';
 import { ValuePillars } from './ValuePillars.jsx';
 
 const DEFAULT_GRADIENT = {
@@ -341,95 +345,49 @@ export function PublicHero({
       return null;
     }
 
-    const content = (
-      <span className="inline-flex items-center gap-2">
-        <span>{action.label}</span>
-        {(action.icon ?? defaultIcon) ? (
-          (action.icon ?? defaultIcon)({ className: 'h-5 w-5', 'aria-hidden': true })
-        ) : null}
-      </span>
-    );
+    const iconRenderer = action.icon ?? defaultIcon;
+    const iconNode = iconRenderer
+      ? iconRenderer({ className: 'h-5 w-5', 'aria-hidden': true })
+      : null;
+
+    const variantKey = variant === 'primary' ? 'primary' : 'frosted';
+    const sharedProps = {
+      key: action.id ?? action.label,
+      variant: variantKey,
+      size: 'lg',
+      trailingIcon: iconNode,
+      className: 'w-full sm:w-auto',
+    };
+
+    const handleClick = (event) => {
+      if (action.onClick) {
+        event?.preventDefault();
+      }
+      handleAction(action, variant);
+    };
 
     if (action.href) {
       return (
-        <a
-          key={action.id ?? action.label}
-          href={action.href}
-          onClick={(event) => {
-            if (action.onClick) {
-              event.preventDefault();
-              handleAction(action, variant);
-            } else {
-              analytics.track(
-                analyticsMetadata.ctaEventName ?? 'marketing_hero_cta',
-                {
-                  heroId: componentId,
-                  action: action.id ?? variant,
-                  label: action.label,
-                },
-                { source: analyticsMetadata.source ?? 'web_marketing_site' },
-              );
-            }
-          }}
-          className={clsx(
-            'inline-flex w-full items-center justify-center gap-2 rounded-full px-8 py-3 text-base font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900',
-            variant === 'primary'
-              ? 'bg-accent text-white shadow-soft hover:-translate-y-0.5 hover:bg-accentDark focus-visible:ring-accent'
-              : 'border border-white/30 bg-white/5 text-white hover:border-white/60 hover:bg-white/10 focus-visible:ring-white/80',
-          )}
-        >
-          {content}
-        </a>
+        <ButtonSuite as="a" href={action.href} onClick={handleClick} {...sharedProps}>
+          {action.label}
+        </ButtonSuite>
       );
     }
 
     if (action.to) {
       return (
-        <a
-          key={action.id ?? action.label}
-          href={action.to}
-          onClick={(event) => {
-            event.preventDefault();
-            handleAction(action, variant);
-          }}
-          className={clsx(
-            'inline-flex w-full items-center justify-center gap-2 rounded-full px-8 py-3 text-base font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900',
-            variant === 'primary'
-              ? 'bg-accent text-white shadow-soft hover:-translate-y-0.5 hover:bg-accentDark focus-visible:ring-accent'
-              : 'border border-white/30 bg-white/5 text-white hover:border-white/60 hover:bg-white/10 focus-visible:ring-white/80',
-          )}
-        >
-          {content}
-        </a>
+        <ButtonSuite as="a" href={action.to} onClick={handleClick} {...sharedProps}>
+          {action.label}
+        </ButtonSuite>
       );
     }
 
     return (
-      <button
-        key={action.id ?? action.label}
-        type="button"
-        onClick={() => handleAction(action, variant)}
-        className={clsx(
-          'inline-flex w-full items-center justify-center gap-2 rounded-full px-8 py-3 text-base font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900',
-          variant === 'primary'
-            ? 'bg-accent text-white shadow-soft hover:-translate-y-0.5 hover:bg-accentDark focus-visible:ring-accent'
-            : 'border border-white/30 bg-white/5 text-white hover:border-white/60 hover:bg-white/10 focus-visible:ring-white/80',
-        )}
-      >
-        {content}
-      </button>
+      <ButtonSuite type="button" onClick={handleClick} {...sharedProps}>
+        {action.label}
+      </ButtonSuite>
     );
   };
-
-  const renderPersonaChip = (chip) => (
-    <span
-      key={chip.id}
-      className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-white/80 shadow-[0_10px_30px_rgba(15,23,42,0.35)]"
-    >
-      <span className="inline-block h-2 w-2 rounded-full bg-accent" aria-hidden="true" />
-      {chip.label}
-    </span>
-  );
 
   return (
     <section className={gradient.background}>
@@ -442,9 +400,9 @@ export function PublicHero({
       <div className="relative mx-auto flex max-w-7xl flex-col gap-16 px-4 py-16 sm:px-6 lg:flex-row lg:items-center lg:gap-20 lg:py-24">
         <div className="mx-auto max-w-2xl space-y-10 text-center lg:mx-0 lg:max-w-xl lg:text-left">
           <div className="space-y-6">
-            <span className="mx-auto inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1 text-xs font-semibold uppercase tracking-[0.35em] text-accent lg:mx-0">
+            <BrandBadge tone="accent" className="mx-auto lg:mx-0">
               {eyebrow}
-            </span>
+            </BrandBadge>
 
             <h1 className="text-balance text-3xl font-semibold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl">
               {showCopySkeleton ? (
@@ -469,7 +427,9 @@ export function PublicHero({
 
           {personaHighlights.length ? (
             <div className="flex flex-wrap justify-center gap-3 lg:justify-start">
-              {personaHighlights.map((chip) => renderPersonaChip(chip))}
+              {personaHighlights.map((chip) => (
+                <PersonaChip key={chip.id} label={chip.label} tone="accent" size="md" />
+              ))}
             </div>
           ) : null}
 
@@ -506,20 +466,13 @@ export function PublicHero({
           {showStats ? (
             <dl className="grid gap-4 pt-6 text-left sm:grid-cols-2 lg:grid-cols-3">
               {resolvedStats.map((stat) => (
-                <div
+                <InsightStatBlock
                   key={stat.id}
-                  className="rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-left shadow-[0_20px_60px_rgba(15,23,42,0.35)]"
-                >
-                  <dt className="text-xs font-semibold uppercase tracking-[0.28em] text-accent/90">
-                    {stat.label}
-                  </dt>
-                  {stat.value ? (
-                    <dd className="mt-2 text-lg font-semibold text-white">{stat.value}</dd>
-                  ) : null}
-                  {stat.helper ? (
-                    <p className="mt-1 text-xs text-white/70">{stat.helper}</p>
-                  ) : null}
-                </div>
+                  tone="accent"
+                  label={stat.label}
+                  value={stat.value}
+                  helper={stat.helper}
+                />
               ))}
             </dl>
           ) : null}
