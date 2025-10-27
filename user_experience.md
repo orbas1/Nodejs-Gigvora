@@ -487,6 +487,14 @@
    - Capture learnings via retrospectives for subsequent iterations.
    - Analytics gates, staged cohorts, and enablement materials structure the phased launch.
 
+8.B. Disputes & Trust
+- Trust posture banner now anchors the dispute workspace with a 0–100 score, resolution rate, first-response telemetry, and auto-escalation cadence so finance leads grasp marketplace health instantly.【F:gigvora-frontend-reactjs/src/components/disputes/workspace/DisputeTrustInsights.jsx†L1-L167】【F:gigvora-frontend-reactjs/src/components/disputes/workspace/DisputeWorkspace.jsx†L15-L117】
+  - Upcoming deadline rail surfaces due windows with absolute and relative timers alongside next SLA review metadata to protect service agreements.【F:gigvora-frontend-reactjs/src/components/disputes/workspace/DisputeTrustInsights.jsx†L88-L126】
+  - Risk watchlist distills flagged cases, severity badges, owners, and financial exposure so concierge teams triage threats before confidence slips.【F:gigvora-frontend-reactjs/src/components/disputes/workspace/DisputeTrustInsights.jsx†L126-L163】
+- Dispute metrics grid now highlights trust score, SLA breaches, and waiting-on-you counts with tone-coded cards to spotlight risk versus momentum at a glance.【F:gigvora-frontend-reactjs/src/components/disputes/workspace/DisputeMetrics.jsx†L1-L68】
+- Workspace case list adds trust score capsules, risk level badges, confidence recaps, and last-touch telemetry directly in each disclosure, mirroring premium dispute desks from LinkedIn-class suites.【F:gigvora-frontend-reactjs/src/components/disputes/workspace/DisputeCaseList.jsx†L18-L162】
+- Detail drawer introduces a dedicated Trust & escalation panel covering confidence score guidance, risk severity, SLA breaches, exposure, next actions, and escalation timestamps so specialists align on the next move without leaving the case view.【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDetailDrawer.jsx†L1-L392】
+- These trust surfaces deliver the UX mandate for concierge-grade dispute flows that rival leading social marketplaces by coupling analytics, storytelling, and action rails in one cohesive board.【F:gigvora-frontend-reactjs/src/components/disputes/workspace/DisputeWorkspace.jsx†L100-L171】【F:gigvora-frontend-reactjs/src/components/disputes/workspace/DisputeTrustInsights.jsx†L1-L167】
 9.A. Profile Hub & Editing
 1. **Appraisal.** Profile hub workspace now opens with a premium health dashboard that mirrors the polish of consumer social networks while grounding members in their profile momentum and campaign storytelling.【F:gigvora-frontend-reactjs/src/components/profileHub/workspace/ProfileHubWorkspace.jsx†L630-L716】
    - *Profile completeness.* Capsule headers, readiness badges, and progress bars spotlight headline, mission, bio, and link coverage so members instantly see how showcase-ready their profile is.【F:gigvora-frontend-reactjs/src/components/profileHub/workspace/ProfileHubWorkspace.jsx†L632-L649】
