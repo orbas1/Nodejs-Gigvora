@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import DisputeDetailDrawer from '../DisputeDetailDrawer.jsx';
 
@@ -16,6 +16,18 @@ const baseDispute = {
 };
 
 describe('DisputeDetailDrawer', () => {
+  beforeEach(() => {
+    vi.useRealTimers();
+  });
+
+  afterEach(() => {
+    try {
+      vi.useRealTimers();
+    } catch (error) {
+      // timers already restored
+    }
+  });
+
   it('supports template application and update submission in drawer variant', async () => {
     const user = userEvent.setup();
     const onUpdate = vi.fn().mockResolvedValue();
@@ -138,5 +150,43 @@ describe('DisputeDetailDrawer', () => {
     expect(eventPayload.notes).toBe('Customer uploaded supporting documents.');
     expect(eventPayload.stage).toBe('investigation');
     expect(eventPayload.status).toBe('pending_review');
+  });
+
+  it('renders trust and escalation insights when trust metadata is available', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2024-05-05T12:00:00Z'));
+
+    render(
+      <DisputeDetailDrawer
+        dispute={{
+          ...baseDispute,
+          trust: {
+            score: 68,
+            riskLevel: 'high',
+            slaBreaches: 3,
+            exposureAmount: 8800,
+            exposureCurrency: 'USD',
+            owner: 'Amina',
+            nextAction: 'Prepare escalation brief for compliance.',
+            lastInteractionAt: '2024-05-05T10:00:00Z',
+            autoEscalatedAt: '2024-05-04T15:00:00Z',
+          },
+        }}
+        open
+        variant="inline"
+      />,
+    );
+
+    const trustSection = screen.getByText(/Trust & escalation/i).closest('section');
+    expect(trustSection).toBeInTheDocument();
+    const scoped = within(trustSection);
+    expect(scoped.getByText(/Confidence score/i)).toBeInTheDocument();
+    expect(scoped.getByText(/68\/100/i)).toBeInTheDocument();
+    expect(scoped.getByText(/3 SLA breaches tracked/i)).toBeInTheDocument();
+    expect(scoped.getByText(/Financial exposure/i)).toHaveTextContent(/8,800/);
+    expect(scoped.getByText(/Specialist Amina/i)).toBeInTheDocument();
+    expect(scoped.getAllByText(/Next action/i)[0]).toBeInTheDocument();
+    expect(scoped.getAllByText(/Last touch/i)[0]).toBeInTheDocument();
+    expect(scoped.getAllByText(/Escalation/i)[0]).toBeInTheDocument();
   });
 });

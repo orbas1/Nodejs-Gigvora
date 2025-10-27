@@ -5,7 +5,11 @@ import {
   ArrowTopRightOnSquareIcon,
   DocumentArrowDownIcon,
   PaperClipIcon,
+  ShieldCheckIcon,
+  ExclamationTriangleIcon,
+  ClockIcon,
 } from '@heroicons/react/24/outline';
+import { formatRelativeTime } from '../../utils/date.js';
 import { readFileAsBase64 } from '../../utils/file.js';
 
 const DEFAULT_STAGE_OPTIONS = ['intake', 'mediation', 'arbitration', 'resolved'];
@@ -28,6 +32,21 @@ function humanize(value) {
     return '';
   }
   return value.replace(/_/g, ' ');
+}
+
+function formatCurrency(amount, currency = 'USD') {
+  if (typeof amount !== 'number' || Number.isNaN(amount)) {
+    return null;
+  }
+  try {
+    return new Intl.NumberFormat('en-GB', {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch (error) {
+    return `${amount.toLocaleString()} ${currency}`.trim();
+  }
 }
 
 export default function DisputeDetailDrawer({
@@ -199,6 +218,39 @@ export default function DisputeDetailDrawer({
 
   const events = dispute?.events ?? [];
   const transaction = dispute?.transaction ?? {};
+  const trust = dispute?.trust ?? {};
+  const trustScore = typeof trust.score === 'number' ? Math.round(trust.score) : null;
+  const riskLevel = trust.riskLevel ?? null;
+  const trustDescriptor = (() => {
+    if (trustScore == null) {
+      return 'Confidence calibrating—log proactive updates to unlock trust insights.';
+    }
+    if (trustScore >= 85) {
+      return 'Concierge updates are landing—keep sharing receipts and next steps.';
+    }
+    if (trustScore >= 70) {
+      return 'Confidence is steady; maintain cadence on promised follow-ups.';
+    }
+    return 'Confidence is fragile. Pair every update with evidence and customer outreach.';
+  })();
+  const riskBadgeTone = {
+    low: 'bg-emerald-100 text-emerald-700',
+    medium: 'bg-amber-100 text-amber-700',
+    high: 'bg-rose-100 text-rose-700',
+    critical: 'bg-rose-200 text-rose-900',
+  };
+  const exposureAmount =
+    typeof trust.exposureAmount === 'number' ? trust.exposureAmount : trust.exposure?.amount ?? trust.openExposure?.amount;
+  const exposureCurrency = trust.exposureCurrency ?? trust.exposure?.currency ?? trust.openExposure?.currency ?? 'USD';
+  const exposureValue = formatCurrency(exposureAmount, exposureCurrency);
+  const hasTrustInsight =
+    trustScore != null ||
+    riskLevel ||
+    typeof trust.slaBreaches === 'number' ||
+    exposureValue ||
+    trust.nextAction ||
+    trust.lastInteractionAt ||
+    trust.autoEscalatedAt;
 
   if (!shouldRender) {
     return null;
@@ -273,6 +325,72 @@ export default function DisputeDetailDrawer({
               </div>
             </div>
           </section>
+
+          {hasTrustInsight ? (
+            <section className="rounded-2xl border border-blue-200/60 bg-blue-50/60 p-5 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h4 className="text-sm font-semibold uppercase tracking-wide text-blue-600">Trust & escalation</h4>
+                {riskLevel ? (
+                  <span
+                    className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+                      riskBadgeTone[riskLevel] ?? 'bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    <ExclamationTriangleIcon className="h-4 w-4" aria-hidden="true" />
+                    {humanize(String(riskLevel))} risk
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                    <ShieldCheckIcon className="h-4 w-4" aria-hidden="true" />
+                    Stable
+                  </span>
+                )}
+              </div>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-blue-500">Confidence score</p>
+                  <p className="mt-2 text-3xl font-semibold text-slate-900">
+                    {trustScore != null ? `${trustScore}/100` : 'Calibrating'}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600">{trustDescriptor}</p>
+                </div>
+                <div className="space-y-2 text-sm text-slate-600">
+                  {typeof trust.slaBreaches === 'number' ? (
+                    <p>
+                      {trust.slaBreaches} SLA {trust.slaBreaches === 1 ? 'breach' : 'breaches'} tracked on this case.
+                    </p>
+                  ) : null}
+                  {exposureValue ? <p>Financial exposure {exposureValue}.</p> : null}
+                  {trust.owner ? <p>Specialist {trust.owner} owns the next action.</p> : null}
+                </div>
+              </div>
+              <div className="mt-4 grid gap-3 text-sm text-slate-600 sm:grid-cols-2">
+                {trust.nextAction ? (
+                  <div className="rounded-2xl bg-white/70 p-3 shadow-inner">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-blue-500">Next action</p>
+                    <p className="mt-1 text-slate-700">{trust.nextAction}</p>
+                  </div>
+                ) : null}
+                {trust.lastInteractionAt ? (
+                  <div className="rounded-2xl bg-white/70 p-3 shadow-inner">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-blue-500">Last touch</p>
+                    <p className="mt-1 flex items-center gap-2 text-slate-700">
+                      <ClockIcon className="h-4 w-4" aria-hidden="true" />
+                      {formatRelativeTime(trust.lastInteractionAt)}
+                    </p>
+                  </div>
+                ) : null}
+                {trust.autoEscalatedAt ? (
+                  <div className="rounded-2xl bg-white/70 p-3 shadow-inner">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-blue-500">Escalation</p>
+                    <p className="mt-1 text-slate-700">
+                      Auto-escalated {formatRelativeTime(trust.autoEscalatedAt)}.
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            </section>
+          ) : null}
 
           {canUpdate ? (
             <section className="rounded-2xl border border-slate-200 bg-white p-5">
