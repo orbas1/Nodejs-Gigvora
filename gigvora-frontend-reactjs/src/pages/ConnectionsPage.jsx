@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import ConnectionsGrid from '../components/connections/ConnectionsGrid.jsx';
@@ -10,7 +11,23 @@ import useEngagementSignals from '../hooks/useEngagementSignals.js';
 import useConnectionNetwork from '../hooks/useConnectionNetwork.js';
 import { createConnectionRequest, respondToConnection, withdrawConnection } from '../services/connections.js';
 
-export { default as ConnectionCard } from '../components/connections/ConnectionProfileCard.jsx';
+export function ConnectionCard({ node, ...props }) {
+  if (!node) {
+    return null;
+  }
+  return <ConnectionProfileCard connection={node} {...props} />;
+}
+
+ConnectionCard.propTypes = {
+  node: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    name: PropTypes.string.isRequired,
+    actions: PropTypes.shape({
+      canRequestConnection: PropTypes.bool,
+      reason: PropTypes.string,
+    }),
+  }).isRequired,
+};
 
 const DEFAULT_FILTERS = { focusAreas: [], locations: [], availability: [] };
 

@@ -516,7 +516,7 @@ export default function HomePage() {
       announcement={marketingAnnouncement}
       metrics={communityStats}
       trustBadges={marketingTrustBadges}
-      personaSwitcher=
+      personaSwitcher={
         marketingPersonas.length
           ? {
               personas: marketingPersonas,
@@ -524,6 +524,7 @@ export default function HomePage() {
               onSelect: handleMarketingPersonaSwitch,
             }
           : null
+      }
       insight="Switch personas to tailor recommended modules, metrics, and case studies across the funnel."
       analyticsMetadata={{ source: 'web_marketing_site' }}
     >
