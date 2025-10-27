@@ -1,7 +1,7 @@
-import { Fragment, useCallback, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
-import { Menu, Transition } from '@headlessui/react';
+import { Dialog, Menu, Popover, Transition } from '@headlessui/react';
 import {
   ArrowTrendingUpIcon,
   Bars3Icon,
@@ -9,6 +9,7 @@ import {
   MagnifyingGlassIcon,
   SignalIcon,
   SparklesIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 
 import MobileNavigation from './MobileNavigation.jsx';
@@ -292,51 +293,118 @@ InboxPreview.defaultProps = {
   status: 'idle',
 };
 
-function NetworkPulse({ insights }) {
-  if (!Array.isArray(insights) || insights.length === 0) {
+function InsightsFlyout({ pulse, trending, onTrendingNavigate }) {
+  const highlightedPulse = useMemo(() => {
+    if (!Array.isArray(pulse) || pulse.length === 0) {
+      return [];
+    }
+    return pulse.slice(0, 3);
+  }, [pulse]);
+
+  const highlightedTrending = useMemo(() => {
+    if (!Array.isArray(trending) || trending.length === 0) {
+      return [];
+    }
+    return trending.slice(0, 4);
+  }, [trending]);
+
+  const hasPulse = highlightedPulse.length > 0;
+  const hasTrending = highlightedTrending.length > 0;
+
+  if (!hasPulse && !hasTrending) {
     return null;
   }
 
   return (
-    <section
-      className="hidden min-w-[14rem] flex-col gap-3 rounded-3xl border border-slate-200/60 bg-white/70 p-4 text-left shadow-lg ring-1 ring-white/60 backdrop-blur xl:flex"
-      aria-label="Workspace pulse"
-    >
-      <header className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-        <span className="inline-flex items-center gap-1 text-slate-500">
-          <SignalIcon className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
-          Live pulse
-        </span>
-        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.3em] text-emerald-600">
-          Updated
-        </span>
-      </header>
-      <dl className="grid grid-cols-1 gap-2 text-slate-600 sm:grid-cols-2 xl:grid-cols-1">
-        {insights.map((insight) => (
-          <div
-            key={insight.id}
-            className="group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white/90 px-3 py-2 shadow-sm transition hover:border-accent/60 hover:shadow-md"
+    <Popover className="relative hidden md:block">
+      {({ open }) => (
+        <>
+          <Popover.Button
+            type="button"
+            className={classNames(
+              'inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
+              open
+                ? 'border-accent/60 bg-white text-accent-strong shadow-sm'
+                : 'border-slate-200 bg-white/90 text-slate-600 hover:border-slate-400/80 hover:text-slate-900',
+            )}
           >
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-accent/0 via-accent/5 to-accent/10 opacity-0 transition group-hover:opacity-100" />
-            <dt className="relative z-10 text-[0.6rem] font-semibold uppercase tracking-[0.28em] text-slate-400">
-              {insight.label}
-            </dt>
-            <dd className="relative z-10 mt-1 text-xl font-semibold text-slate-900">{insight.value}</dd>
-            {insight.delta ? (
-              <p className="relative z-10 mt-1 text-xs font-medium text-emerald-600">{insight.delta}</p>
-            ) : null}
-            {insight.hint ? (
-              <p className="relative z-10 mt-1 text-[0.65rem] text-slate-400">{insight.hint}</p>
-            ) : null}
-          </div>
-        ))}
-      </dl>
-    </section>
+            <SparklesIcon className="h-5 w-5 text-accent" aria-hidden="true" />
+            <span>Insights</span>
+          </Popover.Button>
+          <Transition
+            as={Fragment}
+            enter="transition ease-out duration-150"
+            enterFrom="transform opacity-0 scale-95"
+            enterTo="transform opacity-100 scale-100"
+            leave="transition ease-in duration-100"
+            leaveFrom="transform opacity-100 scale-100"
+            leaveTo="transform opacity-0 scale-95"
+          >
+            <Popover.Panel className="absolute right-0 z-50 mt-3 w-[22rem] origin-top-right rounded-3xl border border-slate-200/70 bg-white/95 p-4 text-sm shadow-xl backdrop-blur focus:outline-none">
+              <div className="space-y-4">
+                {hasTrending ? (
+                  <section aria-label="Trending destinations" className="space-y-2">
+                    <header className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+                      <span className="inline-flex items-center gap-2 text-slate-500">
+                        <ArrowTrendingUpIcon className="h-4 w-4 text-accent" aria-hidden="true" />
+                        Trending now
+                      </span>
+                    </header>
+                    <div className="space-y-2">
+                      {highlightedTrending.map((entry) => (
+                        <Link
+                          key={entry.id}
+                          to={entry.to ?? '#'}
+                          onClick={() => onTrendingNavigate?.(entry)}
+                          className="group flex items-center justify-between rounded-2xl border border-slate-200/80 bg-white px-3 py-2 font-semibold text-slate-700 transition hover:border-accent/60 hover:text-accent-strong"
+                        >
+                          <span className="line-clamp-2 text-left leading-snug">{entry.label}</span>
+                          <ArrowTrendingUpIcon className="h-4 w-4 text-slate-300 group-hover:text-accent" aria-hidden="true" />
+                        </Link>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+                {hasPulse ? (
+                  <section aria-label="Live pulse" className="space-y-2">
+                    <header className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+                      <span className="inline-flex items-center gap-2 text-slate-500">
+                        <SignalIcon className="h-4 w-4 text-emerald-500" aria-hidden="true" />
+                        Live pulse
+                      </span>
+                    </header>
+                    <dl className="grid grid-cols-1 gap-2">
+                      {highlightedPulse.map((metric) => (
+                        <div
+                          key={metric.id}
+                          className="rounded-2xl border border-slate-200/80 bg-white px-3 py-2 shadow-sm transition hover:border-accent/50"
+                        >
+                          <dt className="text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-slate-400">
+                            {metric.label}
+                          </dt>
+                          <dd className="mt-1 text-lg font-semibold text-slate-900">{metric.value}</dd>
+                          {metric.delta ? (
+                            <p className="mt-1 text-xs font-medium text-emerald-600">{metric.delta}</p>
+                          ) : null}
+                          {metric.hint ? (
+                            <p className="mt-1 text-[0.65rem] text-slate-400">{metric.hint}</p>
+                          ) : null}
+                        </div>
+                      ))}
+                    </dl>
+                  </section>
+                ) : null}
+              </div>
+            </Popover.Panel>
+          </Transition>
+        </>
+      )}
+    </Popover>
   );
 }
 
-NetworkPulse.propTypes = {
-  insights: PropTypes.arrayOf(
+InsightsFlyout.propTypes = {
+  pulse: PropTypes.arrayOf(
     PropTypes.shape({
       id: PropTypes.string.isRequired,
       label: PropTypes.string.isRequired,
@@ -345,108 +413,183 @@ NetworkPulse.propTypes = {
       hint: PropTypes.string,
     }),
   ),
-};
-
-NetworkPulse.defaultProps = {
-  insights: [],
-};
-
-export function TrendingRail({ entries, onNavigate }) {
-  const curatedEntries = useMemo(() => {
-    if (!Array.isArray(entries) || !entries.length) {
-      return [];
-    }
-    return entries.slice(0, 5);
-  }, [entries]);
-
-  if (!curatedEntries.length) {
-    return null;
-  }
-
-  const [featured, ...rest] = curatedEntries;
-  const supporting = rest.slice(0, 2);
-  const tertiary = rest.slice(2);
-
-  return (
-    <section
-      className="hidden w-[18rem] flex-col gap-3 rounded-3xl border border-slate-200/70 bg-gradient-to-br from-slate-900 via-slate-900/95 to-slate-900/80 p-4 text-white shadow-xl ring-1 ring-white/10 backdrop-blur xl:flex"
-      aria-label="Trending destinations"
-    >
-      <header className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.3em] text-white/70">
-        <span className="inline-flex items-center gap-2">
-          <ArrowTrendingUpIcon className="h-4 w-4 text-accent" aria-hidden="true" />
-          Trending now
-        </span>
-        <span className="rounded-full border border-white/30 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.3em] text-white/80">
-          Updated
-        </span>
-      </header>
-      {featured ? (
-        <Link
-          to={featured.to ?? '#'}
-          onClick={() => onNavigate?.(featured)}
-          className="group relative overflow-hidden rounded-3xl border border-white/20 bg-white/10 px-4 py-3 text-left shadow-lg transition hover:border-white/50 hover:bg-white/20"
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-accent/40 via-accent/10 to-transparent opacity-90 transition group-hover:opacity-100" aria-hidden="true" />
-          <div className="relative z-10 flex items-center justify-between text-[0.6rem] font-semibold uppercase tracking-[0.3em] text-white/70">
-            <span>{featured.badge ?? 'Spotlight'}</span>
-            <ArrowTrendingUpIcon className="h-4 w-4 text-white/70" aria-hidden="true" />
-          </div>
-          <p className="relative z-10 mt-2 text-sm font-semibold text-white">{featured.label}</p>
-          {featured.description ? (
-            <p className="relative z-10 mt-1 text-xs text-white/80">{featured.description}</p>
-          ) : null}
-        </Link>
-      ) : null}
-      {supporting.length ? (
-        <div className="grid gap-2">
-          {supporting.map((entry) => (
-            <Link
-              key={entry.id}
-              to={entry.to ?? '#'}
-              onClick={() => onNavigate?.(entry)}
-              className="group flex items-center justify-between rounded-2xl border border-white/25 bg-white/5 px-3 py-2 text-sm font-semibold text-white transition hover:border-white/40 hover:bg-white/15"
-            >
-              <span className="line-clamp-2 text-left leading-snug">{entry.label}</span>
-              <ArrowTrendingUpIcon className="h-4 w-4 text-white/60 group-hover:text-white" aria-hidden="true" />
-            </Link>
-          ))}
-        </div>
-      ) : null}
-      {tertiary.length ? (
-        <div className="flex flex-wrap gap-2">
-          {tertiary.map((entry) => (
-            <Link
-              key={entry.id}
-              to={entry.to ?? '#'}
-              onClick={() => onNavigate?.(entry)}
-              className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-white/80 transition hover:border-white/40 hover:text-white"
-            >
-              <span>{entry.label}</span>
-            </Link>
-          ))}
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-TrendingRail.propTypes = {
-  entries: PropTypes.arrayOf(
+  trending: PropTypes.arrayOf(
     PropTypes.shape({
       id: PropTypes.string.isRequired,
       label: PropTypes.string.isRequired,
       description: PropTypes.string,
       to: PropTypes.string,
-      badge: PropTypes.string,
     }),
   ),
-  onNavigate: PropTypes.func,
+  onTrendingNavigate: PropTypes.func,
 };
 
-TrendingRail.defaultProps = {
-  entries: [],
-  onNavigate: undefined,
+InsightsFlyout.defaultProps = {
+  pulse: [],
+  trending: [],
+  onTrendingNavigate: undefined,
+};
+
+function MobileSearchDialog({
+  open,
+  onClose,
+  marketingSearch,
+  trending,
+  onSubmit,
+  onTrendingNavigate,
+}) {
+  const [value, setValue] = useState('');
+
+  useEffect(() => {
+    if (open) {
+      setValue('');
+    }
+  }, [open]);
+
+  if (!marketingSearch) {
+    return null;
+  }
+
+  const placeholder = marketingSearch.placeholder ?? 'Search the network';
+  const ariaLabel = marketingSearch.ariaLabel ?? 'Search the network';
+  const trendingEntries = Array.isArray(trending) ? trending.slice(0, 6) : [];
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    if (!value.trim()) {
+      return;
+    }
+    onSubmit?.(value);
+    onClose();
+  };
+
+  const handleTrendingClick = (entry) => {
+    onTrendingNavigate?.(entry);
+    onClose();
+  };
+
+  return (
+    <Transition show={open} as={Fragment}>
+      <Dialog as="div" className="relative z-[60]" onClose={onClose}>
+        <Transition.Child
+          as={Fragment}
+          enter="ease-out duration-150"
+          enterFrom="opacity-0"
+          enterTo="opacity-100"
+          leave="ease-in duration-100"
+          leaveFrom="opacity-100"
+          leaveTo="opacity-0"
+        >
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" />
+        </Transition.Child>
+        <div className="fixed inset-0 overflow-y-auto">
+          <div className="flex min-h-full items-start justify-center px-4 py-10 sm:items-center">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-200"
+              enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+              enterTo="opacity-100 translate-y-0 sm:scale-100"
+              leave="ease-in duration-150"
+              leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+              leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+            >
+              <Dialog.Panel className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-slate-200/80 bg-white p-6 shadow-2xl">
+                <Dialog.Title className="flex items-start justify-between gap-4 text-left">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Quick search</p>
+                    <p className="mt-1 text-xl font-semibold text-slate-900">Find people, opportunities, and spaces</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200/80 text-slate-500 transition hover:border-slate-400 hover:text-slate-900"
+                  >
+                    <span className="sr-only">Close search</span>
+                    <XMarkIcon className="h-5 w-5" aria-hidden="true" />
+                  </button>
+                </Dialog.Title>
+                <form
+                  className="mt-6 flex items-center gap-3 rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3 shadow-inner focus-within:border-accent/60 focus-within:bg-white"
+                  onSubmit={handleSubmit}
+                  role="search"
+                  aria-label={ariaLabel}
+                >
+                  <MagnifyingGlassIcon className="h-5 w-5 text-slate-400" aria-hidden="true" />
+                  <input
+                    type="search"
+                    value={value}
+                    onChange={(event) => setValue(event.target.value)}
+                    placeholder={placeholder}
+                    aria-label={ariaLabel}
+                    className="flex-1 border-0 bg-transparent text-base text-slate-700 placeholder:text-slate-400 focus:ring-0"
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700"
+                  >
+                    Search
+                  </button>
+                </form>
+                {trendingEntries.length ? (
+                  <div className="mt-6 space-y-3">
+                    <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+                      <span className="inline-flex items-center gap-2 text-slate-500">
+                        <ArrowTrendingUpIcon className="h-4 w-4 text-accent" aria-hidden="true" />
+                        Trending now
+                      </span>
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.3em] text-slate-500">
+                        Curated for you
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {trendingEntries.map((entry) => (
+                        <Link
+                          key={entry.id}
+                          to={entry.to ?? '#'}
+                          onClick={() => handleTrendingClick(entry)}
+                          className="group flex items-center justify-between rounded-2xl border border-slate-200/80 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-accent/60 hover:text-accent-strong"
+                        >
+                          <span className="line-clamp-2 text-left leading-snug">{entry.label}</span>
+                          <ArrowTrendingUpIcon className="h-4 w-4 text-slate-300 transition group-hover:text-accent" aria-hidden="true" />
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
+        </div>
+      </Dialog>
+    </Transition>
+  );
+}
+
+MobileSearchDialog.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  marketingSearch: PropTypes.shape({
+    placeholder: PropTypes.string,
+    ariaLabel: PropTypes.string,
+  }),
+  trending: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      description: PropTypes.string,
+      to: PropTypes.string,
+    }),
+  ),
+  onSubmit: PropTypes.func,
+  onTrendingNavigate: PropTypes.func,
+};
+
+MobileSearchDialog.defaultProps = {
+  marketingSearch: null,
+  trending: [],
+  onSubmit: undefined,
+  onTrendingNavigate: undefined,
 };
 
 export default function AppTopBar({
@@ -472,6 +615,7 @@ export default function AppTopBar({
   navigationTrending,
 }) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const sessionId = session?.id ?? null;
   const resolvedMarketingMenus = marketingNavigation ?? [];
   const pulseInsights = useMemo(() => {
@@ -504,7 +648,7 @@ export default function AppTopBar({
             badge: entry.badge ?? null,
             source: 'web-header',
           },
-          { userId: sessionId },
+          sessionId ? { userId: sessionId } : undefined,
         );
         if (trackPromise && typeof trackPromise.catch === 'function') {
           trackPromise.catch(() => {});
@@ -514,18 +658,47 @@ export default function AppTopBar({
     [currentRoleKey, sessionId],
   );
 
+  const submitMarketingSearch = useCallback(
+    (rawQuery) => {
+      const trimmed = typeof rawQuery === 'string' ? rawQuery.trim() : '';
+      if (!trimmed) {
+        return;
+      }
+      if (typeof analytics?.track === 'function') {
+        const trackPromise = analytics.track(
+          'web_header_search_submitted',
+          {
+            query: trimmed,
+            persona: currentRoleKey ?? null,
+            source: 'web-header',
+          },
+          sessionId ? { userId: sessionId } : undefined,
+        );
+        if (trackPromise && typeof trackPromise.catch === 'function') {
+          trackPromise.catch(() => {});
+        }
+      }
+      onMarketingSearch?.(trimmed);
+    },
+    [currentRoleKey, onMarketingSearch, sessionId],
+  );
+
   const handleSearchSubmit = (event) => {
     event.preventDefault();
-    const trimmed = searchQuery.trim();
-    if (!trimmed) {
-      return;
-    }
-    onMarketingSearch?.(trimmed);
+    submitMarketingSearch(searchQuery);
     setSearchQuery('');
   };
 
+  const openMobileSearch = useCallback(() => {
+    setIsMobileSearchOpen(true);
+  }, []);
+
+  const closeMobileSearch = useCallback(() => {
+    setIsMobileSearchOpen(false);
+  }, []);
+
   return (
-    <header className="relative sticky top-0 z-40 border-b border-transparent bg-white/80 backdrop-blur">
+    <header className="relative sticky top-0 z-40 border-b border-transparent bg-white/85 backdrop-blur">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute left-1/2 top-[-35%] h-40 w-[70%] -translate-x-1/2 rounded-[50%] bg-accent/10 blur-3xl" />
         <div className="absolute right-0 top-0 h-full w-24 bg-gradient-to-b from-white/40 via-white/5 to-transparent" />
@@ -545,8 +718,8 @@ export default function AppTopBar({
         navigationPulse={pulseInsights}
         trendingEntries={trendingEntries}
       />
-      <div className="relative mx-auto flex h-16 w-full items-center gap-3 px-4 sm:h-[4.75rem] sm:gap-4 sm:px-6 2xl:px-10">
-        <div className="flex flex-1 items-center gap-3 lg:gap-5">
+      <div className="relative mx-auto flex h-16 w-full flex-wrap items-center gap-3 px-4 sm:h-[4.75rem] sm:flex-nowrap sm:gap-4 sm:px-6 2xl:px-10">
+        <div className="flex min-w-0 flex-1 items-center gap-3 lg:gap-5">
           <button
             type="button"
             onClick={onOpenNav}
@@ -555,7 +728,7 @@ export default function AppTopBar({
             <span className="sr-only">Open navigation</span>
             <Bars3Icon className="h-5 w-5" />
           </button>
-          <Link to="/" className="inline-flex items-center gap-2 shrink-0">
+          <Link to="/" className="inline-flex shrink-0 items-center gap-2">
             <img
               src={LOGO_URL}
               srcSet={LOGO_SRCSET}
@@ -563,6 +736,16 @@ export default function AppTopBar({
               className="h-10 w-auto shrink-0 sm:h-12"
             />
           </Link>
+          {marketingSearch ? (
+            <button
+              type="button"
+              onClick={openMobileSearch}
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-600 shadow-sm transition hover:border-slate-400/80 hover:text-slate-900 md:hidden"
+            >
+              <span className="sr-only">Open quick search</span>
+              <MagnifyingGlassIcon className="h-5 w-5" aria-hidden="true" />
+            </button>
+          ) : null}
           {resolvedMarketingMenus.length ? (
             <div className="hidden flex-1 items-center gap-2 lg:flex xl:gap-3">
               {resolvedMarketingMenus.map((menu) => (
@@ -580,26 +763,27 @@ export default function AppTopBar({
           </nav>
         ) : null}
 
-        <div className="ml-auto hidden flex-none items-center justify-end gap-2 sm:flex sm:gap-3 lg:gap-4">
-          <TrendingRail entries={trendingEntries} onNavigate={handleTrendingNavigate} />
-          <NetworkPulse insights={pulseInsights} />
-          {marketingSearch ? (
-            <form
-              className="hidden min-w-[12rem] flex-1 items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-sm shadow-inner ring-1 ring-transparent transition focus-within:bg-white focus-within:ring-2 focus-within:ring-accent/20 md:flex lg:min-w-[18rem]"
-              onSubmit={handleSearchSubmit}
-              role="search"
-              aria-label={marketingSearch.ariaLabel}
-            >
-              <MagnifyingGlassIcon className="h-5 w-5 text-slate-400" aria-hidden="true" />
-              <input
-                type="search"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder={marketingSearch.placeholder}
-                className="flex-1 border-0 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:ring-0"
-              />
-            </form>
-          ) : null}
+        {marketingSearch ? (
+          <form
+            className="hidden min-w-[14rem] flex-[1.2] items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-sm shadow-inner ring-1 ring-transparent transition focus-within:bg-white focus-within:ring-2 focus-within:ring-accent/20 md:flex lg:min-w-[18rem]"
+            onSubmit={handleSearchSubmit}
+            role="search"
+            aria-label={marketingSearch.ariaLabel ?? marketingSearch.placeholder}
+          >
+            <MagnifyingGlassIcon className="h-5 w-5 text-slate-400" aria-hidden="true" />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder={marketingSearch.placeholder}
+              aria-label={marketingSearch.ariaLabel ?? marketingSearch.placeholder}
+              className="flex-1 border-0 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:ring-0"
+            />
+          </form>
+        ) : null}
+
+        <div className="hidden min-w-0 flex-1 items-center justify-end gap-2 sm:flex sm:gap-3 lg:gap-4">
+          <InsightsFlyout pulse={pulseInsights} trending={trendingEntries} onTrendingNavigate={handleTrendingNavigate} />
           {isAuthenticated ? (
             <>
               <InboxPreview
@@ -645,6 +829,14 @@ export default function AppTopBar({
           )}
         </div>
       </div>
+      <MobileSearchDialog
+        open={isMobileSearchOpen}
+        onClose={closeMobileSearch}
+        marketingSearch={marketingSearch}
+        trending={trendingEntries}
+        onSubmit={submitMarketingSearch}
+        onTrendingNavigate={handleTrendingNavigate}
+      />
     </header>
   );
 }

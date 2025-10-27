@@ -24,4 +24,19 @@ export function readFileAsBase64(file) {
   });
 }
 
-export default { readFileAsBase64 };
+export function humanFileSize(bytes, decimals = 1) {
+  const size = typeof bytes === 'number' ? bytes : Number(bytes);
+
+  if (!Number.isFinite(size) || size <= 0) {
+    return '0 B';
+  }
+
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  const exponent = Math.min(Math.floor(Math.log(size) / Math.log(1024)), units.length - 1);
+  const value = size / 1024 ** exponent;
+  const precision = Math.max(0, Math.min(3, Math.floor(decimals)));
+
+  return `${value.toFixed(precision)} ${units[exponent]}`;
+}
+
+export default { readFileAsBase64, humanFileSize };

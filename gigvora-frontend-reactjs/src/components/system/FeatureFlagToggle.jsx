@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import { ShieldCheckIcon, SignalIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import analytics from '../../services/analytics.js';
-import { useDataFetchingLayer } from '../../context/DataFetchingLayer.js';
+import { useDataFetchingLayer } from '../../context/DataFetchingLayer.jsx';
 import { useTheme } from '../../context/ThemeProvider.tsx';
 
 const FEATURE_FLAG_BASE_PATH = '/admin/platform/feature-flags';

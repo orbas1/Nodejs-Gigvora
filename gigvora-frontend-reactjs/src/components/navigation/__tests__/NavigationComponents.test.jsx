@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
@@ -216,7 +216,7 @@ vi.mock('@headlessui/react', async (importOriginal) => {
 });
 import MegaMenu from '../MegaMenu.jsx';
 import RoleSwitcher from '../RoleSwitcher.jsx';
-import AppTopBar, { TrendingRail } from '../AppTopBar.jsx';
+import AppTopBar from '../AppTopBar.jsx';
 import MobileNavigation, { TrendingQuickLinks } from '../MobileNavigation.jsx';
 import analytics from '../../../services/analytics.js';
 import NavigationChromeContext from '../../../context/NavigationChromeContext.jsx';
@@ -388,34 +388,6 @@ describe('RoleSwitcher', () => {
   });
 });
 
-describe('TrendingRail', () => {
-  it('renders featured and supporting entries', async () => {
-    const user = userEvent.setup();
-    const entries = [
-      { id: '1', label: 'Deal room', description: 'Track warm investors', to: '/deals', badge: 'Spotlight' },
-      { id: '2', label: 'Mentor lounge', description: 'Book 1:1 time', to: '/mentors' },
-      { id: '3', label: 'Pipeline', description: 'Review active projects', to: '/pipeline' },
-    ];
-
-    analytics.track.mockClear();
-    const navigateSpy = vi.fn();
-    renderWithRouter(<TrendingRail entries={entries} onNavigate={navigateSpy} />);
-
-    expect(screen.getByText(/trending now/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Deal room/i })).toHaveAttribute('href', '/deals');
-    await act(async () => {
-      await user.click(screen.getByRole('link', { name: /pipeline/i }));
-    });
-    expect(navigateSpy).toHaveBeenCalledWith(expect.objectContaining({ id: '3' }));
-    expect(analytics.track).not.toHaveBeenCalled();
-  });
-
-  it('hides when no entries are provided', () => {
-    const { container } = renderWithRouter(<TrendingRail entries={[]} />);
-    expect(container).toBeEmptyDOMElement();
-  });
-});
-
 describe('TrendingQuickLinks', () => {
   it('renders trending quick links and closes on navigate', async () => {
     const user = userEvent.setup();
@@ -442,6 +414,59 @@ describe('TrendingQuickLinks', () => {
 });
 
 describe('AppTopBar analytics', () => {
+  it('submits marketing search and tracks analytics', async () => {
+    const user = userEvent.setup();
+    const onMarketingSearch = vi.fn();
+
+    analytics.track.mockClear();
+    const chromeValue = createChromeValue();
+
+    render(
+      <NavigationChromeContext.Provider value={chromeValue}>
+        <LanguageProvider>
+          <MemoryRouter>
+            <AppTopBar
+              navOpen={false}
+              onOpenNav={() => {}}
+              onCloseNav={() => {}}
+              isAuthenticated
+              marketingNavigation={[]}
+              marketingSearch={{ placeholder: 'Search the network', ariaLabel: 'Search the network' }}
+              primaryNavigation={[{ id: 'home', label: 'Home', to: '/home' }]}
+              roleOptions={[]}
+              currentRoleKey="founder"
+              onLogout={() => {}}
+              inboxPreview={{ threads: [], loading: false, error: null, lastFetchedAt: null }}
+              connectionState="connected"
+              onRefreshInbox={() => {}}
+              onInboxMenuOpen={() => {}}
+              onInboxThreadClick={() => {}}
+              t={(_, defaultValue) => defaultValue}
+              session={{ id: 42, name: 'Ada Lovelace' }}
+              onMarketingSearch={onMarketingSearch}
+              navigationPulse={[]}
+              navigationTrending={[]}
+            />
+          </MemoryRouter>
+        </LanguageProvider>
+      </NavigationChromeContext.Provider>,
+    );
+
+    const searchInput = screen.getByPlaceholderText(/search the network/i);
+
+    await user.type(searchInput, 'growth{enter}');
+
+    expect(onMarketingSearch).toHaveBeenCalledWith('growth');
+    await waitFor(() => {
+      expect(searchInput).toHaveValue('');
+    });
+    expect(analytics.track).toHaveBeenCalledWith(
+      'web_header_search_submitted',
+      expect.objectContaining({ query: 'growth', persona: 'founder' }),
+      expect.objectContaining({ userId: 42 }),
+    );
+  });
+
   it('tracks trending selections with persona context', async () => {
     const user = userEvent.setup();
     const onMarketingSearch = vi.fn();
@@ -483,7 +508,12 @@ describe('AppTopBar analytics', () => {
     );
 
     await act(async () => {
-      await user.click(screen.getByRole('link', { name: /creator studio/i }));
+      await user.click(screen.getByRole('button', { name: /insights/i }));
+    });
+
+    await act(async () => {
+      const [trendingLink] = screen.getAllByRole('link', { name: /creator studio/i });
+      await user.click(trendingLink);
     });
 
     expect(analytics.track).toHaveBeenCalledWith(
@@ -494,6 +524,66 @@ describe('AppTopBar analytics', () => {
         persona: 'founder',
         source: 'web-header',
       }),
+      expect.objectContaining({ userId: 42 }),
+    );
+    expect(onMarketingSearch).not.toHaveBeenCalled();
+  });
+
+  it('opens mobile quick search, surfaces trending, and tracks navigation', async () => {
+    const user = userEvent.setup();
+    const onMarketingSearch = vi.fn();
+
+    analytics.track.mockClear();
+    const chromeValue = createChromeValue();
+
+    render(
+      <NavigationChromeContext.Provider value={chromeValue}>
+        <LanguageProvider>
+          <MemoryRouter>
+            <AppTopBar
+              navOpen={false}
+              onOpenNav={() => {}}
+              onCloseNav={() => {}}
+              isAuthenticated
+              marketingNavigation={[]}
+              marketingSearch={{ placeholder: 'Search the network', ariaLabel: 'Search the network' }}
+              primaryNavigation={[{ id: 'home', label: 'Home', to: '/home' }]}
+              roleOptions={[]}
+              currentRoleKey="founder"
+              onLogout={() => {}}
+              inboxPreview={{ threads: [], loading: false, error: null, lastFetchedAt: null }}
+              connectionState="connected"
+              onRefreshInbox={() => {}}
+              onInboxMenuOpen={() => {}}
+              onInboxThreadClick={() => {}}
+              t={(_, defaultValue) => defaultValue}
+              session={{ id: 42, name: 'Ada Lovelace' }}
+              onMarketingSearch={onMarketingSearch}
+              navigationPulse={[]}
+              navigationTrending={[
+                { id: 'trend-1', label: 'Creator studio', description: 'Launch premium content', to: '/studio' },
+                { id: 'trend-2', label: 'Analytics hub', description: 'Review performance', to: '/analytics' },
+              ]}
+            />
+          </MemoryRouter>
+        </LanguageProvider>
+      </NavigationChromeContext.Provider>,
+    );
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /open quick search/i }));
+    });
+
+    expect(screen.getByTestId('mock-dialog')).toBeInTheDocument();
+
+    await act(async () => {
+      const [trendingLink] = screen.getAllByRole('link', { name: /creator studio/i });
+      await user.click(trendingLink);
+    });
+
+    expect(analytics.track).toHaveBeenCalledWith(
+      'web_header_trending_navigate',
+      expect.objectContaining({ entryId: 'trend-1', destination: '/studio' }),
       expect.objectContaining({ userId: 42 }),
     );
     expect(onMarketingSearch).not.toHaveBeenCalled();

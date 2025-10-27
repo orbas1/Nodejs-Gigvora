@@ -1,21 +1,25 @@
 import { createElement } from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DataFetchingProvider, useDataFetchingLayer } from '../DataFetchingLayer.js';
+import { DataFetchingProvider, useDataFetchingLayer } from '../DataFetchingLayer.jsx';
 
-const storage = new Map();
-const apiClientMock = {
-  get: vi.fn(),
-  post: vi.fn(),
-  put: vi.fn(),
-  patch: vi.fn(),
-  delete: vi.fn(),
-  writeCache: vi.fn((key, value) => {
-    storage.set(key, { data: value, timestamp: new Date() });
-  }),
-  readCache: vi.fn((key) => storage.get(key) ?? null),
-  removeCache: vi.fn((key) => storage.delete(key)),
-};
+const { storage, apiClientMock } = vi.hoisted(() => {
+  const cacheStorage = new Map();
+  const clientMock = {
+    get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+    writeCache: vi.fn((key, value) => {
+      cacheStorage.set(key, { data: value, timestamp: new Date() });
+    }),
+    readCache: vi.fn((key) => cacheStorage.get(key) ?? null),
+    removeCache: vi.fn((key) => cacheStorage.delete(key)),
+  };
+
+  return { storage: cacheStorage, apiClientMock: clientMock };
+});
 
 vi.mock('../../services/apiClient.js', () => ({
   __esModule: true,
@@ -89,7 +93,11 @@ describe('DataFetchingLayer', () => {
     });
 
     unsubscribe();
-    expect(apiClientMock.patch).toHaveBeenCalledWith(resourcePath, { body: { enabled: true }, params: undefined, signal: undefined });
+    expect(apiClientMock.patch).toHaveBeenCalledWith(
+      resourcePath,
+      { enabled: true },
+      { params: undefined, signal: undefined },
+    );
     expect(apiClientMock.get).toHaveBeenCalledTimes(2);
     expect(updates.some((payload) => payload?.data?.enabled === true)).toBe(true);
   });
