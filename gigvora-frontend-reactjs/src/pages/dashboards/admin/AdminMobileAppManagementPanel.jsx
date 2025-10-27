@@ -20,49 +20,94 @@ import {
 } from '../../../services/mobileApps.js';
 import { listFeatureFlags } from '../../../services/featureFlags.js';
 import FeatureFlagToggle from '../../../components/system/FeatureFlagToggle.jsx';
+import {
+  MOBILE_APP_PLATFORMS,
+  MOBILE_APP_STATUSES,
+  MOBILE_APP_RELEASE_CHANNELS,
+  MOBILE_APP_COMPLIANCE_STATUSES,
+  MOBILE_APP_VERSION_STATUSES,
+  MOBILE_APP_VERSION_TYPES,
+  MOBILE_APP_FEATURE_ROLLOUT_TYPES,
+  createEmptyMobileAppSummary,
+} from '@shared-contracts/domain/platform/mobile-apps.js';
 
-const PLATFORM_OPTIONS = [
-  { value: 'ios', label: 'iOS (App Store)' },
-  { value: 'android', label: 'Android (Play Store)' },
-];
+const PLATFORM_LABELS = {
+  ios: 'iOS (App Store)',
+  android: 'Android (Play Store)',
+};
 
-const STATUS_OPTIONS = [
-  { value: 'active', label: 'Active' },
-  { value: 'paused', label: 'Paused' },
-  { value: 'retired', label: 'Retired' },
-];
+const STATUS_LABELS = {
+  active: 'Active',
+  paused: 'Paused',
+  retired: 'Retired',
+};
 
-const CHANNEL_OPTIONS = [
-  { value: 'production', label: 'Production' },
-  { value: 'beta', label: 'Beta' },
-  { value: 'internal', label: 'Internal' },
-];
+const CHANNEL_LABELS = {
+  production: 'Production',
+  beta: 'Beta',
+  internal: 'Internal',
+};
 
-const COMPLIANCE_OPTIONS = [
-  { value: 'ok', label: 'Compliant' },
-  { value: 'review', label: 'Needs review' },
-  { value: 'blocked', label: 'Blocked' },
-];
+const COMPLIANCE_LABELS = {
+  ok: 'Compliant',
+  review: 'Needs review',
+  blocked: 'Blocked',
+};
 
-const VERSION_STATUS_OPTIONS = [
-  { value: 'draft', label: 'Draft' },
-  { value: 'in_review', label: 'In review' },
-  { value: 'released', label: 'Released' },
-  { value: 'deprecated', label: 'Deprecated' },
-];
+const VERSION_STATUS_LABELS = {
+  draft: 'Draft',
+  in_review: 'In review',
+  released: 'Released',
+  deprecated: 'Deprecated',
+};
 
-const VERSION_TYPE_OPTIONS = [
-  { value: 'major', label: 'Major' },
-  { value: 'minor', label: 'Minor' },
-  { value: 'patch', label: 'Patch' },
-  { value: 'hotfix', label: 'Hotfix' },
-];
+const VERSION_TYPE_LABELS = {
+  major: 'Major',
+  minor: 'Minor',
+  patch: 'Patch',
+  hotfix: 'Hotfix',
+};
 
-const FEATURE_ROLLOUT_OPTIONS = [
-  { value: 'global', label: 'Global' },
-  { value: 'percentage', label: 'Percentage rollout' },
-  { value: 'cohort', label: 'Role cohort' },
-];
+const FEATURE_ROLLOUT_LABELS = {
+  global: 'Global',
+  percentage: 'Percentage rollout',
+  cohort: 'Role cohort',
+};
+
+const PLATFORM_OPTIONS = MOBILE_APP_PLATFORMS.map((value) => ({
+  value,
+  label: PLATFORM_LABELS[value] ?? value,
+}));
+
+const STATUS_OPTIONS = MOBILE_APP_STATUSES.map((value) => ({
+  value,
+  label: STATUS_LABELS[value] ?? value,
+}));
+
+const CHANNEL_OPTIONS = MOBILE_APP_RELEASE_CHANNELS.map((value) => ({
+  value,
+  label: CHANNEL_LABELS[value] ?? value,
+}));
+
+const COMPLIANCE_OPTIONS = MOBILE_APP_COMPLIANCE_STATUSES.map((value) => ({
+  value,
+  label: COMPLIANCE_LABELS[value] ?? value,
+}));
+
+const VERSION_STATUS_OPTIONS = MOBILE_APP_VERSION_STATUSES.map((value) => ({
+  value,
+  label: VERSION_STATUS_LABELS[value] ?? value,
+}));
+
+const VERSION_TYPE_OPTIONS = MOBILE_APP_VERSION_TYPES.map((value) => ({
+  value,
+  label: VERSION_TYPE_LABELS[value] ?? value,
+}));
+
+const FEATURE_ROLLOUT_OPTIONS = MOBILE_APP_FEATURE_ROLLOUT_TYPES.map((value) => ({
+  value,
+  label: FEATURE_ROLLOUT_LABELS[value] ?? value,
+}));
 
 const DEFAULT_NEW_APP = {
   displayName: '',
@@ -260,7 +305,12 @@ function buildSummaryBadges(summary, appsCount) {
 }
 
 export default function AdminMobileAppManagementPanel({ standalone = false }) {
-  const [state, setState] = useState({ loading: true, error: null, apps: [], summary: {} });
+  const [state, setState] = useState({
+    loading: true,
+    error: null,
+    apps: [],
+    summary: createEmptyMobileAppSummary(),
+  });
   const [appForms, setAppForms] = useState({});
   const [appDrafts, setAppDrafts] = useState({});
   const [appStatus, setAppStatus] = useState({});
@@ -344,6 +394,7 @@ export default function AdminMobileAppManagementPanel({ standalone = false }) {
       }
 
       const summaryPayload = {
+        ...createEmptyMobileAppSummary(),
         ...(response?.summary ?? {}),
         activeFeatures: activeFlagCount,
       };
