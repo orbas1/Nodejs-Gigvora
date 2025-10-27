@@ -20,6 +20,61 @@ import {
   resolvePostType,
 } from './feedHelpers.js';
 
+function FocusSegmentList({ segments }) {
+  if (!segments?.length) {
+    return null;
+  }
+
+  return (
+    <ul className="mt-3 flex flex-wrap items-center gap-2">
+      {segments.map((segment) => (
+        <li
+          key={segment.id || segment.label || segment}
+          className="inline-flex items-center gap-2 rounded-full bg-accent/10 px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-wide text-accent"
+        >
+          <span className="inline-flex h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
+          {segment.label || segment.name || segment}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function OpportunityHighlights({ highlights }) {
+  if (!highlights?.length) {
+    return null;
+  }
+
+  return (
+    <div className="mt-4 space-y-2 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+      <p className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-400">Focus highlights</p>
+      <ul className="list-disc space-y-1 pl-4 text-sm text-slate-600">
+        {highlights.map((highlight, index) => (
+          <li key={highlight.id || index}>{highlight.label || highlight.title || highlight}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function PostInsightStats({ metrics }) {
+  if (!metrics?.length) {
+    return null;
+  }
+
+  return (
+    <dl className="mt-4 grid gap-3 rounded-2xl border border-slate-100 bg-white/80 p-4 text-xs text-slate-500 shadow-inner sm:grid-cols-3">
+      {metrics.map((metric) => (
+        <div key={metric.id} className="space-y-1 rounded-xl bg-slate-50 px-3 py-2 text-center shadow-sm">
+          <dt className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-400">{metric.label}</dt>
+          <dd className="text-lg font-semibold text-slate-900">{metric.value}</dd>
+          {metric.caption ? <p className="text-[0.65rem] text-slate-500">{metric.caption}</p> : null}
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 function MediaAttachmentGrid({ attachments }) {
   if (!attachments?.length) {
     return null;
@@ -273,6 +328,74 @@ export default function FeedCard({
 
   const attachments = useMemo(() => extractMediaAttachments(post), [post]);
   const totalConversationCount = (post.commentCount ?? 0) + (post.replyCount ?? 0);
+  const focusSegments = useMemo(() => {
+    const segments = Array.isArray(post.focusSegments)
+      ? post.focusSegments
+      : Array.isArray(post.audienceSegments)
+        ? post.audienceSegments
+        : [];
+    return segments
+      .map((segment) =>
+        typeof segment === 'string'
+          ? { id: segment, label: segment }
+          : {
+              id: segment.id || segment.slug || segment.label || segment.name,
+              label: segment.label || segment.name || segment.title || segment.id,
+            },
+      )
+      .filter((segment) => segment?.label);
+  }, [post.audienceSegments, post.focusSegments]);
+
+  const focusHighlights = useMemo(() => {
+    const highlightSources = [];
+    if (Array.isArray(post.focusRecommendations)) {
+      highlightSources.push(...post.focusRecommendations);
+    }
+    if (Array.isArray(post.highlights)) {
+      highlightSources.push(...post.highlights);
+    }
+    return highlightSources
+      .map((highlight) =>
+        typeof highlight === 'string'
+          ? { id: highlight, label: highlight }
+          : {
+              id: highlight.id || highlight.label || highlight.title,
+              label: highlight.label || highlight.title || highlight.summary,
+            },
+      )
+      .filter((highlight) => highlight?.label);
+  }, [post.focusRecommendations, post.highlights]);
+
+  const insightMetrics = useMemo(() => {
+    const metrics = post.metrics ?? post.engagement ?? {};
+    const values = [];
+    if (typeof metrics.views === 'number') {
+      values.push({ id: 'views', label: 'Views', value: metrics.views.toLocaleString() });
+    }
+    if (typeof metrics.clicks === 'number') {
+      values.push({ id: 'clicks', label: 'Profile taps', value: metrics.clicks.toLocaleString() });
+    }
+    if (typeof metrics.saves === 'number' || typeof metrics.bookmarks === 'number') {
+      const saves = metrics.saves ?? metrics.bookmarks;
+      values.push({ id: 'saves', label: 'Saves', value: saves.toLocaleString() });
+    }
+    if (typeof metrics.shares === 'number') {
+      const shareValue = metrics.shares.toLocaleString();
+      const shareRate =
+        metrics.views && metrics.views > 0
+          ? `${Math.round((metrics.shares / metrics.views) * 100)}% share rate`
+          : null;
+      values.push({ id: 'shares', label: 'Shares', value: shareValue, caption: shareRate });
+    }
+    if (typeof metrics.clickThroughRate === 'number' && Number.isFinite(metrics.clickThroughRate)) {
+      values.push({
+        id: 'ctr',
+        label: 'Click-through',
+        value: `${Math.round(metrics.clickThroughRate * 100)}%`,
+      });
+    }
+    return values;
+  }, [post.engagement, post.metrics]);
 
   const handleEditFormSubmit = (event) => {
     event.preventDefault();
@@ -417,6 +540,7 @@ export default function FeedCard({
               <SparklesIcon className="h-4 w-4" /> Opportunity spotlight — invite warm intros or referrals.
             </div>
           ) : null}
+          <FocusSegmentList segments={focusSegments} />
           {bodyText ? (
             <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">{bodyText}</p>
           ) : null}
@@ -424,6 +548,7 @@ export default function FeedCard({
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{author.name}</p>
           ) : null}
           <MediaAttachmentGrid attachments={attachments} />
+          <OpportunityHighlights highlights={focusHighlights} />
           {post.link ? (
             <a
               href={post.link}
@@ -434,6 +559,7 @@ export default function FeedCard({
               {linkLabel}
             </a>
           ) : null}
+          <PostInsightStats metrics={insightMetrics} />
           <ReactionsBar
             postId={post.id}
             reactionSummary={reactionSummary}
