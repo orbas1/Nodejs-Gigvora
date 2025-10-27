@@ -11,17 +11,30 @@ const FLAGS = [
     status: 'active',
     rolloutType: 'percentage',
     rolloutPercentage: 25,
-    metadata: { productArea: 'mobile', rolloutOwner: 'mobile-ops' },
+    metadata: {
+      productArea: 'mobile',
+      rolloutOwner: 'mobile-ops',
+      defaultVariant: 'mobile_companion_beta',
+      percentageVariant: 'mobile_companion_beta',
+    },
     assignments: [
       {
         audienceType: 'membership',
         audienceValue: 'founder',
         rolloutPercentage: 25,
+        conditions: {
+          variant: 'founder_mobile_beta',
+          metadata: { cohort: 'founder', channel: 'beta' },
+        },
       },
       {
         audienceType: 'domain',
         audienceValue: 'gigvora.com',
         rolloutPercentage: 100,
+        conditions: {
+          variant: 'internal_mobile_beta',
+          metadata: { cohort: 'gigvora-staff', channel: 'internal' },
+        },
       },
     ],
   },
@@ -33,17 +46,29 @@ const FLAGS = [
     status: 'disabled',
     rolloutType: 'cohort',
     rolloutPercentage: null,
-    metadata: { productArea: 'mobile', rolloutOwner: 'ai-governance' },
+    metadata: {
+      productArea: 'mobile',
+      rolloutOwner: 'ai-governance',
+      defaultVariant: 'ai_profile_annotations',
+    },
     assignments: [
       {
         audienceType: 'membership',
         audienceValue: 'mentor',
         rolloutPercentage: 50,
+        conditions: {
+          variant: 'mentor_ai_preview',
+          metadata: { cohort: 'mentor-preview', channel: 'guided' },
+        },
       },
       {
         audienceType: 'user',
         audienceValue: '501',
         rolloutPercentage: 100,
+        conditions: {
+          variant: 'executive_ai_preview',
+          metadata: { cohort: 'executive-advisory', channel: 'concierge' },
+        },
       },
     ],
   },

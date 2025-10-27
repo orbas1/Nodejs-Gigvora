@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import apiClient from '../services/apiClient.js';
+import authService from '../services/auth.js';
 
 const STORAGE_KEY = 'gigvora:web:session';
 
@@ -701,7 +702,17 @@ export function SessionProvider({ children }) {
         setSession(normalized);
         return normalized;
       },
-      logout: () => {
+      logout: async ({ reason } = {}) => {
+        const refreshToken = session?.refreshToken ?? session?.tokens?.refreshToken ?? null;
+
+        if (refreshToken) {
+          try {
+            await authService.logout({ refreshToken, reason: reason ?? 'user_logout' });
+          } catch (error) {
+            console.warn('Unable to revoke refresh session', error);
+          }
+        }
+
         apiClient.clearAuthTokens();
         apiClient.clearAccessToken();
         apiClient.clearRefreshToken();

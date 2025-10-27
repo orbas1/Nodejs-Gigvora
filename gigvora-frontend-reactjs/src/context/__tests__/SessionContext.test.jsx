@@ -2,6 +2,8 @@ import React from 'react';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+let logoutMock;
+
 vi.mock('../../services/apiClient.js', () => {
   const mock = {
     setAuthTokens: vi.fn(),
@@ -11,6 +13,16 @@ vi.mock('../../services/apiClient.js', () => {
   };
   return { __esModule: true, default: mock };
 });
+
+vi.mock('../../services/auth.js', () => ({
+  __esModule: true,
+  default: {
+    logout: (...args) => logoutMock(...args),
+  },
+  logout: (...args) => logoutMock(...args),
+}));
+
+logoutMock = vi.fn();
 
 import { SessionProvider, useSession } from '../SessionContext.jsx';
 import apiClient from '../../services/apiClient.js';
@@ -69,6 +81,8 @@ describe('SessionContext', () => {
     MockBroadcastChannel.reset();
     window.localStorage.clear();
     vi.clearAllMocks();
+    logoutMock.mockReset();
+    logoutMock.mockResolvedValue({ success: true });
   });
 
   afterEach(() => {
@@ -133,7 +147,7 @@ describe('SessionContext', () => {
     });
   });
 
-  it('updates and clears session state', () => {
+  it('updates and clears session state', async () => {
     const { result } = renderHook(() => useSession(), { wrapper });
 
     act(() => {
@@ -155,15 +169,38 @@ describe('SessionContext', () => {
     expect(result.current.hasRole('company')).toBe(true);
     expect(result.current.hasPermission('calendar:manage')).toBe(true);
 
-    act(() => {
-      result.current.logout();
+    await act(async () => {
+      await result.current.logout();
     });
 
+    expect(logoutMock).toHaveBeenCalledWith({ refreshToken: 'token-b', reason: 'user_logout' });
     expect(apiClient.clearAuthTokens).toHaveBeenCalled();
     expect(apiClient.clearAccessToken).toHaveBeenCalled();
     expect(apiClient.clearRefreshToken).toHaveBeenCalled();
     expect(result.current.session).toBeNull();
     expect(window.localStorage.getItem('gigvora:web:session')).toBeNull();
+  });
+
+  it('still clears local session when remote revocation fails', async () => {
+    logoutMock.mockRejectedValueOnce(new Error('network'));
+
+    const { result } = renderHook(() => useSession(), { wrapper });
+
+    act(() => {
+      result.current.login({
+        id: 'user-11',
+        memberships: ['freelancer'],
+        tokens: { accessToken: 'access-x', refreshToken: 'refresh-x' },
+      });
+    });
+
+    await act(async () => {
+      await result.current.logout({ reason: 'user_choice' });
+    });
+
+    expect(logoutMock).toHaveBeenCalledWith({ refreshToken: 'refresh-x', reason: 'user_choice' });
+    expect(apiClient.clearAuthTokens).toHaveBeenCalled();
+    expect(result.current.session).toBeNull();
   });
 
   it('synchronises session updates from storage events', async () => {
