@@ -46,8 +46,10 @@ export const OnboardingPersona = sequelize.define(
 export const OnboardingJourney = sequelize.define(
   'OnboardingJourney',
   {
+    personaId: { type: DataTypes.INTEGER, allowNull: false },
     personaKey: { type: DataTypes.STRING(120), allowNull: false },
     personaTitle: { type: DataTypes.STRING(180), allowNull: false },
+    userId: { type: DataTypes.INTEGER, allowNull: false },
     status: {
       type: DataTypes.ENUM(...ONBOARDING_JOURNEY_STATUSES),
       allowNull: false,
@@ -77,6 +79,7 @@ export const OnboardingJourney = sequelize.define(
 export const OnboardingJourneyInvite = sequelize.define(
   'OnboardingJourneyInvite',
   {
+    journeyId: { type: DataTypes.INTEGER, allowNull: false },
     email: { type: DataTypes.STRING(255), allowNull: false },
     role: { type: DataTypes.STRING(120), allowNull: true },
     status: {
