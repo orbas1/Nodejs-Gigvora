@@ -35,7 +35,7 @@ function updateCache(key, updater, options = {}) {
   return { previous };
 }
 
-vi.mock('../../../context/DataFetchingLayer.js', () => ({
+vi.mock('../../../context/DataFetchingLayer.jsx', () => ({
   __esModule: true,
   useDataFetchingLayer: () => ({
     buildKey: (method, path) => `${method}:${path}`,

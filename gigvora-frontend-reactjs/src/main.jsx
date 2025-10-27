@@ -9,7 +9,7 @@ import { NavigationChromeProvider } from './context/NavigationChromeContext.jsx'
 import { LanguageProvider } from './context/LanguageContext.jsx';
 import { ThemeProvider } from './context/ThemeProvider.tsx';
 import { DesignSystemProvider } from './context/DesignSystemContext.jsx';
-import { DataFetchingProvider } from './context/DataFetchingLayer.js';
+import { DataFetchingProvider } from './context/DataFetchingLayer.jsx';
 
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 const isStandaloneAdminProfile = import.meta.env.VITE_STANDALONE_ADMIN_PROFILE === 'true';
