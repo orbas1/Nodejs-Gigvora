@@ -7,6 +7,8 @@ import {
   SignalIcon,
   ClockIcon,
   ArrowTopRightOnSquareIcon,
+  GlobeAltIcon,
+  UserGroupIcon,
 } from '@heroicons/react/24/outline';
 import { formatDistanceToNowStrict, parseISO } from 'date-fns';
 
@@ -35,6 +37,29 @@ const severityTokens = {
     label: 'Critical incident',
     badgeClass: 'bg-rose-500/10 text-rose-200 border-rose-400/40',
     iconClass: 'text-rose-200',
+  },
+};
+
+const impactTokens = {
+  operational: {
+    badgeClass: 'bg-emerald-500/10 text-emerald-200 border border-emerald-400/30',
+    icon: ShieldCheckIcon,
+    label: 'Operational',
+  },
+  notice: {
+    badgeClass: 'bg-sky-500/10 text-sky-200 border border-sky-400/30',
+    icon: SignalIcon,
+    label: 'Notice',
+  },
+  degraded: {
+    badgeClass: 'bg-amber-500/10 text-amber-200 border border-amber-400/30',
+    icon: ExclamationTriangleIcon,
+    label: 'Degraded',
+  },
+  outage: {
+    badgeClass: 'bg-rose-500/10 text-rose-200 border border-rose-400/30',
+    icon: BoltIcon,
+    label: 'Outage',
   },
 };
 
@@ -79,6 +104,32 @@ function clampPercentage(value) {
   return Math.min(Math.max(value, 0), 100);
 }
 
+function calculateWindowProgress(windowMeta, referenceDate = new Date()) {
+  if (!windowMeta?.startAt || !windowMeta?.endAt) {
+    return null;
+  }
+
+  try {
+    const start = typeof windowMeta.startAt === 'string' ? parseISO(windowMeta.startAt) : new Date(windowMeta.startAt);
+    const end = typeof windowMeta.endAt === 'string' ? parseISO(windowMeta.endAt) : new Date(windowMeta.endAt);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+      return null;
+    }
+    const now = referenceDate instanceof Date && !Number.isNaN(referenceDate.getTime()) ? referenceDate : new Date();
+    if (now <= start) {
+      return 0;
+    }
+    if (now >= end) {
+      return 100;
+    }
+    const total = end.getTime() - start.getTime();
+    const elapsed = now.getTime() - start.getTime();
+    return clampPercentage((elapsed / total) * 100);
+  } catch (error) {
+    return null;
+  }
+}
+
 export default function SystemStatusToast({
   status,
   onAcknowledge,
@@ -94,6 +145,18 @@ export default function SystemStatusToast({
   const warnings = Array.isArray(status.warnings) ? status.warnings : [];
   const escalations = Array.isArray(status.escalations) ? status.escalations : [];
   const feedback = status.feedback ?? null;
+  const impactAreas = Array.isArray(status.impacts) ? status.impacts : [];
+  const nextUpdateAt = status.nextUpdateAt ?? status.window?.nextUpdateAt ?? null;
+  const referenceDate = (() => {
+    if (status.updatedAt) {
+      const parsed = typeof status.updatedAt === 'string' ? parseISO(status.updatedAt) : new Date(status.updatedAt);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+    return new Date();
+  })();
+  const windowProgress = calculateWindowProgress(windowMeta, referenceDate);
 
   return (
     <aside className="pointer-events-auto w-full max-w-xl rounded-3xl border border-white/20 bg-slate-900/95 p-6 shadow-[0_25px_65px_-30px_rgba(15,23,42,0.75)] backdrop-blur-xl">
@@ -113,6 +176,12 @@ export default function SystemStatusToast({
             Updated {formatDuration(status.updatedAt)} ·{' '}
             <span className="text-slate-100">{status.impactSurface}</span>
           </p>
+          {nextUpdateAt ? (
+            <p className="inline-flex items-center gap-1 rounded-full bg-white/5 px-3 py-1 font-medium text-white/80">
+              <ClockIcon className="h-4 w-4" aria-hidden="true" />
+              Next update {formatDuration(nextUpdateAt)}
+            </p>
+          ) : null}
           {status.acknowledgedAt ? (
             <p className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-3 py-1 font-medium text-emerald-200">
               <CheckBadgeIcon className="h-4 w-4" aria-hidden="true" />
@@ -160,12 +229,71 @@ export default function SystemStatusToast({
               value={windowMeta.phase === 'active' ? formatDuration(windowMeta.endAt) : formatDuration(windowMeta.startAt)}
             />
           </dl>
+          {typeof windowProgress === 'number' ? (
+            <div className="mt-4 space-y-1">
+              <div className="flex items-center justify-between text-[0.65rem] uppercase tracking-[0.25em] text-white/50">
+                <span>Progress</span>
+                <span>{windowProgress.toFixed(0)}% complete</span>
+              </div>
+              <div className="h-2 w-full rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full bg-emerald-400/70"
+                  style={{ width: `${windowProgress}%` }}
+                />
+              </div>
+            </div>
+          ) : null}
           {windowMeta.label ? (
             <p className="mt-3 text-[0.7rem] uppercase tracking-[0.25em] text-white/50">{windowMeta.label}</p>
           ) : null}
           {windowMeta.timezone ? (
             <p className="mt-1 text-[0.65rem] uppercase tracking-[0.25em] text-white/40">Timezone · {windowMeta.timezone}</p>
           ) : null}
+        </section>
+      ) : null}
+
+      {impactAreas.length > 0 ? (
+        <section className="mt-6 space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-white/60">Impact overview</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {impactAreas.map((area) => {
+              const key = area.id || area.label;
+              const token = impactTokens[area.severity] ?? impactTokens.degraded;
+              const Icon = token.icon ?? GlobeAltIcon;
+              return (
+                <article
+                  key={key}
+                  className={`rounded-2xl bg-white/5 p-4 text-xs text-slate-200 ${token.badgeClass ?? 'border border-white/10'}`}
+                >
+                  <header className="flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <p className="flex items-center gap-2 text-sm font-semibold text-white">
+                        <Icon className="h-4 w-4" aria-hidden="true" />
+                        {area.label}
+                      </p>
+                      {area.audience ? (
+                        <p className="flex items-center gap-1 text-[0.65rem] uppercase tracking-[0.25em] text-white/50">
+                          <UserGroupIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                          {area.audience}
+                        </p>
+                      ) : null}
+                    </div>
+                    <span className="rounded-full bg-white/10 px-2 py-1 text-[0.6rem] font-semibold uppercase tracking-[0.25em] text-white/70">
+                      {token.label ?? area.severity}
+                    </span>
+                  </header>
+                  {area.description ? (
+                    <p className="mt-3 text-xs text-slate-300">{area.description}</p>
+                  ) : null}
+                  {typeof area.degradation === 'number' ? (
+                    <p className="mt-3 text-[0.7rem] uppercase tracking-[0.2em] text-white/50">
+                      Degradation · {Math.round(area.degradation * 100)}%
+                    </p>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
         </section>
       ) : null}
 
@@ -422,6 +550,7 @@ SystemStatusToast.propTypes = {
     severity: PropTypes.oneOf(Object.keys(severityTokens)),
     impactSurface: PropTypes.string.isRequired,
     updatedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    nextUpdateAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
     acknowledgedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
     acknowledgedBy: PropTypes.string,
     metrics: PropTypes.shape({
@@ -455,6 +584,7 @@ SystemStatusToast.propTypes = {
       startAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
       endAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
       timezone: PropTypes.string,
+      nextUpdateAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
     }),
     warnings: PropTypes.arrayOf(
       PropTypes.oneOfType([
@@ -475,6 +605,16 @@ SystemStatusToast.propTypes = {
         dueAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
         link: PropTypes.string,
         summary: PropTypes.string,
+      }),
+    ),
+    impacts: PropTypes.arrayOf(
+      PropTypes.shape({
+        id: PropTypes.string,
+        label: PropTypes.string.isRequired,
+        audience: PropTypes.string,
+        severity: PropTypes.oneOf(Object.keys(impactTokens)),
+        description: PropTypes.string,
+        degradation: PropTypes.number,
       }),
     ),
     feedback: PropTypes.shape({
