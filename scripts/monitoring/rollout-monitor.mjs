@@ -1,13 +1,16 @@
 #!/usr/bin/env node
 import { readFile, writeFile, mkdir, access } from 'node:fs/promises';
 import { constants as fsConstants } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..', '..');
 const rolloutStorePath = path.resolve(repoRoot, 'gigvora-backend-nodejs', 'src', 'data', 'release-rollouts.json');
+const backendRoot = path.resolve(repoRoot, 'gigvora-backend-nodejs');
+const serviceModuleUrl = pathToFileURL(path.resolve(backendRoot, 'src', 'services', 'releaseMonitoringService.js')).href;
+const sequelizeModuleUrl = pathToFileURL(path.resolve(backendRoot, 'src', 'models', 'sequelizeClient.js')).href;
 
 const loadJson = async (targetPath, fallback = null) => {
   try {
@@ -76,6 +79,14 @@ const normalisePipelineSummary = (pipeline) => ({
     name: step.name,
     status: step.status,
     durationMs: step.durationMs ?? null,
+    commands: (step.commands ?? []).map((command) => ({
+      id: command.id,
+      label: command.label ?? command.display ?? command.command ?? command.id,
+      command: command.command ?? command.display ?? '',
+      workingDirectory: command.workingDirectory ?? command.cwd ?? null,
+      status: command.status ?? 'passed',
+      durationMs: command.durationMs ?? null,
+    })),
   })),
 });
 
@@ -140,6 +151,29 @@ const upsertRolloutRecord = (dataset, record) => {
   return dataset;
 };
 
+const persistSnapshot = async (snapshot) => {
+  let sequelizeInstance;
+  try {
+    const [serviceModule, sequelizeModule] = await Promise.all([
+      import(serviceModuleUrl),
+      import(sequelizeModuleUrl),
+    ]);
+    sequelizeInstance = sequelizeModule.default;
+    const saved = await serviceModule.persistRolloutSnapshot(snapshot);
+    const summary = serviceModule.summariseRollout(saved);
+    return { persisted: true, summary, savedSnapshot: snapshot };
+  } catch (error) {
+    if (process.env.DEBUG_RELEASE_MONITOR === 'true') {
+      console.warn('[rollout-monitor] Failed to persist rollout snapshot to database', error);
+    }
+    return { persisted: false, summary: null, savedSnapshot: snapshot, error };
+  } finally {
+    if (sequelizeInstance) {
+      await sequelizeInstance.close().catch(() => {});
+    }
+  }
+};
+
 const main = async () => {
   const args = parseArgs(process.argv);
   const version = args.version ?? args._[0];
@@ -171,8 +205,18 @@ const main = async () => {
     releaseNotesPath: path.join('update_docs', 'release-notes', `${version}.md`),
   };
 
-  const updatedDataset = upsertRolloutRecord(dataset, record);
+  const persistResult = await persistSnapshot(record);
+  if (persistResult.persisted && persistResult.summary) {
+    const completion = Number(((persistResult.summary.completionRatio ?? 0) * 100).toFixed(1));
+    process.stdout.write(
+      `Rollout ${version} status ${persistResult.summary.status} (${completion}% complete)\n`,
+    );
+  }
+  const updatedDataset = upsertRolloutRecord(dataset, persistResult.savedSnapshot ?? record);
   await writeFile(rolloutStorePath, `${JSON.stringify(updatedDataset, null, 2)}\n`, 'utf8');
+  if (persistResult.persisted) {
+    process.stdout.write(`Rollout snapshot persisted to database for version ${version}\n`);
+  }
   process.stdout.write(`Rollout data updated for version ${version}\n`);
 };
 

@@ -5,6 +5,12 @@ import logger from '../utils/logger.js';
 import { PlatformSetting } from './platformSetting.js';
 import { PlatformSettingsAuditEvent } from './platformSettingsAuditEvent.js';
 import {
+  ReleaseRollout,
+  ReleaseRolloutPipelineStep,
+  ReleaseRolloutQualityGate,
+  ReleaseRolloutCohort,
+} from './releaseEngineeringModels.js';
+import {
   PlatformSettingsWatcher,
   PLATFORM_SETTINGS_WATCHER_CHANNELS,
   PLATFORM_SETTINGS_WATCHER_DIGEST_FREQUENCIES,
@@ -25630,6 +25636,10 @@ export default {
   RuntimeSecurityAuditEvent,
   RbacPolicyAuditEvent,
   RuntimeAnnouncement,
+  ReleaseRollout,
+  ReleaseRolloutPipelineStep,
+  ReleaseRolloutQualityGate,
+  ReleaseRolloutCohort,
   UserEvent,
   UserEventAgendaItem,
   UserEventTask,

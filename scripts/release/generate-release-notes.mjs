@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 import { readFile, writeFile, mkdir, access } from 'node:fs/promises';
 import { constants as fsConstants } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..', '..');
+const backendRoot = path.resolve(repoRoot, 'gigvora-backend-nodejs');
+const serviceModuleUrl = pathToFileURL(path.resolve(backendRoot, 'src', 'services', 'releaseMonitoringService.js')).href;
+const sequelizeModuleUrl = pathToFileURL(path.resolve(backendRoot, 'src', 'models', 'sequelizeClient.js')).href;
 
 const loadJson = async (filePath, fallback = null) => {
   try {
@@ -120,6 +123,28 @@ const buildReleaseNotes = ({
 
 const ensureDirectory = (targetPath) => mkdir(path.dirname(targetPath), { recursive: true });
 
+const loadRolloutFromDatabase = async (version) => {
+  let sequelizeInstance;
+  try {
+    const [serviceModule, sequelizeModule] = await Promise.all([
+      import(serviceModuleUrl),
+      import(sequelizeModuleUrl),
+    ]);
+    sequelizeInstance = sequelizeModule.default;
+    const rollout = await serviceModule.getRolloutByVersion(version);
+    return rollout ?? null;
+  } catch (error) {
+    if (process.env.DEBUG_RELEASE_NOTES === 'true') {
+      console.warn('[release-notes] Unable to load rollout from database', error);
+    }
+    return null;
+  } finally {
+    if (sequelizeInstance) {
+      await sequelizeInstance.close().catch(() => {});
+    }
+  }
+};
+
 const main = async () => {
   const args = parseArgs(process.argv);
   const version = args.version ?? args._[0];
@@ -137,12 +162,18 @@ const main = async () => {
     qualityGates: [],
   });
 
+  const rolloutFromDb = await loadRolloutFromDatabase(version);
+  const pipelineSource = rolloutFromDb?.pipeline ?? pipeline;
+  const qualityGates = rolloutFromDb?.quality?.gates?.length
+    ? rolloutFromDb.quality.gates
+    : releaseData.qualityGates ?? [];
+
   const releaseNotesContent = buildReleaseNotes({
     version,
-    pipeline,
+    pipeline: pipelineSource,
     highlights: releaseData.highlights ?? [],
     breakingChanges: releaseData.breakingChanges ?? [],
-    qualityGates: releaseData.qualityGates ?? [],
+    qualityGates,
   });
 
   const outputPath = path.resolve(repoRoot, 'update_docs', 'release-notes', `${version}.md`);

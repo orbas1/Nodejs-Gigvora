@@ -5818,8 +5818,8 @@ Creation endpoints now return fully-sanitised documents, preserving fresh versio
 
 - [x] Subcategory 16.B. Change Management & Release Notes
   - [x] 16.B.1. scripts/release/generate-release-notes.mjs
-    1. **Appraisal.** Automated release narration now turns pipeline telemetry and curated highlights into executive-grade markdown, keeping stakeholder communications aligned with the UX requirement to sync updates with engineering release notes.【F:scripts/release/generate-release-notes.mjs†L1-L119】【F:user_experience.md†L346-L355】
-    2. **Functionality.** CLI flags accept version and pipeline identifiers, ingest highlight datasets, and materialise markdown complete with tables, calls to action, and quality gates so PMMs can publish in minutes.【F:scripts/release/generate-release-notes.mjs†L24-L116】
+    1. **Appraisal.** Automated release narration now hydrates pipeline tables and quality sections directly from the release monitoring service, keeping stakeholder updates in lockstep with the telemetry reviewed by engineering leads.【F:scripts/release/generate-release-notes.mjs†L1-L188】【F:user_experience.md†L346-L355】
+    2. **Functionality.** CLI flags still accept versions and pipeline identifiers, but the generator now merges DB-derived steps and gates with curated highlights so PMMs publish a single source of truth in minutes.【F:scripts/release/generate-release-notes.mjs†L45-L177】
   - [x] 16.B.2. scripts/release/release-highlights.json
     1. **Narrative inputs.** Highlights, breaking changes, and quality gate evidence now live in a structured JSON registry, giving product marketing and release engineering a single source for exec storytelling and compliance follow-ups.【F:scripts/release/release-highlights.json†L1-L47】【F:user_experience.md†L150-L178】
   - [x] 16.B.3. update_docs/release-notes/2025.04.15.md
@@ -5827,12 +5827,12 @@ Creation endpoints now return fully-sanitised documents, preserving fresh versio
 
 - [x] Subcategory 16.C. Upgrade Rollout & Monitoring
   - [x] 16.C.1. scripts/monitoring/rollout-monitor.mjs
-    1. **Appraisal.** The rollout monitor script fuses pipeline reports, quality gates, and release cohorts into an operational dataset so enablement teams can stage launches through mentor beta → agency rollout → global enablement as mandated.【F:scripts/monitoring/rollout-monitor.mjs†L1-L177】【F:user_experience.md†L352-L355】
-    2. **Functionality.** CLI parsing, cohort derivations, telemetry synthesis, and JSON persistence give reliability leads a repeatable way to push rollout health snapshots into backend services.【F:scripts/monitoring/rollout-monitor.mjs†L24-L177】
+    1. **Appraisal.** The rollout monitor now persists snapshots into the release tables while still writing JSON artifacts, letting enablement teams audit completion ratios across mentor beta → agency rollout → global enablement without diverging data.【F:scripts/monitoring/rollout-monitor.mjs†L1-L220】【F:user_experience.md†L352-L355】
+    2. **Functionality.** CLI parsing, cohort derivations, telemetry synthesis, database persistence, and JSON backups give reliability leads deterministic health feeds even when CI nodes are offline.【F:scripts/monitoring/rollout-monitor.mjs†L27-L220】
   - [x] 16.C.2. gigvora-backend-nodejs/src/services/releaseMonitoringService.js
-    1. **Logic usefulness.** The service layers caching, cohort analytics, guardrail alerts, and dashboard summaries so platform UIs can surface adoption ratios, error budgets, and next milestones in lockstep with rollout governance.【F:gigvora-backend-nodejs/src/services/releaseMonitoringService.js†L1-L143】【F:user_experience.md†L352-L355】
-  - [x] 16.C.3. gigvora-backend-nodejs/src/data/release-rollouts.json
-    1. **Live dataset.** Rollout entries now store pipeline status, quality gates, cohort percentages, and telemetry budget so monitoring dashboards reflect staged launch health instead of ad-hoc spreadsheets.【F:gigvora-backend-nodejs/src/data/release-rollouts.json†L1-L95】【F:user_experience.md†L352-L355】
+    1. **Logic usefulness.** The service composes Sequelize models, cache invalidation, analytics, and guardrail alerts so dashboards, scripts, and release notes all read the same production-grade rollout records.【F:gigvora-backend-nodejs/src/services/releaseMonitoringService.js†L1-L373】【F:gigvora-backend-nodejs/src/models/releaseEngineeringModels.js†L1-L206】【F:user_experience.md†L352-L355】
+  - [x] 16.C.3. gigvora-backend-nodejs/database/migrations/20250515104500-release-operations.cjs & database/seeders/20250515110000-release-operations-seed.cjs
+    1. **Live dataset.** The migration provisions release_rollouts, step, gate, and cohort tables with JSON telemetry, while the seeder hydrates them with production cohorts and pipeline evidence so every environment starts with enterprise-grade rollout data.【F:gigvora-backend-nodejs/database/migrations/20250515104500-release-operations.cjs†L5-L135】【F:gigvora-backend-nodejs/database/seeders/20250515110000-release-operations-seed.cjs†L1-L265】【F:user_experience.md†L352-L355】
   - [x] 16.C.4. gigvora-backend-nodejs/tests/services/releaseMonitoringService.test.js
-    1. **Change checklist validation.** Jest coverage seeds datasets, exercises active/hold filtering, summarises milestones, and asserts guardrail alerts to keep monitoring logic trustworthy as stages progress.【F:gigvora-backend-nodejs/tests/services/releaseMonitoringService.test.js†L1-L144】【F:user_experience.md†L346-L355】
+    1. **Change checklist validation.** Jest coverage now seeds through the public API, verifies hold/blocked flows, and asserts guardrail alerts and command metadata to keep monitoring logic enterprise-ready as stages progress.【F:gigvora-backend-nodejs/tests/services/releaseMonitoringService.test.js†L1-L179】【F:user_experience.md†L346-L355】
 

@@ -1,8 +1,5 @@
-import { writeFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
-import path from 'node:path';
-
 import {
+  persistRolloutSnapshot,
   refreshRolloutDataset,
   loadRollouts,
   getRolloutByVersion,
@@ -11,31 +8,63 @@ import {
   getRolloutDashboard,
 } from '../../src/services/releaseMonitoringService.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const datasetPath = path.resolve(__dirname, '..', '..', 'src', 'data', 'release-rollouts.json');
-
-const baseRollout = {
+const baseSnapshot = {
   version: '2025.04.15',
   status: 'monitoring',
-  generatedAt: '2025-04-15T10:00:00.000Z',
+  generatedAt: '2025-04-15T10:05:00.000Z',
   pipeline: {
     id: 'web-release',
     name: 'Web Release Pipeline',
     status: 'passed',
-    finishedAt: '2025-04-15T10:10:00.000Z',
-    durationMs: 600000,
+    finishedAt: '2025-04-15T10:05:00.000Z',
+    durationMs: 699000,
     steps: [
-      { id: 'frontend-quality', name: 'Frontend quality gates', status: 'passed', durationMs: 120000 },
-      { id: 'backend-quality', name: 'Backend quality gates', status: 'passed', durationMs: 180000 },
+      {
+        id: 'frontend-quality',
+        name: 'Frontend quality gates',
+        status: 'passed',
+        durationMs: 315000,
+        commands: [
+          {
+            id: 'frontend-lint',
+            label: 'npm run lint',
+            command: 'npm run lint',
+            workingDirectory: 'gigvora-frontend-reactjs',
+            status: 'passed',
+            durationMs: 64000,
+          },
+        ],
+      },
+      {
+        id: 'backend-quality',
+        name: 'Backend quality gates',
+        status: 'passed',
+        durationMs: 246000,
+        commands: [
+          {
+            id: 'backend-test',
+            label: 'npm test -- --runInBand',
+            command: 'npm test -- --runInBand',
+            workingDirectory: 'gigvora-backend-nodejs',
+            status: 'passed',
+            durationMs: 194000,
+          },
+        ],
+      },
     ],
   },
   quality: {
     status: 'pass',
     gates: [
-      { name: 'Frontend quality', status: 'pass', evidence: 'npm run check' },
-      { name: 'Backend reliability', status: 'pass', evidence: 'npm run test' },
+      { name: 'Frontend quality', status: 'pass', evidence: 'lint, unit, and build pipelines cleared for premium shell' },
+      { name: 'Backend reliability', status: 'pass', evidence: 'lint + Jest suite across services' },
     ],
+  },
+  telemetry: {
+    errorBudgetRemaining: 0.96,
+    p0Incidents: 0,
+    latencyP99Ms: 138,
+    regressionAlerts: [],
   },
   cohorts: [
     {
@@ -49,40 +78,57 @@ const baseRollout = {
     {
       name: 'Mentor beta',
       targetPercentage: 0.25,
-      currentPercentage: 0.18,
+      currentPercentage: 0.21,
       errorBudgetRemaining: 0.97,
       health: 'healthy',
-      notes: ['Monitors mentorship activation funnels and release sentiment.'],
+      notes: ['Monitoring mentorship activation funnels and release sentiment.'],
     },
   ],
-  telemetry: {
-    errorBudgetRemaining: 0.96,
-    p0Incidents: 0,
-    latencyP99Ms: 140,
-    regressionAlerts: [],
-  },
-  releaseNotesPath: 'update_docs/release-notes/2025.04.15.md',
 };
 
-const writeDataset = async (rollouts) => {
-  await writeFile(datasetPath, `${JSON.stringify({ rollouts }, null, 2)}\n`);
-  refreshRolloutDataset();
+const degradeSnapshot = {
+  ...baseSnapshot,
+  version: '2025.04.16',
+  status: 'blocked',
+  telemetry: {
+    errorBudgetRemaining: 0.72,
+    p0Incidents: 2,
+    latencyP99Ms: 228,
+    regressionAlerts: ['Pause rollout until availability stabilises.'],
+  },
+  cohorts: baseSnapshot.cohorts.map((cohort) => ({
+    ...cohort,
+    health: 'blocked',
+    currentPercentage: cohort.currentPercentage * 0.4,
+    errorBudgetRemaining: 0.62,
+  })),
 };
 
 beforeEach(async () => {
-  await writeDataset([baseRollout]);
-});
-
-afterAll(async () => {
-  await writeDataset([baseRollout]);
+  refreshRolloutDataset();
+  await persistRolloutSnapshot(baseSnapshot);
 });
 
 describe('releaseMonitoringService', () => {
+  test('persistRolloutSnapshot stores snapshot and returns enriched rollout', async () => {
+    const saved = await persistRolloutSnapshot({
+      ...baseSnapshot,
+      version: '2025.04.17',
+      status: 'hold',
+      telemetry: { ...baseSnapshot.telemetry, errorBudgetRemaining: 0.9 },
+    });
+
+    expect(saved.version).toBe('2025.04.17');
+    expect(saved.cohorts[0].analytics).toMatchObject({ adoptionStatus: 'complete' });
+    expect(saved.quality.gates).toHaveLength(2);
+    expect(saved.pipeline.steps[0].commands[0].command).toBe('npm run lint');
+  });
+
   test('loadRollouts returns enriched cohorts and progress analytics', async () => {
     const rollouts = await loadRollouts();
     expect(rollouts).toHaveLength(1);
     const [rollout] = rollouts;
-    expect(rollout.progress.completionRatio).toBeGreaterThan(0.17);
+    expect(rollout.progress.completionRatio).toBeGreaterThan(0.2);
     expect(rollout.cohorts[0].analytics).toMatchObject({
       adoptionStatus: 'complete',
       budgetStatus: 'healthy',
@@ -93,53 +139,41 @@ describe('releaseMonitoringService', () => {
   test('getRolloutByVersion returns enriched record', async () => {
     const rollout = await getRolloutByVersion('2025.04.15');
     expect(rollout).not.toBeNull();
-    expect(rollout.version).toBe('2025.04.15');
-    expect(rollout.progress.adoption).toBeGreaterThan(0.17);
+    expect(rollout?.pipeline.steps).toHaveLength(2);
+    expect(rollout?.progress.adoption).toBeGreaterThan(0.2);
   });
 
   test('getActiveRollouts filters monitoring and hold statuses', async () => {
+    await persistRolloutSnapshot({ ...baseSnapshot, version: '2025.04.18', status: 'hold' });
     const rollouts = await getActiveRollouts();
-    expect(rollouts.map((rollout) => rollout.status)).toEqual(['monitoring']);
-    await writeDataset([
-      { ...baseRollout, version: '2025.04.16', status: 'hold' },
-      { ...baseRollout, version: '2025.04.17', status: 'blocked' },
-    ]);
-    const updated = await getActiveRollouts();
-    expect(updated.map((rollout) => rollout.status)).toEqual(['hold']);
+    expect(rollouts.map((rollout) => rollout.status).sort()).toEqual(['hold', 'monitoring']);
   });
 
-  test('summariseRollout surfaces next milestone and alerts', async () => {
+  test('summariseRollout surfaces next milestone and quality status', async () => {
     const rollout = await getRolloutByVersion('2025.04.15');
     const summary = summariseRollout(rollout);
     expect(summary).toMatchObject({
       version: '2025.04.15',
       status: 'monitoring',
+      qualityStatus: 'pass',
       nextMilestone: 'Mentor beta',
     });
   });
 
-  test('getRolloutDashboard highlights guardrail breaches', async () => {
-    const degradedRollout = {
-      ...baseRollout,
-      version: '2025.04.18',
-      status: 'blocked',
-      telemetry: {
-        errorBudgetRemaining: 0.8,
-        p0Incidents: 1,
-        latencyP99Ms: 210,
-        regressionAlerts: ['Pause rollout'],
-      },
-    };
-    await writeDataset([degradedRollout]);
+  test('getRolloutDashboard highlights guardrail breaches and alerts', async () => {
+    await persistRolloutSnapshot(degradeSnapshot);
     const dashboard = await getRolloutDashboard();
-    expect(dashboard).toHaveLength(1);
-    expect(dashboard[0].alerts).toEqual(
+    expect(dashboard).toHaveLength(2);
+    const blocked = dashboard.find((item) => item.version === degradeSnapshot.version);
+    expect(blocked?.alerts ?? []).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ type: 'errorBudget' }),
         expect.objectContaining({ type: 'incident' }),
+        expect.objectContaining({ type: 'latency' }),
+        expect.objectContaining({ type: 'regression' }),
         expect.objectContaining({ type: 'status' }),
       ]),
     );
-    expect(dashboard[0].qualityStatus).toBe('pass');
+    expect(blocked?.qualityStatus).toBe('pass');
   });
 });
