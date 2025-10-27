@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../features/auth/application/session_controller.dart';
 import '../theme/app_theme.dart';
 import '../theme/status_palette.dart';
+import 'continuity/continuity_bootstrap.dart';
 
 final appConfigProvider = Provider<AppConfig>((ref) {
   return ServiceLocator.read<AppConfig>();
@@ -100,10 +101,32 @@ final designTokenLoaderProvider = Provider<GigvoraThemeLoader>((ref) {
   return GigvoraThemeLoader();
 });
 
+final continuityBootstrapLoaderProvider = Provider<ContinuityBootstrapLoader>((ref) {
+  return ContinuityBootstrapLoader(
+    cache: ref.watch(offlineCacheProvider),
+    apiClient: ref.watch(apiClientProvider),
+  );
+});
+
+final continuityBootstrapProvider = FutureProvider<ContinuityBootstrap>((ref) async {
+  final loader = ref.watch(continuityBootstrapLoaderProvider);
+  return loader.load();
+});
+
 final appThemeBundleProvider = FutureProvider<AppThemeBundle>((ref) async {
   final loader = ref.watch(designTokenLoaderProvider);
   final theme = await loader.loadBlue();
-  return AppThemeBundle.fromGigvoraTheme(theme);
+  ContinuityBootstrap? bootstrap;
+  try {
+    bootstrap = await ref.watch(continuityBootstrapProvider.future);
+  } catch (_) {
+    bootstrap = null;
+  }
+  final tokens = bootstrap != null
+      ? bootstrap.applyToDesignTokens(theme.tokens)
+      : theme.tokens;
+  final effectiveTheme = GigvoraTheme(tokens: tokens);
+  return AppThemeBundle.fromGigvoraTheme(effectiveTheme);
 });
 
 final designTokensProvider = Provider<AsyncValue<DesignTokens>>((ref) {

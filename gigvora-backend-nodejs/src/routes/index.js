@@ -65,6 +65,7 @@ import formBlueprintRoutes from './formBlueprintRoutes.js';
 import presenceRoutes from './presenceRoutes.js';
 import onboardingRoutes from './onboardingRoutes.js';
 import navigationRoutes from './navigationRoutes.js';
+import platformContinuityRoutes from './platformContinuityRoutes.js';
 
 const router = Router();
 
@@ -118,6 +119,7 @@ const routeDefinitions = [
   ['/mentors', mentorshipRoutes],
   ['/messaging', messagingRoutes],
   ['/navigation', navigationRoutes],
+  ['/platform/continuity', platformContinuityRoutes],
   ['/networking', networkingRoutes],
   ['/pipeline', pipelineRoutes],
   ['/projects/:projectId/work-management', workManagementRoutes],

@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/localization/gigvora_localizations.dart';
 import 'core/localization/language_controller.dart';
 import 'core/providers.dart';
+import 'core/continuity/continuity_bootstrap.dart';
 import 'features/auth/application/session_bootstrapper.dart';
 import 'features/auth/application/session_expiry_controller.dart';
 import 'features/auth/domain/auth_token_store.dart';
@@ -26,14 +27,37 @@ Future<void> main() async {
 
   final sharedPreferences = await SharedPreferences.getInstance();
 
+  final continuityLoader = ContinuityBootstrapLoader(
+    cache: ServiceLocator.read<OfflineCache>(),
+    apiClient: ServiceLocator.read<ApiClient>(),
+  );
+
+  ContinuityBootstrap? continuity;
+  try {
+    continuity = await continuityLoader.load();
+  } catch (error, stackTrace) {
+    debugPrint('Failed to load continuity bootstrap: $error');
+    debugPrint('$stackTrace');
+  }
+
   try {
     final loader = GigvoraThemeLoader();
     final theme = await loader.loadBlue();
-    final bundle = AppThemeBundle.fromGigvoraTheme(theme);
+    final tokens = continuity != null
+        ? continuity.applyToDesignTokens(theme.tokens)
+        : theme.tokens;
+    final bundle = AppThemeBundle.fromGigvoraTheme(GigvoraTheme(tokens: tokens));
 
     runApp(
       ProviderScope(
         overrides: [
+          continuityBootstrapLoaderProvider.overrideWithValue(continuityLoader),
+          continuityBootstrapProvider.overrideWith((ref) async {
+            if (continuity != null) {
+              return continuity;
+            }
+            return ref.watch(continuityBootstrapLoaderProvider).load(forceRefresh: true);
+          }),
           appThemeBundleProvider.overrideWithValue(AsyncValue.data(bundle)),
           sharedPreferencesProvider.overrideWithValue(sharedPreferences),
         ],
@@ -46,6 +70,13 @@ Future<void> main() async {
     runApp(
       ProviderScope(
         overrides: [
+          continuityBootstrapLoaderProvider.overrideWithValue(continuityLoader),
+          continuityBootstrapProvider.overrideWith((ref) async {
+            if (continuity != null) {
+              return continuity;
+            }
+            return ref.watch(continuityBootstrapLoaderProvider).load(forceRefresh: true);
+          }),
           appThemeBundleProvider.overrideWithValue(AsyncValue.error(error, stackTrace)),
           sharedPreferencesProvider.overrideWithValue(sharedPreferences),
         ],
@@ -64,6 +95,7 @@ class GigvoraApp extends ConsumerWidget {
     final router = ref.watch(appRouterProvider);
     final locale = ref.watch(languageControllerProvider);
     final statusPalette = ref.watch(statusPaletteProvider);
+    ref.watch(continuityBootstrapProvider);
     ref.watch(sessionBootstrapProvider);
     ref.watch(runtimeHealthStreamProvider);
     ref.watch(featureFlagsBootstrapProvider);

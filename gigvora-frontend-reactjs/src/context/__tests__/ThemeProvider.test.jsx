@@ -2,6 +2,16 @@ import { createElement } from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ThemeProvider, useTheme } from '../ThemeProvider.tsx';
+import { PlatformContinuityProvider } from '../PlatformContinuityContext.jsx';
+
+vi.mock('../../services/apiClient.js', () => ({
+  __esModule: true,
+  apiClient: {
+    get: vi.fn().mockResolvedValue({ bootstrap: null }),
+    readCache: vi.fn(() => null),
+    writeCache: vi.fn(),
+  },
+}));
 
 vi.mock('../../services/analytics.js', () => {
   const analyticsMock = {
@@ -40,9 +50,18 @@ describe('ThemeProvider', () => {
     document.documentElement.removeAttribute('data-themedensity');
   });
 
-  it('exposes default theme tokens', () => {
-    const wrapper = ({ children }) => createElement(ThemeProvider, null, children);
+  it('exposes default theme tokens', async () => {
+    const wrapper = ({ children }) =>
+      createElement(
+        PlatformContinuityProvider,
+        null,
+        createElement(ThemeProvider, null, children),
+      );
     const { result } = renderHook(() => useTheme(), { wrapper });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     expect(result.current.mode).toBe('light');
     expect(result.current.tokens.colors.background).toBeDefined();
@@ -50,8 +69,17 @@ describe('ThemeProvider', () => {
   });
 
   it('updates mode and accent tokens', async () => {
-    const wrapper = ({ children }) => createElement(ThemeProvider, null, children);
+    const wrapper = ({ children }) =>
+      createElement(
+        PlatformContinuityProvider,
+        null,
+        createElement(ThemeProvider, null, children),
+      );
     const { result } = renderHook(() => useTheme(), { wrapper });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     await act(async () => {
       result.current.setMode('dark');

@@ -9,6 +9,7 @@ import { NavigationChromeProvider } from './context/NavigationChromeContext.jsx'
 import { LanguageProvider } from './context/LanguageContext.jsx';
 import { ThemeProvider } from './context/ThemeProvider.tsx';
 import { DataFetchingProvider } from './context/DataFetchingLayer.js';
+import { PlatformContinuityProvider } from './context/PlatformContinuityContext.jsx';
 
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 const isStandaloneAdminProfile = import.meta.env.VITE_STANDALONE_ADMIN_PROFILE === 'true';
@@ -42,13 +43,15 @@ async function bootstrap() {
             <NavigationChromeProvider>
               <LanguageProvider>
                 <SessionProvider>
-                  <ThemeProvider>
-                    <DataFetchingProvider>
-                      <MessagingProvider>
-                        <AppComponent />
-                      </MessagingProvider>
-                    </DataFetchingProvider>
-                  </ThemeProvider>
+                  <PlatformContinuityProvider>
+                    <ThemeProvider>
+                      <DataFetchingProvider>
+                        <MessagingProvider>
+                          <AppComponent />
+                        </MessagingProvider>
+                      </DataFetchingProvider>
+                    </ThemeProvider>
+                  </PlatformContinuityProvider>
                 </SessionProvider>
               </LanguageProvider>
             </NavigationChromeProvider>

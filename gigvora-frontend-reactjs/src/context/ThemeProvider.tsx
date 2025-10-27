@@ -1,4 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  CONTINUITY_THEME_BLUEPRINT,
+  CONTINUITY_THEME_DEFAULTS,
+  resolveThemeTokens,
+} from '@shared-contracts/domain/platform/continuity-bootstrap.js';
+import { usePlatformContinuity } from './PlatformContinuityContext.jsx';
 import analytics from '../services/analytics.js';
 
 const STORAGE_KEY = 'gigvora:web:theme:preferences';
@@ -6,158 +12,6 @@ const COLOR_SCHEME_ATTRIBUTE = 'color-scheme';
 const DATA_THEME_MODE = 'themeMode';
 const DATA_THEME_DENSITY = 'themeDensity';
 
-const MODE_PRESETS = {
-  light: {
-    colors: {
-      background: '#f8fafc',
-      surface: '#ffffff',
-      surfaceMuted: '#f1f5f9',
-      surfaceElevated: 'rgba(255, 255, 255, 0.92)',
-      border: 'rgba(148, 163, 184, 0.45)',
-      borderStrong: 'rgba(71, 85, 105, 0.6)',
-      text: '#0f172a',
-      textMuted: '#475569',
-      textOnAccent: '#ffffff',
-      focus: 'rgba(14, 165, 233, 0.35)',
-    },
-    shadows: {
-      soft: '0 24px 60px -30px rgba(15, 23, 42, 0.25)',
-      subtle: '0 10px 25px -15px rgba(15, 23, 42, 0.18)',
-      focus: '0 0 0 4px rgba(14, 165, 233, 0.15)',
-    },
-    overlays: {
-      shellPrimary: 'radial-gradient(circle at top, rgba(37, 99, 235, 0.15), transparent 60%)',
-      shellDesktop: 'radial-gradient(circle at top right, rgba(219, 234, 254, 0.7), transparent 65%)',
-    },
-  },
-  dark: {
-    colors: {
-      background: '#0b1120',
-      surface: '#111827',
-      surfaceMuted: 'rgba(30, 41, 59, 0.78)',
-      surfaceElevated: 'rgba(30, 41, 59, 0.92)',
-      border: 'rgba(148, 163, 184, 0.35)',
-      borderStrong: 'rgba(226, 232, 240, 0.45)',
-      text: '#e2e8f0',
-      textMuted: '#cbd5f5',
-      textOnAccent: '#0f172a',
-      focus: 'rgba(14, 165, 233, 0.5)',
-    },
-    shadows: {
-      soft: '0 28px 60px -28px rgba(15, 23, 42, 0.5)',
-      subtle: '0 14px 32px -24px rgba(15, 23, 42, 0.6)',
-      focus: '0 0 0 5px rgba(56, 189, 248, 0.3)',
-    },
-    overlays: {
-      shellPrimary: 'radial-gradient(circle at top, rgba(56, 189, 248, 0.2), transparent 65%)',
-      shellDesktop: 'radial-gradient(circle at top right, rgba(30, 64, 175, 0.6), transparent 70%)',
-    },
-  },
-  'high-contrast': {
-    colors: {
-      background: '#ffffff',
-      surface: '#ffffff',
-      surfaceMuted: '#f8fafc',
-      surfaceElevated: '#ffffff',
-      border: '#000000',
-      borderStrong: '#000000',
-      text: '#000000',
-      textMuted: '#0f172a',
-      textOnAccent: '#000000',
-      focus: '#000000',
-    },
-    shadows: {
-      soft: '0 0 0 0 rgba(0, 0, 0, 0)',
-      subtle: '0 0 0 0 rgba(0, 0, 0, 0)',
-      focus: '0 0 0 3px #000000',
-    },
-    overlays: {
-      shellPrimary: 'linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%)',
-      shellDesktop: 'linear-gradient(120deg, #ffffff 0%, #e2e8f0 100%)',
-    },
-  },
-};
-
-const ACCENT_PRESETS = {
-  azure: {
-    accent: '#2563eb',
-    accentStrong: '#1d4ed8',
-    accentSoft: 'rgba(37, 99, 235, 0.12)',
-    primary: '#2563eb',
-    primarySoft: 'rgba(37, 99, 235, 0.08)',
-  },
-  violet: {
-    accent: '#7c3aed',
-    accentStrong: '#5b21b6',
-    accentSoft: 'rgba(124, 58, 237, 0.14)',
-    primary: '#7c3aed',
-    primarySoft: 'rgba(124, 58, 237, 0.12)',
-  },
-  emerald: {
-    accent: '#0f766e',
-    accentStrong: '#0d5f59',
-    accentSoft: 'rgba(15, 118, 110, 0.16)',
-    primary: '#059669',
-    primarySoft: 'rgba(5, 150, 105, 0.14)',
-  },
-  amber: {
-    accent: '#d97706',
-    accentStrong: '#b45309',
-    accentSoft: 'rgba(217, 119, 6, 0.18)',
-    primary: '#f59e0b',
-    primarySoft: 'rgba(245, 158, 11, 0.16)',
-  },
-  rose: {
-    accent: '#e11d48',
-    accentStrong: '#be123c',
-    accentSoft: 'rgba(225, 29, 72, 0.18)',
-    primary: '#e11d48',
-    primarySoft: 'rgba(225, 29, 72, 0.15)',
-  },
-};
-
-const DENSITY_SCALE = {
-  spacious: 1.05,
-  comfortable: 1,
-  cozy: 0.92,
-  compact: 0.85,
-};
-
-const BASE_SPACING = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 40,
-};
-
-const TYPOGRAPHY_PRESETS = {
-  fontSans: "'Inter', 'Helvetica Neue', Arial, sans-serif",
-  fontMono:
-    "'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
-  heading: {
-    xs: '600 0.75rem/1.4 var(--gv-font-sans)',
-    sm: '600 0.875rem/1.4 var(--gv-font-sans)',
-    md: '600 1.125rem/1.4 var(--gv-font-sans)',
-    lg: '600 1.375rem/1.35 var(--gv-font-sans)',
-    xl: '600 1.875rem/1.3 var(--gv-font-sans)',
-  },
-  body: {
-    sm: '400 0.875rem/1.5 var(--gv-font-sans)',
-    md: '400 1rem/1.6 var(--gv-font-sans)',
-    lg: '400 1.125rem/1.65 var(--gv-font-sans)',
-  },
-  label: {
-    sm: '600 0.75rem/1.3 var(--gv-font-sans)',
-    md: '600 0.875rem/1.35 var(--gv-font-sans)',
-  },
-};
-
-const RADIUS_PRESETS = {
-  sm: '0.75rem',
-  md: '1.5rem',
-  lg: '2.5rem',
-};
 
 function isBrowser() {
   return typeof window !== 'undefined' && typeof document !== 'undefined';
@@ -170,7 +24,7 @@ function detectSystemMode() {
   return window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ? 'dark' : 'light';
 }
 
-function normalisePreference(value, fallback) {
+function normalisePreference(value, fallback, allowed) {
   if (!value || typeof value !== 'string') {
     return fallback;
   }
@@ -178,10 +32,13 @@ function normalisePreference(value, fallback) {
   if (!trimmed) {
     return fallback;
   }
+  if (Array.isArray(allowed) && allowed.length > 0 && !allowed.includes(trimmed)) {
+    return fallback;
+  }
   return trimmed;
 }
 
-function readStoredPreferences() {
+function readStoredPreferences(defaults = CONTINUITY_THEME_DEFAULTS, allowed = {}) {
   if (!isBrowser()) {
     return null;
   }
@@ -195,9 +52,21 @@ function readStoredPreferences() {
       return null;
     }
     return {
-      mode: normalisePreference(parsed.mode, 'system'),
-      accent: normalisePreference(parsed.accent, 'azure'),
-      density: normalisePreference(parsed.density, 'comfortable'),
+      mode: normalisePreference(
+        parsed.mode,
+        defaults?.mode ?? 'system',
+        Array.isArray(allowed.modes) ? allowed.modes : undefined,
+      ),
+      accent: normalisePreference(
+        parsed.accent,
+        defaults?.accent ?? 'azure',
+        Array.isArray(allowed.accents) ? allowed.accents : undefined,
+      ),
+      density: normalisePreference(
+        parsed.density,
+        defaults?.density ?? 'comfortable',
+        Array.isArray(allowed.densities) ? allowed.densities : undefined,
+      ),
     };
   } catch (error) {
     console.warn('Unable to read stored theme preferences', error);
@@ -216,8 +85,18 @@ function persistPreferences(preferences) {
   }
 }
 
-function pxToRem(px, scale) {
-  return `${((px * scale) / 16).toFixed(3)}rem`;
+function pxToRem(px) {
+  if (typeof px === 'string') {
+    const trimmed = px.trim();
+    if (trimmed.endsWith('rem') || trimmed.endsWith('px')) {
+      return trimmed;
+    }
+  }
+  const numeric = typeof px === 'number' ? px : Number.parseFloat(`${px ?? ''}`);
+  if (!Number.isFinite(numeric)) {
+    return typeof px === 'string' ? px : `${px}`;
+  }
+  return `${(numeric / 16).toFixed(3)}rem`;
 }
 
 function applyCssVariables(tokens, mode, density) {
@@ -292,11 +171,33 @@ const defaultThemeValue = {
 const ThemeContext = createContext(defaultThemeValue);
 
 export function ThemeProvider({ children }) {
-  const stored = readStoredPreferences();
-  const [modePreference, setModePreference] = useState(stored?.mode ?? 'system');
-  const [accent, setAccentState] = useState(stored?.accent ?? 'azure');
-  const [density, setDensityState] = useState(stored?.density ?? 'comfortable');
+  const { bootstrap } = usePlatformContinuity();
+  const blueprint = bootstrap?.theme?.blueprint ?? CONTINUITY_THEME_BLUEPRINT;
+  const defaults = bootstrap?.theme?.defaults ?? CONTINUITY_THEME_DEFAULTS;
+
+  const modeOptions = useMemo(() => Object.keys(blueprint?.modes ?? {}), [blueprint]);
+  const accentOptions = useMemo(() => Object.keys(blueprint?.accents ?? {}), [blueprint]);
+  const densityOptions = useMemo(() => Object.keys(blueprint?.densityScale ?? {}), [blueprint]);
+
+  const allowedSets = useMemo(
+    () => ({
+      modes: [...modeOptions, 'system'],
+      accents: accentOptions,
+      densities: densityOptions,
+    }),
+    [modeOptions, accentOptions, densityOptions],
+  );
+
+  const stored = useMemo(() => readStoredPreferences(defaults, allowedSets), [defaults, allowedSets]);
+
+  const [modePreference, setModePreference] = useState(() => stored?.mode ?? defaults.mode ?? 'system');
+  const [accent, setAccentState] = useState(() => stored?.accent ?? defaults.accent ?? 'azure');
+  const [density, setDensityState] = useState(() => stored?.density ?? defaults.density ?? 'comfortable');
   const [systemMode, setSystemMode] = useState(detectSystemMode);
+
+  const modeSet = useMemo(() => new Set(allowedSets.modes ?? []), [allowedSets]);
+  const accentSet = useMemo(() => new Set(allowedSets.accents ?? []), [allowedSets]);
+  const densitySet = useMemo(() => new Set(allowedSets.densities ?? []), [allowedSets]);
 
   const componentTokensRef = useRef(new Map());
   const lastTrackedRef = useRef({ mode: null, accent: null, density: null });
@@ -318,34 +219,38 @@ export function ThemeProvider({ children }) {
     return () => mediaQuery.removeListener(handleChange);
   }, []);
 
+  useEffect(() => {
+    const expectedMode = modeSet.has(modePreference) ? modePreference : defaults.mode ?? 'system';
+    if (modePreference !== expectedMode) {
+      setModePreference(expectedMode);
+    }
+    const expectedAccent = accentSet.has(accent) ? accent : defaults.accent ?? 'azure';
+    if (accent !== expectedAccent) {
+      setAccentState(expectedAccent);
+    }
+    const expectedDensity = densitySet.has(density) ? density : defaults.density ?? 'comfortable';
+    if (density !== expectedDensity) {
+      setDensityState(expectedDensity);
+    }
+  }, [modeSet, accentSet, densitySet, defaults, modePreference, accent, density]);
+
   const resolvedMode = modePreference === 'system' ? systemMode : modePreference;
 
   const tokens = useMemo(() => {
-    const modeTokens = MODE_PRESETS[resolvedMode] ?? MODE_PRESETS.light;
-    const accentTokens = ACCENT_PRESETS[accent] ?? ACCENT_PRESETS.azure;
-    const densityScale = DENSITY_SCALE[density] ?? DENSITY_SCALE.comfortable;
-
+    const themeTokens = resolveThemeTokens({ blueprint, mode: resolvedMode, accent, density });
     const spacing = Object.fromEntries(
-      Object.entries(BASE_SPACING).map(([key, value]) => [key, pxToRem(value, densityScale)]),
+      Object.entries(themeTokens.spacing ?? {}).map(([key, value]) => [key, pxToRem(value)]),
     );
-
     return {
-      colors: {
-        ...modeTokens.colors,
-        accent: accentTokens.accent,
-        accentStrong: accentTokens.accentStrong,
-        accentSoft: accentTokens.accentSoft,
-        primary: accentTokens.primary,
-        primarySoft: accentTokens.primarySoft,
-      },
+      colors: themeTokens.colors ?? {},
       spacing,
-      radii: { ...RADIUS_PRESETS },
-      typography: { ...TYPOGRAPHY_PRESETS },
-      density: densityScale,
-      shadows: { ...modeTokens.shadows },
-      overlays: { ...modeTokens.overlays },
+      radii: { ...(themeTokens.radii ?? {}) },
+      typography: { ...(themeTokens.typography ?? {}) },
+      density: themeTokens.density ?? 1,
+      shadows: { ...(themeTokens.shadows ?? {}) },
+      overlays: { ...(themeTokens.overlays ?? {}) },
     };
-  }, [accent, density, resolvedMode]);
+  }, [blueprint, resolvedMode, accent, density]);
 
   useEffect(() => {
     applyCssVariables(tokens, resolvedMode, density);
@@ -421,40 +326,39 @@ export function ThemeProvider({ children }) {
 
   const setMode = useCallback(
     (nextMode) => {
-      const normalised = normalisePreference(nextMode, modePreference);
-      const supported = ['light', 'dark', 'high-contrast', 'system'];
-      const value = supported.includes(normalised) ? normalised : modePreference;
+      const normalised = normalisePreference(nextMode, modePreference, Array.from(modeSet));
+      const value = modeSet.has(normalised) ? normalised : modePreference;
       if (value === modePreference) {
         return;
       }
       analytics.track('theme.mode_changed', { nextMode: value, previousMode: modePreference });
       setModePreference(value);
     },
-    [modePreference],
+    [modePreference, modeSet],
   );
 
   const setAccent = useCallback(
     (nextAccent) => {
-      const normalised = normalisePreference(nextAccent, accent);
-      if (!ACCENT_PRESETS[normalised] || normalised === accent) {
+      const normalised = normalisePreference(nextAccent, accent, Array.from(accentSet));
+      if (!accentSet.has(normalised) || normalised === accent) {
         return;
       }
       analytics.track('theme.accent_changed', { nextAccent: normalised, previousAccent: accent });
       setAccentState(normalised);
     },
-    [accent],
+    [accent, accentSet],
   );
 
   const setDensity = useCallback(
     (nextDensity) => {
-      const normalised = normalisePreference(nextDensity, density);
-      if (!DENSITY_SCALE[normalised] || normalised === density) {
+      const normalised = normalisePreference(nextDensity, density, Array.from(densitySet));
+      if (!densitySet.has(normalised) || normalised === density) {
         return;
       }
       analytics.track('theme.density_changed', { nextDensity: normalised, previousDensity: density });
       setDensityState(normalised);
     },
-    [density],
+    [density, densitySet],
   );
 
   const value = useMemo(
