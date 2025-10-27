@@ -19,6 +19,8 @@ import {
 import clsx from 'clsx';
 import { Transition } from '@headlessui/react';
 import { fetchAdminDashboard } from '../../../services/admin.js';
+import useLiveServiceTelemetry from '../../../hooks/useLiveServiceTelemetry.js';
+import LiveServiceTelemetryPanel from '../LiveServiceTelemetryPanel.jsx';
 import { analytics } from '../../../services/analytics.js';
 
 const TIMEFRAMES = [
@@ -464,6 +466,25 @@ export default function AdminDashboard({ initialLookbackDays, onNavigate }) {
     finance: {},
   });
 
+  const telemetryWindowMinutes = useMemo(() => {
+    if (timeframe <= 7) {
+      return 60;
+    }
+    if (timeframe <= 30) {
+      return 180;
+    }
+    return 360;
+  }, [timeframe]);
+
+  const {
+    data: liveServiceTelemetry,
+    loading: liveTelemetryLoading,
+    refreshing: liveTelemetryRefreshing,
+    error: liveTelemetryError,
+    lastUpdated: liveTelemetryUpdated,
+    refresh: refreshLiveServiceTelemetry,
+  } = useLiveServiceTelemetry({ windowMinutes: telemetryWindowMinutes, refreshIntervalMs: 90_000 });
+
   const loadDashboard = useCallback(
     async (options = {}) => {
       const silent = options.silent ?? false;
@@ -517,9 +538,16 @@ export default function AdminDashboard({ initialLookbackDays, onNavigate }) {
     loadDashboard();
   }, [loadDashboard]);
 
+  const handleTelemetryRefresh = useCallback(() => {
+    analytics.track('admin.command-center.telemetry-refresh', { timeframe, segment });
+    refreshLiveServiceTelemetry();
+  }, [segment, timeframe, refreshLiveServiceTelemetry]);
+
   const handleRefresh = useCallback(() => {
+    analytics.track('admin.command-center.refresh', { timeframe, segment });
     loadDashboard({ silent: true });
-  }, [loadDashboard]);
+    refreshLiveServiceTelemetry();
+  }, [segment, timeframe, loadDashboard, refreshLiveServiceTelemetry]);
 
   const financeSnapshot = useMemo(() => {
     return {
@@ -709,6 +737,15 @@ export default function AdminDashboard({ initialLookbackDays, onNavigate }) {
           </div>
         </div>
       </div>
+
+      <LiveServiceTelemetryPanel
+        telemetry={liveServiceTelemetry}
+        loading={liveTelemetryLoading}
+        refreshing={liveTelemetryRefreshing}
+        error={liveTelemetryError}
+        lastUpdated={liveTelemetryUpdated}
+        onRefresh={handleTelemetryRefresh}
+      />
 
       <div className="grid gap-6 rounded-[32px] border border-slate-200 bg-white/90 p-6 shadow-lg shadow-blue-100/20 lg:grid-cols-3">
         <div className="space-y-4">
