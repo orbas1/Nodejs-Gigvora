@@ -8,6 +8,28 @@ const VERSION_STATUSES = ['draft', 'in_review', 'released', 'deprecated'];
 const VERSION_TYPES = ['major', 'minor', 'patch', 'hotfix'];
 const FEATURE_ROLLOUT_TYPES = ['global', 'percentage', 'cohort'];
 
+const ENUM_TYPES = [
+  'enum_mobile_apps_platform',
+  'enum_mobile_apps_status',
+  'enum_mobile_apps_releaseChannel',
+  'enum_mobile_apps_complianceStatus',
+  'enum_mobile_app_versions_status',
+  'enum_mobile_app_versions_releaseType',
+  'enum_mobile_app_versions_releaseChannel',
+  'enum_mobile_app_features_rolloutType',
+];
+
+async function dropEnumTypes(queryInterface, transaction) {
+  const dialect = queryInterface.sequelize.getDialect();
+  if (!['postgres', 'postgresql'].includes(dialect)) {
+    return;
+  }
+
+  for (const typeName of ENUM_TYPES) {
+    await queryInterface.sequelize.query(`DROP TYPE IF EXISTS "${typeName}"`, { transaction });
+  }
+}
+
 module.exports = {
   async up(queryInterface, Sequelize) {
     const transaction = await queryInterface.sequelize.transaction();
@@ -159,6 +181,8 @@ module.exports = {
       await queryInterface.dropTable('mobile_app_features', { transaction });
       await queryInterface.dropTable('mobile_app_versions', { transaction });
       await queryInterface.dropTable('mobile_apps', { transaction });
+
+      await dropEnumTypes(queryInterface, transaction);
 
       await transaction.commit();
     } catch (error) {
