@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import PersonaSelection, { personaShape, DEFAULT_PERSONAS_FOR_SELECTION } from './PersonaSelection.jsx';
+import ProfileBasicsForm from './ProfileBasicsForm.jsx';
+import WorkspacePrimerCarousel from './WorkspacePrimerCarousel.jsx';
 import { listOnboardingPersonas, createOnboardingJourney } from '../../../services/onboarding.js';
 
 const STEP_SEQUENCE = [
@@ -67,6 +69,7 @@ export default function OnboardingWizard({
   const [preferences, setPreferences] = useState(defaultPreferences);
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState(null);
+  const [attemptedSteps, setAttemptedSteps] = useState({});
 
   useEffect(() => {
     if (hasExternalPersonas) {
@@ -168,6 +171,102 @@ export default function OnboardingWizard({
     ];
   }, [selectedPersona]);
 
+  const validInviteCount = useMemo(
+    () => invites.filter((invite) => invite.email && invite.email.trim()).length,
+    [invites],
+  );
+
+  const focusSignals = useMemo(
+    () => (Array.isArray(preferences.focusSignals) ? preferences.focusSignals.filter((signal) => signal?.trim()) : []),
+    [preferences.focusSignals],
+  );
+
+  const workspacePrimerSlides = useMemo(() => {
+    const personaTitle = selectedPersona?.title ?? 'Workspace';
+    const modules = Array.isArray(selectedPersona?.recommendedModules)
+      ? selectedPersona.recommendedModules
+      : ['Insights dashboard', 'Launch checklist', 'Storytelling studio'];
+    const metrics = Array.isArray(selectedPersona?.metrics)
+      ? selectedPersona.metrics.slice(0, 3).map((metric) => ({
+          label: metric.label,
+          value: metric.value,
+        }))
+      : [];
+    const trimmedNorthStar = profile.northStar?.trim();
+
+    return [
+      {
+        id: 'launch-readiness',
+        eyebrow: 'Launch plan',
+        title: `Launch your ${personaTitle.toLowerCase()} workspace`,
+        description:
+          'We tailor automations, copy, and analytics so your flagship workspace feels ready for LinkedIn, Instagram, and Facebook audiences from day one.',
+        highlights: [
+          modules.length
+            ? `Signature modules: ${modules.slice(0, 3).join(', ')}`
+            : 'Signature modules unlock once you select a persona.',
+          trimmedNorthStar
+            ? `North-star focus: ${trimmedNorthStar}`
+            : 'Add a north-star outcome to calibrate analytics and prompts.',
+        ],
+        metrics:
+          metrics.length > 0
+            ? metrics
+            : [
+                { label: 'Launch readiness', value: 'Under 5 minutes' },
+                { label: 'Guided playbooks', value: '12+ automations' },
+              ],
+      },
+      {
+        id: 'collaboration-momentum',
+        eyebrow: 'Collaboration',
+        title: 'Bring collaborators into the story',
+        description:
+          'Invite marketing, recruiting, and leadership partners to co-create updates, approvals, and insights in one shared workspace.',
+        highlights: [
+          `Invites prepared: ${validInviteCount}`,
+          'Roles covered: Collaborator, Approver, Executive',
+          'Automated nudges keep everyone aligned once you launch.',
+        ],
+        metrics: [
+          { label: 'Realtime invites', value: validInviteCount },
+          { label: 'Approval workflows', value: 'Included' },
+        ],
+      },
+      {
+        id: 'signal-intelligence',
+        eyebrow: 'Signals',
+        title: 'Stay ahead with personalised signals',
+        description:
+          'Digest cadence, focus signals, and AI drafting options align your rituals with the outcomes you care about.',
+        highlights: [
+          `Digest cadence: ${preferences.digestCadence ?? 'weekly'}`,
+          focusSignals.length
+            ? `Focus signals: ${focusSignals.join(', ')}`
+            : 'Select focus signals to tailor analytics to your priorities.',
+          preferences.enableAiDrafts
+            ? 'AI drafts enabled — we pre-seed stories based on your highlights.'
+            : 'Enable AI drafts to accelerate storytelling and reviews.',
+        ],
+        metrics: [
+          { label: 'Signal themes', value: focusSignals.length },
+          { label: 'AI assistance', value: preferences.enableAiDrafts ? 'Enabled' : 'Off' },
+        ],
+      },
+    ];
+  }, [focusSignals, preferences.digestCadence, preferences.enableAiDrafts, profile.northStar, selectedPersona?.metrics, selectedPersona?.recommendedModules, selectedPersona?.title, validInviteCount]);
+
+  const isProfileComplete = useMemo(
+    () => Boolean(profile.companyName.trim() && profile.role.trim() && profile.timezone.trim()),
+    [profile.companyName, profile.role, profile.timezone],
+  );
+
+  useEffect(() => {
+    if (attemptedSteps.profile && isProfileComplete) {
+      setAttemptedSteps((current) => ({ ...current, profile: false }));
+    }
+  }, [attemptedSteps.profile, isProfileComplete]);
+
   const reviewSummary = useMemo(() => {
     return {
       persona: selectedPersona,
@@ -186,7 +285,7 @@ export default function OnboardingWizard({
       return Boolean(selectedPersonaId) && !personasLoading;
     }
     if (currentStep.id === 'profile') {
-      return Boolean(profile.companyName.trim() && profile.role.trim() && profile.timezone.trim());
+      return isProfileComplete;
     }
     if (currentStep.id === 'team') {
       return invites.some((invite) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(invite.email.trim()));
@@ -195,12 +294,14 @@ export default function OnboardingWizard({
       return Boolean(preferences.digestCadence);
     }
     return true;
-  }, [currentStep, invites, personasLoading, preferences.digestCadence, profile.companyName, profile.role, profile.timezone, selectedPersonaId]);
+  }, [currentStep, invites, isProfileComplete, personasLoading, preferences.digestCadence, selectedPersonaId]);
 
   const handleNext = () => {
     if (!canProceed) {
+      setAttemptedSteps((current) => ({ ...current, [currentStep.id]: true }));
       return;
     }
+    setAttemptedSteps((current) => ({ ...current, [currentStep.id]: false }));
     setCurrentStepIndex((index) => Math.min(index + 1, STEP_SEQUENCE.length - 1));
   };
 
@@ -214,6 +315,9 @@ export default function OnboardingWizard({
       personaId,
       title: persona?.title,
     });
+    if (personaId) {
+      setAttemptedSteps((current) => ({ ...current, persona: false }));
+    }
     if (currentStep.id === 'persona' && personaId) {
       setCurrentStepIndex(1);
     }
@@ -353,98 +457,27 @@ export default function OnboardingWizard({
             Loading personas…
           </div>
         )}
+        {attemptedSteps.persona && !selectedPersonaId && (
+          <p className="rounded-2xl bg-rose-50 p-3 text-sm font-semibold text-rose-600">
+            Select a persona to continue.
+          </p>
+        )}
+        <WorkspacePrimerCarousel slides={workspacePrimerSlides} analytics={analytics} />
       </div>
     );
   };
 
   const renderProfileStep = () => {
     return (
-      <div className="space-y-6">
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h3 className="text-lg font-semibold text-slate-900">Tell us about your brand</h3>
-          <p className="mt-2 text-sm text-slate-500">
-            This information powers your workspace hero, story templates, and executive summaries. Accuracy here unlocks
-            onboarding automations.
-          </p>
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-              Company or brand name
-              <input
-                type="text"
-                className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                value={profile.companyName}
-                onChange={(event) => handleProfileChange('companyName', event.target.value)}
-                placeholder="Gigvora Labs"
-                required
-              />
-            </label>
-            <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-              Your role
-              <input
-                type="text"
-                className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                value={profile.role}
-                onChange={(event) => handleProfileChange('role', event.target.value)}
-                placeholder="Head of Talent"
-                required
-              />
-            </label>
-            <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-              Preferred timezone
-              <input
-                type="text"
-                className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                value={profile.timezone}
-                onChange={(event) => handleProfileChange('timezone', event.target.value)}
-                placeholder="GMT / London"
-                required
-              />
-            </label>
-            <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-              Signature headline
-              <input
-                type="text"
-                className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                value={profile.headline}
-                onChange={(event) => handleProfileChange('headline', event.target.value)}
-                placeholder="Where hiring brand, community, and revenue meet"
-              />
-            </label>
-            <label className="flex flex-col gap-2 text-sm font-medium text-slate-600 md:col-span-2">
-              North-star outcome for the next quarter
-              <textarea
-                rows="3"
-                className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                value={profile.northStar}
-                onChange={(event) => handleProfileChange('northStar', event.target.value)}
-                placeholder="Scale warm talent pipeline to 150 qualified leads and launch onboarding experience."
-              />
-            </label>
-          </div>
-        </section>
-        {selectedPersona && (
-          <aside className="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 text-white shadow-lg">
-            <h4 className="text-lg font-semibold">What this unlocks</h4>
-            <p className="mt-2 text-sm text-slate-200">
-              Your answers personalise automation, sample copy, and analytics to the {selectedPersona.title.toLowerCase()} playbook.
-            </p>
-            <dl className="mt-4 grid gap-4 md:grid-cols-2">
-              {personaInsights.map((insight) => (
-                <div key={insight.label}>
-                  <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">{insight.label}</dt>
-                  <dd className="mt-2 space-y-1 text-sm">
-                    {insight.value.map((line) => (
-                      <p key={line} className="text-slate-100">
-                        {line}
-                      </p>
-                    ))}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </aside>
-        )}
-      </div>
+      <ProfileBasicsForm
+        value={profile}
+        onChange={handleProfileChange}
+        persona={selectedPersona}
+        personaInsights={personaInsights}
+        workspacePrimerSlides={workspacePrimerSlides}
+        analytics={analytics}
+        shouldShowErrors={attemptedSteps.profile && !isProfileComplete}
+      />
     );
   };
 
