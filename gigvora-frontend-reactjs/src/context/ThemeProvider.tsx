@@ -1,192 +1,120 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import analytics from '../services/analytics.js';
+import type { ReactNode } from 'react';
+import analyticsDefault from '../services/analytics.js';
+import {
+  createDesignTokens,
+  createCssVariableMap,
+  DEFAULT_THEME_SETTINGS,
+} from '@shared-contracts/domain/platform/design-system.js';
 
-const STORAGE_KEY = 'gigvora:web:theme:preferences';
+type ThemeMode = 'light' | 'dark' | 'high-contrast';
+type ThemeModePreference = ThemeMode | 'system';
+type ThemeAccent = 'azure' | 'violet' | 'emerald' | 'amber' | 'rose';
+type ThemeDensity = 'spacious' | 'comfortable' | 'cozy' | 'compact';
+
+type ThemePreferencesSnapshot = {
+  mode: ThemeMode;
+  preference: ThemeModePreference;
+  accent: ThemeAccent;
+  density: ThemeDensity;
+};
+
+type ThemeProviderProps = {
+  children: ReactNode;
+  initialPreferences?: Partial<{ mode: ThemeModePreference; accent: ThemeAccent; density: ThemeDensity }>;
+  onPreferencesChange?: (preferences: ThemePreferencesSnapshot) => void;
+  storageKey?: string;
+  disablePersistence?: boolean;
+  analyticsClient?: typeof analyticsDefault;
+};
+
+type ThemeTokens = ReturnType<typeof createDesignTokens> & {
+  spacingPx: Record<string, number>;
+  spacing: Record<string, string>;
+};
+
+type ThemeContextValue = {
+  mode: ThemeMode;
+  preference: ThemeModePreference;
+  accent: ThemeAccent;
+  density: ThemeDensity;
+  tokens: ThemeTokens;
+  cssVariables: Record<string, string>;
+  setMode: (mode: ThemeModePreference) => void;
+  setAccent: (accent: ThemeAccent) => void;
+  setDensity: (density: ThemeDensity) => void;
+  registerComponentTokens: (componentName: string, overrides: Partial<ThemeTokens>) => void;
+  removeComponentTokens: (componentName: string) => void;
+  resolveComponentTokens: (componentName: string) => ThemeTokens;
+};
+
 const COLOR_SCHEME_ATTRIBUTE = 'color-scheme';
 const DATA_THEME_MODE = 'themeMode';
 const DATA_THEME_DENSITY = 'themeDensity';
+const DATA_THEME_ACCENT = 'themeAccent';
+const DEFAULT_STORAGE_KEY = 'gigvora:web:theme:preferences';
 
-const MODE_PRESETS = {
-  light: {
-    colors: {
-      background: '#f8fafc',
-      surface: '#ffffff',
-      surfaceMuted: '#f1f5f9',
-      surfaceElevated: 'rgba(255, 255, 255, 0.92)',
-      border: 'rgba(148, 163, 184, 0.45)',
-      borderStrong: 'rgba(71, 85, 105, 0.6)',
-      text: '#0f172a',
-      textMuted: '#475569',
-      textOnAccent: '#ffffff',
-      focus: 'rgba(14, 165, 233, 0.35)',
-    },
-    shadows: {
-      soft: '0 24px 60px -30px rgba(15, 23, 42, 0.25)',
-      subtle: '0 10px 25px -15px rgba(15, 23, 42, 0.18)',
-      focus: '0 0 0 4px rgba(14, 165, 233, 0.15)',
-    },
-    overlays: {
-      shellPrimary: 'radial-gradient(circle at top, rgba(37, 99, 235, 0.15), transparent 60%)',
-      shellDesktop: 'radial-gradient(circle at top right, rgba(219, 234, 254, 0.7), transparent 65%)',
-    },
-  },
-  dark: {
-    colors: {
-      background: '#0b1120',
-      surface: '#111827',
-      surfaceMuted: 'rgba(30, 41, 59, 0.78)',
-      surfaceElevated: 'rgba(30, 41, 59, 0.92)',
-      border: 'rgba(148, 163, 184, 0.35)',
-      borderStrong: 'rgba(226, 232, 240, 0.45)',
-      text: '#e2e8f0',
-      textMuted: '#cbd5f5',
-      textOnAccent: '#0f172a',
-      focus: 'rgba(14, 165, 233, 0.5)',
-    },
-    shadows: {
-      soft: '0 28px 60px -28px rgba(15, 23, 42, 0.5)',
-      subtle: '0 14px 32px -24px rgba(15, 23, 42, 0.6)',
-      focus: '0 0 0 5px rgba(56, 189, 248, 0.3)',
-    },
-    overlays: {
-      shellPrimary: 'radial-gradient(circle at top, rgba(56, 189, 248, 0.2), transparent 65%)',
-      shellDesktop: 'radial-gradient(circle at top right, rgba(30, 64, 175, 0.6), transparent 70%)',
-    },
-  },
-  'high-contrast': {
-    colors: {
-      background: '#ffffff',
-      surface: '#ffffff',
-      surfaceMuted: '#f8fafc',
-      surfaceElevated: '#ffffff',
-      border: '#000000',
-      borderStrong: '#000000',
-      text: '#000000',
-      textMuted: '#0f172a',
-      textOnAccent: '#000000',
-      focus: '#000000',
-    },
-    shadows: {
-      soft: '0 0 0 0 rgba(0, 0, 0, 0)',
-      subtle: '0 0 0 0 rgba(0, 0, 0, 0)',
-      focus: '0 0 0 3px #000000',
-    },
-    overlays: {
-      shellPrimary: 'linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%)',
-      shellDesktop: 'linear-gradient(120deg, #ffffff 0%, #e2e8f0 100%)',
-    },
-  },
-};
+const SUPPORTED_MODE_OPTIONS: Set<ThemeModePreference> = new Set(['light', 'dark', 'high-contrast', 'system']);
+const SUPPORTED_ACCENT_OPTIONS: Set<ThemeAccent> = new Set(['azure', 'violet', 'emerald', 'amber', 'rose']);
+const SUPPORTED_DENSITY_OPTIONS: Set<ThemeDensity> = new Set(['spacious', 'comfortable', 'cozy', 'compact']);
 
-const ACCENT_PRESETS = {
-  azure: {
-    accent: '#2563eb',
-    accentStrong: '#1d4ed8',
-    accentSoft: 'rgba(37, 99, 235, 0.12)',
-    primary: '#2563eb',
-    primarySoft: 'rgba(37, 99, 235, 0.08)',
-  },
-  violet: {
-    accent: '#7c3aed',
-    accentStrong: '#5b21b6',
-    accentSoft: 'rgba(124, 58, 237, 0.14)',
-    primary: '#7c3aed',
-    primarySoft: 'rgba(124, 58, 237, 0.12)',
-  },
-  emerald: {
-    accent: '#0f766e',
-    accentStrong: '#0d5f59',
-    accentSoft: 'rgba(15, 118, 110, 0.16)',
-    primary: '#059669',
-    primarySoft: 'rgba(5, 150, 105, 0.14)',
-  },
-  amber: {
-    accent: '#d97706',
-    accentStrong: '#b45309',
-    accentSoft: 'rgba(217, 119, 6, 0.18)',
-    primary: '#f59e0b',
-    primarySoft: 'rgba(245, 158, 11, 0.16)',
-  },
-  rose: {
-    accent: '#e11d48',
-    accentStrong: '#be123c',
-    accentSoft: 'rgba(225, 29, 72, 0.18)',
-    primary: '#e11d48',
-    primarySoft: 'rgba(225, 29, 72, 0.15)',
-  },
-};
-
-const DENSITY_SCALE = {
-  spacious: 1.05,
-  comfortable: 1,
-  cozy: 0.92,
-  compact: 0.85,
-};
-
-const BASE_SPACING = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 40,
-};
-
-const TYPOGRAPHY_PRESETS = {
-  fontSans: "'Inter', 'Helvetica Neue', Arial, sans-serif",
-  fontMono:
-    "'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
-  heading: {
-    xs: '600 0.75rem/1.4 var(--gv-font-sans)',
-    sm: '600 0.875rem/1.4 var(--gv-font-sans)',
-    md: '600 1.125rem/1.4 var(--gv-font-sans)',
-    lg: '600 1.375rem/1.35 var(--gv-font-sans)',
-    xl: '600 1.875rem/1.3 var(--gv-font-sans)',
-  },
-  body: {
-    sm: '400 0.875rem/1.5 var(--gv-font-sans)',
-    md: '400 1rem/1.6 var(--gv-font-sans)',
-    lg: '400 1.125rem/1.65 var(--gv-font-sans)',
-  },
-  label: {
-    sm: '600 0.75rem/1.3 var(--gv-font-sans)',
-    md: '600 0.875rem/1.35 var(--gv-font-sans)',
-  },
-};
-
-const RADIUS_PRESETS = {
-  sm: '0.75rem',
-  md: '1.5rem',
-  lg: '2.5rem',
-};
-
-function isBrowser() {
+function isBrowser(): boolean {
   return typeof window !== 'undefined' && typeof document !== 'undefined';
 }
 
-function detectSystemMode() {
+function detectSystemMode(): ThemeMode {
   if (!isBrowser()) {
     return 'light';
   }
   return window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ? 'dark' : 'light';
 }
 
-function normalisePreference(value, fallback) {
+function normaliseModePreference(value: ThemeModePreference | undefined, fallback: ThemeModePreference): ThemeModePreference {
   if (!value || typeof value !== 'string') {
     return fallback;
   }
-  const trimmed = value.trim().toLowerCase();
-  if (!trimmed) {
+  const candidate = value.trim().toLowerCase() as ThemeModePreference;
+  if (!candidate) {
     return fallback;
   }
-  return trimmed;
+  if (!SUPPORTED_MODE_OPTIONS.has(candidate)) {
+    return fallback;
+  }
+  return candidate;
 }
 
-function readStoredPreferences() {
+function normaliseAccentPreference(value: ThemeAccent | undefined, fallback: ThemeAccent): ThemeAccent {
+  if (!value || typeof value !== 'string') {
+    return fallback;
+  }
+  const candidate = value.trim().toLowerCase() as ThemeAccent;
+  if (!candidate || !SUPPORTED_ACCENT_OPTIONS.has(candidate)) {
+    return fallback;
+  }
+  return candidate;
+}
+
+function normaliseDensityPreference(value: ThemeDensity | undefined, fallback: ThemeDensity): ThemeDensity {
+  if (!value || typeof value !== 'string') {
+    return fallback;
+  }
+  const candidate = value.trim().toLowerCase() as ThemeDensity;
+  if (!candidate || !SUPPORTED_DENSITY_OPTIONS.has(candidate)) {
+    return fallback;
+  }
+  return candidate;
+}
+
+function readStoredPreferences(storageKey: string): {
+  mode: ThemeModePreference;
+  accent: ThemeAccent;
+  density: ThemeDensity;
+} | null {
   if (!isBrowser()) {
     return null;
   }
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(storageKey);
     if (!raw) {
       return null;
     }
@@ -195,9 +123,9 @@ function readStoredPreferences() {
       return null;
     }
     return {
-      mode: normalisePreference(parsed.mode, 'system'),
-      accent: normalisePreference(parsed.accent, 'azure'),
-      density: normalisePreference(parsed.density, 'comfortable'),
+      mode: normaliseModePreference(parsed.mode, 'system'),
+      accent: normaliseAccentPreference(parsed.accent, DEFAULT_THEME_SETTINGS.accent as ThemeAccent),
+      density: normaliseDensityPreference(parsed.density, DEFAULT_THEME_SETTINGS.density as ThemeDensity),
     };
   } catch (error) {
     console.warn('Unable to read stored theme preferences', error);
@@ -205,22 +133,43 @@ function readStoredPreferences() {
   }
 }
 
-function persistPreferences(preferences) {
+function persistPreferences(
+  storageKey: string,
+  preferences: { mode: ThemeModePreference; accent: ThemeAccent; density: ThemeDensity },
+) {
   if (!isBrowser()) {
     return;
   }
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
+    window.localStorage.setItem(storageKey, JSON.stringify(preferences));
   } catch (error) {
     console.warn('Unable to persist theme preferences', error);
   }
 }
 
-function pxToRem(px, scale) {
-  return `${((px * scale) / 16).toFixed(3)}rem`;
+function toRem(value: number): string {
+  return `${(value / 16).toFixed(3)}rem`;
 }
 
-function applyCssVariables(tokens, mode, density) {
+function formatDesignTokens(tokens: ReturnType<typeof createDesignTokens>): ThemeTokens {
+  const spacingPx = tokens.spacing ?? {};
+  const spacingRem = Object.fromEntries(
+    Object.entries(spacingPx).map(([key, value]) => [key, toRem(Number(value))]),
+  );
+
+  return {
+    ...tokens,
+    spacingPx: { ...spacingPx },
+    spacing: spacingRem,
+  };
+}
+
+function applyCssVariables(
+  cssVariables: Record<string, string>,
+  mode: ThemeMode,
+  density: ThemeDensity,
+  accent: ThemeAccent,
+) {
   if (!isBrowser()) {
     return;
   }
@@ -229,151 +178,147 @@ function applyCssVariables(tokens, mode, density) {
   root.style.setProperty(COLOR_SCHEME_ATTRIBUTE, mode === 'dark' ? 'dark' : 'light');
   root.dataset[DATA_THEME_MODE] = mode;
   root.dataset[DATA_THEME_DENSITY] = density;
+  root.dataset[DATA_THEME_ACCENT] = accent;
 
-  const colors = tokens.colors ?? {};
-  root.style.setProperty('--gv-color-background', colors.background);
-  root.style.setProperty('--gv-color-surface', colors.surface);
-  root.style.setProperty('--gv-color-surface-muted', colors.surfaceMuted);
-  root.style.setProperty('--gv-color-surface-elevated', colors.surfaceElevated ?? colors.surface);
-  root.style.setProperty('--gv-color-border', colors.border);
-  root.style.setProperty('--gv-color-border-strong', colors.borderStrong ?? colors.border);
-  root.style.setProperty('--gv-color-text', colors.text);
-  root.style.setProperty('--gv-color-text-muted', colors.textMuted ?? colors.text);
-  root.style.setProperty('--gv-color-primary', tokens.colors.primary ?? tokens.colors.accent);
-  root.style.setProperty('--gv-color-primary-soft', tokens.colors.primarySoft ?? tokens.colors.accentSoft);
-  root.style.setProperty('--gv-color-accent', tokens.colors.accent);
-  root.style.setProperty('--gv-color-accent-strong', tokens.colors.accentStrong ?? tokens.colors.accent);
-  root.style.setProperty('--gv-color-accent-soft', tokens.colors.accentSoft ?? 'rgba(37, 99, 235, 0.1)');
-  root.style.setProperty('--gv-focus-ring', colors.focus ?? 'rgba(14, 165, 233, 0.35)');
-
-  const spacing = tokens.spacing ?? {};
-  root.style.setProperty('--gv-space-xs', spacing.xs);
-  root.style.setProperty('--gv-space-sm', spacing.sm);
-  root.style.setProperty('--gv-space-md', spacing.md);
-  root.style.setProperty('--gv-space-lg', spacing.lg);
-  root.style.setProperty('--gv-space-xl', spacing.xl);
-
-  const radii = tokens.radii ?? {};
-  root.style.setProperty('--gv-radius-sm', radii.sm ?? '0.75rem');
-  root.style.setProperty('--gv-radius-md', radii.md ?? '1.5rem');
-  root.style.setProperty('--gv-radius-lg', radii.lg ?? '2.5rem');
-
-  const shadows = tokens.shadows ?? {};
-  root.style.setProperty('--gv-shadow-soft', shadows.soft ?? '0 24px 60px -30px rgba(15, 23, 42, 0.25)');
-  root.style.setProperty('--gv-shadow-subtle', shadows.subtle ?? '0 10px 25px -15px rgba(15, 23, 42, 0.18)');
-  root.style.setProperty('--gv-shadow-focus', shadows.focus ?? '0 0 0 4px rgba(14, 165, 233, 0.15)');
-
-  const overlays = tokens.overlays ?? {};
-  root.style.setProperty('--shell-overlay-primary', overlays.shellPrimary ?? 'none');
-  root.style.setProperty('--shell-overlay-desktop', overlays.shellDesktop ?? 'none');
+  Object.entries(cssVariables).forEach(([key, value]) => {
+    if (value != null) {
+      root.style.setProperty(key, value);
+    }
+  });
 }
 
-const defaultThemeValue = {
-  mode: 'light',
+const defaultDesignTokens = createDesignTokens({
+  mode: DEFAULT_THEME_SETTINGS.mode,
+  accent: DEFAULT_THEME_SETTINGS.accent,
+  density: DEFAULT_THEME_SETTINGS.density,
+});
+const defaultTokens = formatDesignTokens(defaultDesignTokens);
+const defaultCssVariables = createCssVariableMap(defaultDesignTokens);
+
+const defaultThemeContext: ThemeContextValue = {
+  mode: DEFAULT_THEME_SETTINGS.mode as ThemeMode,
   preference: 'system',
-  accent: 'azure',
-  density: 'comfortable',
-  tokens: {
-    colors: {},
-    spacing: {},
-    radii: {},
-    typography: {},
-    shadows: {},
-    overlays: {},
-  },
+  accent: DEFAULT_THEME_SETTINGS.accent as ThemeAccent,
+  density: DEFAULT_THEME_SETTINGS.density as ThemeDensity,
+  tokens: defaultTokens,
+  cssVariables: defaultCssVariables,
   setMode: () => {},
   setAccent: () => {},
   setDensity: () => {},
   registerComponentTokens: () => {},
   removeComponentTokens: () => {},
-  resolveComponentTokens: () => defaultThemeValue.tokens,
+  resolveComponentTokens: () => defaultTokens,
 };
 
-const ThemeContext = createContext(defaultThemeValue);
+const ThemeContext = createContext<ThemeContextValue>(defaultThemeContext);
 
-export function ThemeProvider({ children }) {
-  const stored = readStoredPreferences();
-  const [modePreference, setModePreference] = useState(stored?.mode ?? 'system');
-  const [accent, setAccentState] = useState(stored?.accent ?? 'azure');
-  const [density, setDensityState] = useState(stored?.density ?? 'comfortable');
-  const [systemMode, setSystemMode] = useState(detectSystemMode);
+export function ThemeProvider({
+  children,
+  initialPreferences,
+  onPreferencesChange,
+  storageKey = DEFAULT_STORAGE_KEY,
+  disablePersistence = false,
+  analyticsClient = analyticsDefault,
+}: ThemeProviderProps) {
+  const storedPreferences = readStoredPreferences(storageKey);
 
-  const componentTokensRef = useRef(new Map());
-  const lastTrackedRef = useRef({ mode: null, accent: null, density: null });
+  const initialModePreference = normaliseModePreference(
+    initialPreferences?.mode ?? storedPreferences?.mode ?? 'system',
+    'system',
+  );
+  const initialAccent = normaliseAccentPreference(
+    initialPreferences?.accent ?? storedPreferences?.accent ?? (DEFAULT_THEME_SETTINGS.accent as ThemeAccent),
+    DEFAULT_THEME_SETTINGS.accent as ThemeAccent,
+  );
+  const initialDensity = normaliseDensityPreference(
+    initialPreferences?.density ?? storedPreferences?.density ?? (DEFAULT_THEME_SETTINGS.density as ThemeDensity),
+    DEFAULT_THEME_SETTINGS.density as ThemeDensity,
+  );
+
+  const [modePreference, setModePreference] = useState<ThemeModePreference>(initialModePreference);
+  const [accent, setAccentState] = useState<ThemeAccent>(initialAccent);
+  const [density, setDensityState] = useState<ThemeDensity>(initialDensity);
+  const [systemMode, setSystemMode] = useState<ThemeMode>(detectSystemMode);
+
+  const analyticsRef = useRef(analyticsClient ?? analyticsDefault);
+  useEffect(() => {
+    analyticsRef.current = analyticsClient ?? analyticsDefault;
+  }, [analyticsClient]);
+
+  const componentTokensRef = useRef<Map<string, Partial<ThemeTokens>>>(new Map());
+  const lastTrackedRef = useRef<{ mode: ThemeMode; accent: ThemeAccent; density: ThemeDensity } | null>(null);
 
   useEffect(() => {
     if (!isBrowser()) {
-      return;
+      return undefined;
     }
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = (event) => {
+    const updateFromQuery = (event: MediaQueryListEvent | MediaQueryList) => {
       setSystemMode(event.matches ? 'dark' : 'light');
     };
-    handleChange(mediaQuery);
+
+    updateFromQuery(mediaQuery);
+
     if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener('change', handleChange);
-      return () => mediaQuery.removeEventListener('change', handleChange);
+      const listener = (event: MediaQueryListEvent) => updateFromQuery(event);
+      mediaQuery.addEventListener('change', listener);
+      return () => mediaQuery.removeEventListener('change', listener);
     }
-    mediaQuery.addListener(handleChange);
-    return () => mediaQuery.removeListener(handleChange);
+
+    const legacyListener = (event: MediaQueryListEvent) => updateFromQuery(event);
+    mediaQuery.addListener(legacyListener);
+    return () => mediaQuery.removeListener(legacyListener);
   }, []);
 
-  const resolvedMode = modePreference === 'system' ? systemMode : modePreference;
+  const resolvedMode: ThemeMode = modePreference === 'system' ? systemMode : (modePreference as ThemeMode);
 
-  const tokens = useMemo(() => {
-    const modeTokens = MODE_PRESETS[resolvedMode] ?? MODE_PRESETS.light;
-    const accentTokens = ACCENT_PRESETS[accent] ?? ACCENT_PRESETS.azure;
-    const densityScale = DENSITY_SCALE[density] ?? DENSITY_SCALE.comfortable;
+  const designTokens = useMemo(
+    () => createDesignTokens({ mode: resolvedMode, accent, density }),
+    [resolvedMode, accent, density],
+  );
 
-    const spacing = Object.fromEntries(
-      Object.entries(BASE_SPACING).map(([key, value]) => [key, pxToRem(value, densityScale)]),
-    );
-
-    return {
-      colors: {
-        ...modeTokens.colors,
-        accent: accentTokens.accent,
-        accentStrong: accentTokens.accentStrong,
-        accentSoft: accentTokens.accentSoft,
-        primary: accentTokens.primary,
-        primarySoft: accentTokens.primarySoft,
-      },
-      spacing,
-      radii: { ...RADIUS_PRESETS },
-      typography: { ...TYPOGRAPHY_PRESETS },
-      density: densityScale,
-      shadows: { ...modeTokens.shadows },
-      overlays: { ...modeTokens.overlays },
-    };
-  }, [accent, density, resolvedMode]);
+  const tokens = useMemo(() => formatDesignTokens(designTokens), [designTokens]);
+  const cssVariables = useMemo(() => createCssVariableMap(designTokens), [designTokens]);
 
   useEffect(() => {
-    applyCssVariables(tokens, resolvedMode, density);
-  }, [tokens, resolvedMode, density]);
+    applyCssVariables(cssVariables, resolvedMode, density, accent);
+  }, [cssVariables, resolvedMode, density, accent]);
 
   useEffect(() => {
-    persistPreferences({ mode: modePreference, accent, density });
-  }, [modePreference, accent, density]);
+    if (disablePersistence) {
+      return;
+    }
+    persistPreferences(storageKey, { mode: modePreference, accent, density });
+  }, [accent, density, modePreference, disablePersistence, storageKey]);
 
   useEffect(() => {
     const previous = lastTrackedRef.current;
-    if (previous.mode === resolvedMode && previous.accent === accent && previous.density === density) {
+    if (previous && previous.mode === resolvedMode && previous.accent === accent && previous.density === density) {
       return;
     }
+
     lastTrackedRef.current = { mode: resolvedMode, accent, density };
-    analytics.setGlobalContext({
+    const analyticsClientInstance = analyticsRef.current;
+    analyticsClientInstance?.setGlobalContext?.({
       themeMode: resolvedMode,
       themeAccent: accent,
       themeDensity: density,
     });
-    analytics.track('theme.preferences_applied', {
+    analyticsClientInstance?.track?.('theme.preferences_applied', {
       mode: resolvedMode,
       accent,
       density,
     });
-  }, [accent, density, resolvedMode]);
 
-  const updateComponentTokens = useCallback((componentName, overrides) => {
+    onPreferencesChange?.({
+      mode: resolvedMode,
+      preference: modePreference,
+      accent,
+      density,
+    });
+  }, [accent, density, modePreference, onPreferencesChange, resolvedMode]);
+
+  const updateComponentTokens = useCallback((componentName: string, overrides: Partial<ThemeTokens>) => {
     if (!componentName) {
       return;
     }
@@ -389,7 +334,7 @@ export function ThemeProvider({ children }) {
     componentTokensRef.current.set(key, next);
   }, []);
 
-  const removeComponentTokens = useCallback((componentName) => {
+  const removeComponentTokens = useCallback((componentName: string) => {
     if (!componentName) {
       return;
     }
@@ -397,7 +342,7 @@ export function ThemeProvider({ children }) {
   }, []);
 
   const resolveComponentTokens = useCallback(
-    (componentName) => {
+    (componentName: string) => {
       if (!componentName) {
         return tokens;
       }
@@ -405,65 +350,75 @@ export function ThemeProvider({ children }) {
       if (!overrides) {
         return tokens;
       }
+      const overrideTokens = overrides as Partial<ThemeTokens>;
       return {
         ...tokens,
-        ...overrides,
-        colors: { ...tokens.colors, ...(overrides.colors ?? {}) },
-        spacing: { ...tokens.spacing, ...(overrides.spacing ?? {}) },
-        radii: { ...tokens.radii, ...(overrides.radii ?? {}) },
-        shadows: { ...tokens.shadows, ...(overrides.shadows ?? {}) },
-        overlays: { ...tokens.overlays, ...(overrides.overlays ?? {}) },
-        typography: { ...tokens.typography, ...(overrides.typography ?? {}) },
+        ...overrideTokens,
+        colors: { ...tokens.colors, ...(overrideTokens.colors ?? {}) },
+        spacing: { ...tokens.spacing, ...(overrideTokens.spacing ?? {}) },
+        spacingPx: { ...tokens.spacingPx, ...(overrideTokens.spacingPx ?? {}) },
+        radii: { ...tokens.radii, ...(overrideTokens.radii ?? {}) },
+        shadows: { ...tokens.shadows, ...(overrideTokens.shadows ?? {}) },
+        overlays: { ...tokens.overlays, ...(overrideTokens.overlays ?? {}) },
+        typography: { ...tokens.typography, ...(overrideTokens.typography ?? {}) },
       };
     },
     [tokens],
   );
 
   const setMode = useCallback(
-    (nextMode) => {
-      const normalised = normalisePreference(nextMode, modePreference);
-      const supported = ['light', 'dark', 'high-contrast', 'system'];
-      const value = supported.includes(normalised) ? normalised : modePreference;
-      if (value === modePreference) {
+    (nextMode: ThemeModePreference) => {
+      const normalised = normaliseModePreference(nextMode, modePreference);
+      if (normalised === modePreference) {
         return;
       }
-      analytics.track('theme.mode_changed', { nextMode: value, previousMode: modePreference });
-      setModePreference(value);
+      analyticsRef.current?.track?.('theme.mode_changed', {
+        nextMode: normalised,
+        previousMode: modePreference,
+      });
+      setModePreference(normalised);
     },
     [modePreference],
   );
 
   const setAccent = useCallback(
-    (nextAccent) => {
-      const normalised = normalisePreference(nextAccent, accent);
-      if (!ACCENT_PRESETS[normalised] || normalised === accent) {
+    (nextAccent: ThemeAccent) => {
+      const normalised = normaliseAccentPreference(nextAccent, accent);
+      if (normalised === accent) {
         return;
       }
-      analytics.track('theme.accent_changed', { nextAccent: normalised, previousAccent: accent });
+      analyticsRef.current?.track?.('theme.accent_changed', {
+        nextAccent: normalised,
+        previousAccent: accent,
+      });
       setAccentState(normalised);
     },
     [accent],
   );
 
   const setDensity = useCallback(
-    (nextDensity) => {
-      const normalised = normalisePreference(nextDensity, density);
-      if (!DENSITY_SCALE[normalised] || normalised === density) {
+    (nextDensity: ThemeDensity) => {
+      const normalised = normaliseDensityPreference(nextDensity, density);
+      if (normalised === density) {
         return;
       }
-      analytics.track('theme.density_changed', { nextDensity: normalised, previousDensity: density });
+      analyticsRef.current?.track?.('theme.density_changed', {
+        nextDensity: normalised,
+        previousDensity: density,
+      });
       setDensityState(normalised);
     },
     [density],
   );
 
-  const value = useMemo(
+  const contextValue = useMemo(
     () => ({
       mode: resolvedMode,
       preference: modePreference,
       accent,
       density,
       tokens,
+      cssVariables,
       setMode,
       setAccent,
       setDensity,
@@ -471,10 +426,23 @@ export function ThemeProvider({ children }) {
       removeComponentTokens,
       resolveComponentTokens,
     }),
-    [accent, density, modePreference, resolvedMode, tokens, setMode, setAccent, setDensity, updateComponentTokens, removeComponentTokens, resolveComponentTokens],
+    [
+      accent,
+      density,
+      modePreference,
+      resolvedMode,
+      tokens,
+      cssVariables,
+      setMode,
+      setAccent,
+      setDensity,
+      updateComponentTokens,
+      removeComponentTokens,
+      resolveComponentTokens,
+    ],
   );
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return <ThemeContext.Provider value={contextValue}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme() {

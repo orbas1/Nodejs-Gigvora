@@ -36,8 +36,9 @@ describe('ThemeProvider', () => {
 
   afterEach(() => {
     document.documentElement.removeAttribute('style');
-    document.documentElement.removeAttribute('data-thememode');
-    document.documentElement.removeAttribute('data-themedensity');
+    document.documentElement.removeAttribute('data-theme-mode');
+    document.documentElement.removeAttribute('data-theme-density');
+    document.documentElement.removeAttribute('data-theme-accent');
   });
 
   it('exposes default theme tokens', () => {
@@ -46,6 +47,9 @@ describe('ThemeProvider', () => {
 
     expect(result.current.mode).toBe('light');
     expect(result.current.tokens.colors.background).toBeDefined();
+    expect(typeof result.current.tokens.spacingPx.md).toBe('number');
+    expect(result.current.tokens.spacing.md).toMatch(/rem/);
+    expect(result.current.cssVariables['--gv-color-accent']).toMatch(/#/);
     expect(document.documentElement.style.getPropertyValue('--gv-color-background')).not.toEqual('');
   });
 
@@ -61,7 +65,34 @@ describe('ThemeProvider', () => {
 
     expect(result.current.mode).toBe('dark');
     expect(document.documentElement.dataset.themeMode).toBe('dark');
+    expect(document.documentElement.dataset.themeAccent).toBe('violet');
     expect(document.documentElement.style.getPropertyValue('--gv-space-md')).not.toEqual('');
     expect(result.current.tokens.colors.accent).toContain('#');
+    expect(result.current.cssVariables['--gv-color-accent']).toContain('#');
+  });
+
+  it('emits preference changes to the provided handler', async () => {
+    const handler = vi.fn();
+    const wrapper = ({ children }) =>
+      createElement(
+        ThemeProvider,
+        {
+          onPreferencesChange: handler,
+          disablePersistence: true,
+        },
+        children,
+      );
+
+    const { result } = renderHook(() => useTheme(), { wrapper });
+
+    await act(async () => {
+      result.current.setMode('dark');
+    });
+
+    expect(handler).toHaveBeenCalled();
+    const payload = handler.mock.calls.at(-1)[0];
+    expect(payload.mode).toBe('dark');
+    expect(payload.preference).toBe('dark');
+    expect(payload.accent).toBeDefined();
   });
 });

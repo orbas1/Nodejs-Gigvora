@@ -1,20 +1,33 @@
+const withOpacityVariable = (variable) => ({ opacityValue }) => {
+  if (opacityValue === undefined) {
+    return `rgb(var(${variable}))`;
+  }
+  return `rgb(var(${variable}) / ${opacityValue})`;
+};
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,jsx,ts,tsx}'],
   theme: {
     extend: {
       colors: {
-        accent: '#2563eb',
-        accentSoft: '#dbeafe',
-        accentDark: '#1d4ed8',
-        surface: '#ffffff',
-        surfaceMuted: '#f1f5f9',
+        accent: withOpacityVariable('--gv-color-accent-rgb'),
+        accentStrong: 'var(--gv-color-accent-strong)',
+        accentSoft: 'var(--gv-color-accent-soft)',
+        accentDark: 'var(--gv-color-accent-strong)',
+        primary: withOpacityVariable('--gv-color-primary-rgb'),
+        text: withOpacityVariable('--gv-color-text-rgb'),
+        surface: 'var(--gv-color-surface)',
+        surfaceMuted: 'var(--gv-color-surface-muted)',
+        surfaceElevated: 'var(--gv-color-surface-elevated)',
+        border: 'var(--gv-color-border)',
       },
       fontFamily: {
-        inter: ['"Inter"', 'sans-serif'],
+        inter: ['var(--gv-font-sans)', 'sans-serif'],
       },
       boxShadow: {
-        soft: '0 20px 45px -25px rgba(37, 99, 235, 0.35)',
+        soft: 'var(--gv-shadow-soft)',
+        subtle: 'var(--gv-shadow-subtle)',
       },
       keyframes: {
         marquee: {
