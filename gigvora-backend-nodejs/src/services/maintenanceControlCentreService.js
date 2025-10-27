@@ -138,6 +138,15 @@ function sanitizeSnapshot(snapshot) {
           dueAt: item?.dueAt ? new Date(item.dueAt).toISOString() : null,
         }))
       : [],
+    impacts: Array.isArray(plain.impacts)
+      ? plain.impacts.map((impact) => ({
+          ...impact,
+          degradation:
+            typeof impact?.degradation === 'number' && Number.isFinite(impact.degradation)
+              ? impact.degradation
+              : null,
+        }))
+      : [],
     window: maintenanceWindow
       ? {
           ...maintenanceWindow,
@@ -145,8 +154,12 @@ function sanitizeSnapshot(snapshot) {
             ? new Date(maintenanceWindow.startAt).toISOString()
             : null,
           endAt: maintenanceWindow.endAt ? new Date(maintenanceWindow.endAt).toISOString() : null,
+          nextUpdateAt: maintenanceWindow.nextUpdateAt
+            ? new Date(maintenanceWindow.nextUpdateAt).toISOString()
+            : null,
         }
       : null,
+    nextUpdateAt: plain.nextUpdateAt ? new Date(plain.nextUpdateAt).toISOString() : null,
     feedback: feedback
       ? {
           experienceScore: Number(feedback.experienceScore) || 0,
@@ -156,6 +169,7 @@ function sanitizeSnapshot(snapshot) {
           medianResponseMinutes: Number(feedback.medianResponseMinutes) || 0,
           lastUpdated: feedback.capturedAt ? new Date(feedback.capturedAt).toISOString() : null,
           reviewUrl: feedback.reviewUrl ?? null,
+          totalResponses: Number(feedback.totalResponses) || 0,
           segments: Array.isArray(feedback.segments) ? feedback.segments : [],
           highlights: Array.isArray(feedback.highlights) ? feedback.highlights : [],
           alerts: Array.isArray(feedback.alerts) ? feedback.alerts : [],

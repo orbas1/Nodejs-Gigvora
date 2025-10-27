@@ -11,6 +11,7 @@ function buildStatus(overrides = {}) {
     severity: 'major',
     impactSurface: 'Platform & APIs',
     updatedAt: '2024-05-11T22:45:00.000Z',
+    nextUpdateAt: '2024-05-11T23:00:00.000Z',
     acknowledgedAt: null,
     acknowledgedBy: null,
     metrics: {
@@ -31,6 +32,16 @@ function buildStatus(overrides = {}) {
     channels: [
       { id: 'status', label: 'Status page' },
       { id: 'email', label: 'Customer email' },
+    ],
+    impacts: [
+      {
+        id: 'impact-feed',
+        label: 'Member feed',
+        audience: 'Members',
+        severity: 'notice',
+        description: 'Stories may refresh slower in EMEA.',
+        degradation: 0.12,
+      },
     ],
     window: {
       label: 'Database maintenance',
@@ -64,6 +75,7 @@ function buildStatus(overrides = {}) {
       medianResponseMinutes: 4,
       lastUpdated: '2024-05-11T22:55:00.000Z',
       reviewUrl: 'https://gigvora.com/ops/feedback',
+      totalResponses: 512,
       alerts: [
         {
           id: 'alert-1',
@@ -95,6 +107,8 @@ describe('SystemStatusToast', () => {
     expect(screen.getByText('99.982%')).toBeInTheDocument();
     expect(screen.getByText('182 ms')).toBeInTheDocument();
     expect(screen.getByText('Status page')).toBeInTheDocument();
+    expect(screen.getByText(/Next update/i)).toBeInTheDocument();
+    expect(screen.getByText(/Member feed/i)).toBeInTheDocument();
   });
 
   it('renders maintenance window, warnings, escalations, and feedback summary', () => {
@@ -111,8 +125,10 @@ describe('SystemStatusToast', () => {
     expect(screen.getByText(/Operational warnings/i)).toBeInTheDocument();
     expect(screen.getByText(/Escalation checklist/i)).toBeInTheDocument();
     expect(screen.getByText(/Feedback pulse/i)).toBeInTheDocument();
+    expect(screen.getByText(/Impact overview/i)).toBeInTheDocument();
     expect(screen.getByText(/Draft postmortem template/)).toBeInTheDocument();
     expect(screen.getByText(/Queue depth/)).toBeInTheDocument();
+    expect(screen.getByText(/Total responses/)).toBeInTheDocument();
   });
 
   it('disables acknowledge button once acknowledged and triggers callback', async () => {

@@ -36,6 +36,7 @@ const FALLBACK_STATUS = {
   summary: 'Gigvora is live with no customer-impacting incidents reported.',
   severity: 'operational',
   impactSurface: 'Platform & APIs',
+  nextUpdateAt: new Date(Date.now() + 1000 * 60 * 30).toISOString(),
   estimatedResumeAt: null,
   updatedAt: new Date().toISOString(),
   warnings: [
@@ -84,6 +85,24 @@ const FALLBACK_STATUS = {
   runbookUrl: 'https://gigvora.notion.site/maintenance-runbook',
   acknowledgedAt: null,
   acknowledgedBy: null,
+  impacts: [
+    {
+      id: 'impact-feed',
+      label: 'Member feed',
+      audience: 'Global members',
+      severity: 'notice',
+      description: 'Possible stale stories for < 5% of member feed sessions.',
+      degradation: 0.05,
+    },
+    {
+      id: 'impact-api',
+      label: 'Partner API',
+      audience: 'Strategic partners',
+      severity: 'operational',
+      description: 'No active impact — monitoring while maintenance window warms.',
+      degradation: 0,
+    },
+  ],
   escalations: [
     {
       id: 'escalation-postmortem',
@@ -107,6 +126,7 @@ const FALLBACK_STATUS = {
     medianResponseMinutes: 3,
     lastUpdated: new Date().toISOString(),
     reviewUrl: 'https://gigvora.com/ops/feedback',
+    totalResponses: 427,
     segments: [
       { id: 'enterprise', label: 'Enterprise', score: 4.8, delta: 0.3, sampleSize: 126 },
       { id: 'smb', label: 'SMB', score: 4.4, delta: 0.1, sampleSize: 212 },
