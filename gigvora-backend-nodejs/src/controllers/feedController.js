@@ -13,7 +13,17 @@ import {
 import { getFeedSuggestions } from '../services/feedSuggestionService.js';
 
 const ALLOWED_VISIBILITY = new Set(['public', 'connections']);
-const ALLOWED_TYPES = new Set(['update', 'media', 'job', 'gig', 'project', 'volunteering', 'launchpad', 'news']);
+const ALLOWED_TYPES = new Set([
+  'update',
+  'media',
+  'job',
+  'gig',
+  'project',
+  'volunteering',
+  'launchpad',
+  'mentorship',
+  'news',
+]);
 const ALLOWED_REACTIONS = new Set(['like', 'celebrate', 'support', 'love', 'insightful']);
 const AUTHORIZED_ROLES = new Set([
   'member',

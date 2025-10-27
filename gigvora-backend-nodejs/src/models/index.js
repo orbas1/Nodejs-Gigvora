@@ -3587,7 +3587,17 @@ export const FeedPost = sequelize.define(
     content: { type: DataTypes.TEXT, allowNull: false },
     visibility: { type: DataTypes.ENUM('public', 'connections'), defaultValue: 'public', allowNull: false },
     type: {
-      type: DataTypes.ENUM('update', 'media', 'job', 'gig', 'project', 'volunteering', 'launchpad', 'news'),
+      type: DataTypes.ENUM(
+        'update',
+        'media',
+        'job',
+        'gig',
+        'project',
+        'volunteering',
+        'launchpad',
+        'mentorship',
+        'news',
+      ),
       allowNull: false,
       defaultValue: 'update',
     },

@@ -15,6 +15,7 @@ const LIVE_SIGNAL_TYPE_META = {
   project: { tag: 'Project', icon: '📁', narrative: 'shared a project milestone' },
   volunteering: { tag: 'Volunteer', icon: '🌱', narrative: 'opened a volunteer mission' },
   launchpad: { tag: 'Launchpad', icon: '🚀', narrative: 'published a Launchpad highlight' },
+  mentorship: { tag: 'Mentorship', icon: '🧠', narrative: 'hosted a mentorship session' },
   news: { tag: 'News', icon: '📰', narrative: 'broadcast Gigvora news' },
 };
 

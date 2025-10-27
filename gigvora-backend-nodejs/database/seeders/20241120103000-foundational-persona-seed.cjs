@@ -42,6 +42,11 @@ const feedPostTitle = 'Ops weekly snapshot';
 const feedPostSummary = 'Runtime health is green and our hiring backlog is cleared.';
 const feedPostContent = '[demo] Ops weekly: runtime health is green and hiring backlog cleared.';
 const feedPostLink = 'https://ops.gigvora.test/weekly-briefing';
+const mentorshipPostTitle = 'Mentorship sprint sign-ups';
+const mentorshipPostSummary = 'Mentorship pods are opening extra slots for founders and operators this week.';
+const mentorshipPostContent =
+  '[demo] Spinning up an additional mentorship sprint focused on GTM readiness. Drop your goals so we can match you with the right operators before office hours fill.';
+const mentorshipPostLink = 'https://mentors.gigvora.test/sprint';
 const PLANNER_NOTES_PREFIX = '[seed-foundational-persona] Planner —';
 
 const hashedPassword = '$2b$10$URrfHgz0s1xu1vByrRl/h.STE7Z0O.STDnpCiMTGy66idi2EDmzJm';
@@ -1157,6 +1162,48 @@ module.exports = {
             { transaction },
           );
         }
+
+        const [existingMentorshipPost] = await queryInterface.sequelize.query(
+          'SELECT id FROM feed_posts WHERE userId = :userId AND content = :content LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { userId: adminUserId, content: mentorshipPostContent },
+          },
+        );
+        if (!existingMentorshipPost?.id) {
+          await queryInterface.bulkInsert(
+            'feed_posts',
+            [
+              {
+                userId: adminUserId,
+                title: mentorshipPostTitle,
+                summary: mentorshipPostSummary,
+                content: mentorshipPostContent,
+                visibility: 'public',
+                type: 'mentorship',
+                link: mentorshipPostLink,
+                mediaAttachments: [
+                  {
+                    id: 'mentorship-sprint',
+                    url: 'https://assets.gigvora.test/mentorship/sprint.png',
+                    type: 'image',
+                    alt: 'Mentorship sprint planning board',
+                  },
+                ],
+                authorName:
+                  [adminSeed.firstName, adminSeed.lastName].filter(Boolean).join(' ').trim() || adminSeed.email ||
+                  'Gigvora Ops',
+                authorHeadline: 'Director of Operations · Gigvora',
+                authorAvatarSeed: adminSeed.firstName || 'operations-team',
+                publishedAt: now,
+                createdAt: now,
+                updatedAt: now,
+              },
+            ],
+            { transaction },
+          );
+        }
       }
 
       if (adminUserId) {
@@ -1832,6 +1879,11 @@ module.exports = {
         );
 
         await queryInterface.bulkDelete('feed_posts', { userId: { [Op.in]: userIds }, content: feedPostContent }, { transaction });
+        await queryInterface.bulkDelete(
+          'feed_posts',
+          { userId: { [Op.in]: userIds }, content: mentorshipPostContent },
+          { transaction },
+        );
         await queryInterface.bulkDelete('freelancer_operations_snapshots', { freelancerId: { [Op.in]: userIds } }, { transaction });
         await queryInterface.bulkDelete('freelancer_operations_notices', { freelancerId: { [Op.in]: userIds } }, { transaction });
         await queryInterface.bulkDelete('freelancer_operations_workflows', { freelancerId: { [Op.in]: userIds } }, { transaction });

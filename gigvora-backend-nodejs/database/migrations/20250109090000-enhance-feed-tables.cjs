@@ -1,6 +1,6 @@
 'use strict';
 
-const FEED_POST_TYPES = ['update', 'media', 'job', 'gig', 'project', 'volunteering', 'launchpad', 'news'];
+const FEED_POST_TYPES = ['update', 'media', 'job', 'gig', 'project', 'volunteering', 'launchpad', 'mentorship', 'news'];
 const FEED_REACTION_TYPES = ['like', 'celebrate', 'support', 'love', 'insightful'];
 
 module.exports = {

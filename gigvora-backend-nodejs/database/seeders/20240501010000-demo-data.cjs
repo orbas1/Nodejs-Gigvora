@@ -180,6 +180,25 @@ const feedPosts = [
     ],
     authorHeadline: 'Fractional Staff Engineer · Gigvora Network',
   },
+  {
+    email: 'mentor@gigvora.com',
+    title: 'Mentorship office hours now open',
+    summary: 'Reserve a slot with the mentor bench to shape your next growth sprint.',
+    content:
+      '[demo] Opening mentorship office hours for founders needing growth guidance. Slots are limited this week—book early so we can prep the right operators for your goals.',
+    visibility: 'public',
+    type: 'mentorship',
+    link: 'https://mentors.gigvora.test/office-hours',
+    mediaAttachments: [
+      {
+        id: 'mentorship-office-hours',
+        url: 'https://assets.gigvora.test/mentorship/office-hours.jpg',
+        type: 'image',
+        alt: 'Mentorship office hours schedule',
+      },
+    ],
+    authorHeadline: 'Mentorship Lead · Gigvora Network',
+  },
 ];
 
 const feedShareSeeds = [
@@ -216,6 +235,16 @@ const feedShareSeeds = [
     scheduleOffsetMinutes: 45,
     complianceAcknowledged: true,
     metadata: { campaign: 'automation-template', workspace: 'client-governance' },
+  },
+  {
+    email: 'ava@gigvora.com',
+    postTitle: 'Mentorship office hours now open',
+    audience: 'internal',
+    channel: 'email',
+    message:
+      'Looping product, growth, and customer teams so they can refer founders into the mentorship office hours before slots fill.',
+    notifyList: ['mentorship@gigvora.com', 'growth@gigvora.com'],
+    complianceAcknowledged: true,
   },
 ];
 

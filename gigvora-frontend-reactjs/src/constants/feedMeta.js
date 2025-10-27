@@ -1,4 +1,5 @@
 import {
+  AcademicCapIcon,
   BriefcaseIcon,
   FaceSmileIcon,
   HandRaisedIcon,
@@ -40,6 +41,12 @@ export const COMPOSER_OPTIONS = deepFreeze([
     label: 'Project',
     description: 'Rally collaborators around a multi-disciplinary brief.',
     icon: UsersIcon,
+  },
+  {
+    id: 'mentorship',
+    label: 'Mentorship',
+    description: 'Open cohort office hours and mentor pods to the community.',
+    icon: AcademicCapIcon,
   },
   {
     id: 'volunteering',

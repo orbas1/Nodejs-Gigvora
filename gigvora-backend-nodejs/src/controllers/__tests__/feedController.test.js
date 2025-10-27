@@ -73,6 +73,7 @@ jest.unstable_mockModule(suggestionModuleUrl.pathname, () => ({
 }));
 
 let listFeed;
+let createPost;
 let createComment;
 let toggleReaction;
 let sharePost;
@@ -140,6 +141,7 @@ beforeEach(async () => {
   resetMocks();
   const controller = await importController();
   listFeed = controller.listFeed;
+  createPost = controller.createPost;
   createComment = controller.createComment;
   toggleReaction = controller.toggleReaction;
   sharePost = controller.sharePost;
@@ -211,6 +213,90 @@ describe('feedController', () => {
         liveMoments: expect.any(Array),
       }),
     });
+  });
+
+  it('creates mentorship updates with sanitised payloads', async () => {
+    const now = new Date().toISOString();
+    FeedPostMock.create.mockResolvedValue({ id: 501 });
+    FeedPostMock.findByPk.mockResolvedValue({
+      toJSON: () => ({
+        id: 501,
+        userId: 51,
+        content: 'Launching mentorship office hours!',
+        summary: 'Launching mentorship office hours!',
+        type: 'mentorship',
+        visibility: 'public',
+        link: 'https://mentors.gigvora.test/sprint',
+        mediaAttachments: [
+          {
+            id: 'attachment-1',
+            url: 'https://cdn.gigvora.test/mentorship/sprint.png',
+            type: 'image',
+            alt: 'Sprint Outline',
+          },
+        ],
+        createdAt: now,
+        updatedAt: now,
+        publishedAt: now,
+        User: {
+          firstName: 'Jordan',
+          lastName: 'Mentor',
+          Profile: { headline: 'Mentorship Lead', avatarSeed: 'jordan' },
+        },
+      }),
+    });
+    UserMock.findByPk.mockResolvedValue({
+      id: 51,
+      firstName: 'Jordan',
+      lastName: 'Mentor',
+      email: 'jordan@gigvora.com',
+      title: 'Mentorship Lead',
+      Profile: { headline: 'Mentorship Lead', bio: 'Guides cohorts', avatarSeed: 'jordan' },
+    });
+
+    const req = {
+      body: {
+        userId: '51',
+        type: 'mentorship',
+        content: '  Launching mentorship office hours!  ',
+        summary: 'Launching mentorship office hours!',
+        link: ' https://mentors.gigvora.test/sprint ',
+        mediaAttachments: [
+          { url: 'https://cdn.gigvora.test/mentorship/sprint.png', type: 'IMAGE', alt: ' Sprint Outline ' },
+        ],
+      },
+      user: { id: 51 },
+      headers: { 'x-user-role': 'mentor' },
+    };
+    const res = createResponse();
+
+    await createPost(req, res);
+
+    expect(FeedPostMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 51,
+        type: 'mentorship',
+        mediaAttachments: [
+          {
+            id: 'attachment-1',
+            url: 'https://cdn.gigvora.test/mentorship/sprint.png',
+            type: 'image',
+            alt: 'Sprint Outline',
+          },
+        ],
+        link: 'https://mentors.gigvora.test/sprint',
+      }),
+    );
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 501,
+        type: 'mentorship',
+        mediaAttachments: [
+          expect.objectContaining({ url: 'https://cdn.gigvora.test/mentorship/sprint.png', alt: 'Sprint Outline' }),
+        ],
+      }),
+    );
   });
 
   it('creates a comment with author snapshot and sanitised message', async () => {
