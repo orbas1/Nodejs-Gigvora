@@ -120,7 +120,7 @@ export const ADMIN_MENU_SECTIONS = [
       {
         name: 'Document library',
         description: 'Policies, evidence packs, and approval workflows.',
-        href: '/dashboard/admin/documents',
+        href: '/dashboard/admin/governance/documents',
         tags: ['compliance'],
       },
       {

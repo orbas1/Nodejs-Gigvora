@@ -34,6 +34,11 @@ export const ADMIN_MENU_SECTIONS = [
         href: '/dashboard/admin/moderation',
       },
       {
+        name: 'Governance',
+        sectionId: 'admin-governance',
+        href: '/dashboard/admin/governance',
+      },
+      {
         name: 'Engage',
         sectionId: 'admin-engage',
       },

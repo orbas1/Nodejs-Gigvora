@@ -426,6 +426,21 @@ const ROUTE_COLLECTION_DEFINITIONS = {
         relativePath: 'release-operations',
       },
       {
+        path: 'dashboard/admin/governance',
+        module: 'pages/dashboards/admin/AdminGovernancePortalPage.jsx',
+        relativePath: 'governance',
+      },
+      {
+        path: 'dashboard/admin/governance/policies',
+        module: 'pages/dashboards/admin/AdminPolicyManagementPage.jsx',
+        relativePath: 'governance/policies',
+      },
+      {
+        path: 'dashboard/admin/governance/documents',
+        module: 'pages/dashboards/admin/AdminDocumentsManagementPage.jsx',
+        relativePath: 'governance/documents',
+      },
+      {
         path: 'dashboard/admin/documents',
         module: 'pages/dashboards/admin/AdminDocumentsManagementPage.jsx',
         relativePath: 'documents',
