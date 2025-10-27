@@ -73,6 +73,11 @@ export const ADMIN_MENU_SECTIONS = [
         sectionId: 'release-ops',
         href: '/dashboard/admin/release-operations',
       },
+      {
+        name: 'Runtime ops',
+        sectionId: 'runtime-ops',
+        href: '/dashboard/admin/runtime-operations',
+      },
     ],
   },
   {

@@ -13,6 +13,11 @@ import {
   deleteMaintenanceWindow,
   sendMaintenanceBroadcast,
 } from '../services/maintenanceControlCentreService.js';
+import { getRuntimeOperationsSummary, updateRuntimeOperationsSettings } from '../services/runtimeOperationsService.js';
+import {
+  getNotificationPipelineSnapshot,
+  queueOperationalNotification,
+} from '../services/notificationPipelineService.js';
 import logger from '../utils/logger.js';
 import { extractAdminActor, stampPayloadWithActor, coercePositiveInteger } from '../utils/adminRequestContext.js';
 
@@ -114,6 +119,28 @@ export async function sendMaintenanceNotification(req, res) {
   res.status(202).json(result);
 }
 
+export async function runtimeOperationsOverview(req, res) {
+  const summary = await getRuntimeOperationsSummary();
+  res.json(summary);
+}
+
+export async function updateRuntimeOperationsSettingsController(req, res) {
+  const { actor } = buildServiceContext(req);
+  const result = await updateRuntimeOperationsSettings(req.body ?? {}, { actor });
+  res.json(result);
+}
+
+export async function notificationPipelineSummary(req, res) {
+  const snapshot = await getNotificationPipelineSnapshot();
+  res.json(snapshot);
+}
+
+export async function createNotificationCampaign(req, res) {
+  const { actor } = buildServiceContext(req);
+  const result = await queueOperationalNotification(req.body ?? {}, { actor });
+  res.status(202).json(result);
+}
+
 export default {
   listMaintenance,
   createMaintenance,
@@ -126,4 +153,8 @@ export default {
   updateMaintenanceWindowController,
   deleteMaintenanceWindowController,
   sendMaintenanceNotification,
+  runtimeOperationsOverview,
+  updateRuntimeOperationsSettingsController,
+  notificationPipelineSummary,
+  createNotificationCampaign,
 };
