@@ -34,6 +34,111 @@ function parseJsonInput(value, fallback = null) {
   }
 }
 
+function formatCount(value) {
+  const numeric = Number(value ?? 0);
+  if (!Number.isFinite(numeric)) {
+    return '0';
+  }
+  if (numeric >= 1_000_000) {
+    return `${(numeric / 1_000_000).toFixed(1).replace(/\.0$/, '')}m`;
+  }
+  if (numeric >= 1_000) {
+    return `${(numeric / 1_000).toFixed(1).replace(/\.0$/, '')}k`;
+  }
+  return numeric.toLocaleString();
+}
+
+function formatPercent(value) {
+  const numeric = Number(value ?? 0);
+  if (!Number.isFinite(numeric)) {
+    return '0%';
+  }
+  return `${Math.round(numeric * 100)}%`;
+}
+
+function formatDateLabel(value) {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function InsightStat({ label, value, helper, tone = 'default' }) {
+  const palette =
+    tone === 'accent'
+      ? 'border-accent/40 bg-accentSoft/80 text-accent'
+      : tone === 'positive'
+      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+      : tone === 'warning'
+      ? 'border-amber-200 bg-amber-50 text-amber-700'
+      : 'border-slate-200 bg-white/90 text-slate-700';
+  return (
+    <div className={`rounded-3xl border p-4 shadow-sm transition hover:shadow-md ${palette}`}>
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-2 text-xl font-semibold text-slate-900">{value}</p>
+      {helper ? <p className="mt-1 text-xs text-slate-600">{helper}</p> : null}
+    </div>
+  );
+}
+
+InsightStat.propTypes = {
+  label: PropTypes.string.isRequired,
+  value: PropTypes.node.isRequired,
+  helper: PropTypes.node,
+  tone: PropTypes.oneOf(['default', 'accent', 'positive', 'warning']),
+};
+
+InsightStat.defaultProps = {
+  helper: null,
+  tone: 'default',
+};
+
+function MetricItem({ label, value, helper, tone = 'default' }) {
+  const palette =
+    tone === 'accent'
+      ? 'border-accent/40 bg-accentSoft/60 text-accent'
+      : tone === 'positive'
+      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+      : tone === 'warning'
+      ? 'border-amber-200 bg-amber-50 text-amber-700'
+      : 'border-slate-200 bg-white text-slate-800';
+  return (
+    <div className={`rounded-2xl border p-4 shadow-sm transition hover:border-accent/50 hover:shadow-md ${palette}`}>
+      <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-2 text-lg font-semibold">{value}</p>
+      {helper ? <p className="mt-1 text-xs text-slate-600">{helper}</p> : null}
+    </div>
+  );
+}
+
+MetricItem.propTypes = {
+  label: PropTypes.string.isRequired,
+  value: PropTypes.node.isRequired,
+  helper: PropTypes.node,
+  tone: PropTypes.oneOf(['default', 'accent', 'positive', 'warning']),
+};
+
+MetricItem.defaultProps = {
+  helper: null,
+  tone: 'default',
+};
+
+function TrendingTopicPill({ topic }) {
+  return (
+    <span className="inline-flex items-center rounded-full bg-accentSoft px-3 py-1 text-xs font-semibold text-accent">
+      #{topic}
+    </span>
+  );
+}
+
+TrendingTopicPill.propTypes = {
+  topic: PropTypes.string.isRequired,
+};
+
 function Modal({ open, title, onClose, children, footer, size = 'max-w-3xl' }) {
   if (!open) {
     return null;
@@ -812,6 +917,39 @@ PostManagerModal.defaultProps = {
 function GroupCard({ group, canManage, onEdit, onManageInvites, onManagePosts }) {
   const metrics = group.metrics ?? {};
   const statusBadge = group.status === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200';
+  const trendingTopics = Array.isArray(metrics.trendingTopics) ? metrics.trendingTopics : [];
+  const latestAnnouncementLabel = formatDateLabel(metrics.latestAnnouncementAt);
+  const latestPost = (group.posts ?? []).find((post) => post.status === 'published');
+  const upcomingPost = (group.posts ?? []).find((post) => post.status === 'scheduled');
+  const engagementTone =
+    metrics.engagementLevel === 'surging'
+      ? 'accent'
+      : metrics.engagementLevel === 'growing'
+      ? 'positive'
+      : 'default';
+  const newMembersHelper =
+    metrics.membersJoinedThisWeek && metrics.membersJoinedThisWeek > 0
+      ? `+${formatCount(metrics.membersJoinedThisWeek)} this week`
+      : 'No new joins yet';
+  const invitesHelper =
+    metrics.invitesExpiringSoon && metrics.invitesExpiringSoon > 0
+      ? `${formatCount(metrics.invitesExpiringSoon)} expiring soon`
+      : 'All invites healthy';
+  const approvalsHelper =
+    metrics.membersPending && metrics.membersPending > 0
+      ? `${formatCount(metrics.membersPending)} approvals waiting`
+      : 'No approvals pending';
+  const invitedOverallHelper =
+    metrics.membersInvited && metrics.membersInvited > 0
+      ? `${formatCount(metrics.membersInvited)} invited overall`
+      : null;
+  const invitesSummary = [invitesHelper, approvalsHelper, invitedOverallHelper].filter(Boolean).join(' · ');
+  const inviteTone =
+    metrics.invitesExpiringSoon > 0 || (metrics.membersPending && metrics.membersPending > 0) ? 'warning' : 'default';
+  const scheduledHelper =
+    metrics.scheduledNext7Days && metrics.scheduledNext7Days > 0
+      ? `${formatCount(metrics.scheduledNext7Days)} scheduled next 7 days`
+      : 'Fill the schedule';
 
   return (
     <div className="flex h-full flex-col justify-between rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -831,20 +969,65 @@ function GroupCard({ group, canManage, onEdit, onManageInvites, onManagePosts })
             </span>
           </div>
         </div>
-        <dl className="mt-4 grid gap-4 sm:grid-cols-3">
-          <div>
-            <dt className="text-xs uppercase tracking-wide text-slate-500">Visibility</dt>
-            <dd className="mt-1 text-sm font-semibold text-slate-800">{group.visibility}</dd>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <MetricItem
+            label="Active members"
+            value={formatCount(metrics.membersActive ?? 0)}
+            helper={newMembersHelper}
+            tone={metrics.membersJoinedThisWeek > 0 ? 'accent' : 'default'}
+          />
+          <MetricItem
+            label="Invites & approvals"
+            value={formatCount(metrics.invitesPending ?? 0)}
+            helper={invitesSummary}
+            tone={inviteTone}
+          />
+          <MetricItem
+            label="Posts published"
+            value={formatCount(metrics.postsPublished ?? 0)}
+            helper={
+              metrics.postsPublishedThisWeek && metrics.postsPublishedThisWeek > 0
+                ? `${formatCount(metrics.postsPublishedThisWeek)} this week`
+                : 'Plan the next story'
+            }
+          />
+          <MetricItem
+            label="Engagement"
+            value={formatPercent(metrics.engagementScore ?? 0)}
+            helper={metrics.engagementLevel ? metrics.engagementLevel : 'emerging'}
+            tone={engagementTone}
+          />
+        </div>
+        {trendingTopics.length ? (
+          <div className="mt-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Trending topics</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {trendingTopics.map((topic) => (
+                <TrendingTopicPill key={topic} topic={topic} />
+              ))}
+            </div>
           </div>
-          <div>
-            <dt className="text-xs uppercase tracking-wide text-slate-500">Join policy</dt>
-            <dd className="mt-1 text-sm font-semibold text-slate-800">{group.memberPolicy}</dd>
+        ) : null}
+        {(latestAnnouncementLabel || metrics.scheduledNext7Days > 0) && (latestPost || upcomingPost) ? (
+          <div className="mt-5 grid gap-3 rounded-3xl border border-slate-200 bg-slate-50/70 p-4 sm:grid-cols-2">
+            {latestPost && latestAnnouncementLabel ? (
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-500">Latest announcement</p>
+                <p className="mt-1 text-sm font-semibold text-slate-800">{latestPost.title}</p>
+                <p className="mt-1 text-xs text-slate-500">{latestAnnouncementLabel}</p>
+              </div>
+            ) : null}
+            {metrics.scheduledNext7Days > 0 ? (
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-500">Upcoming</p>
+                <p className="mt-1 text-sm font-semibold text-slate-800">{scheduledHelper}</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {upcomingPost?.title ? `Next: ${upcomingPost.title}` : 'Plan your next drop'}
+                </p>
+              </div>
+            ) : null}
           </div>
-          <div>
-            <dt className="text-xs uppercase tracking-wide text-slate-500">Pending invites</dt>
-            <dd className="mt-1 text-sm font-semibold text-slate-800">{metrics.invitesPending ?? 0}</dd>
-          </div>
-        </dl>
+        ) : null}
       </div>
       <div className="mt-5 flex flex-wrap gap-3">
         <button
@@ -892,6 +1075,66 @@ GroupCard.propTypes = {
 export default function GroupManagementPanel({ groups, userId, onRefresh }) {
   const allGroups = Array.isArray(groups?.items) ? groups.items : [];
   const managedGroups = useMemo(() => allGroups.filter((group) => GROUP_MANAGER_ROLES.has(group.role)), [allGroups]);
+
+  const aggregatedMetrics = useMemo(() => {
+    const stats = groups?.stats ?? {};
+    return {
+      pendingInvites: Number(stats.pendingInvites ?? 0),
+      pendingApprovals: Number(stats.pendingApprovals ?? 0),
+      invitedMembers: Number(stats.invitedMembers ?? 0),
+      suspendedMembers: Number(stats.suspendedMembers ?? 0),
+      activeMembers: Number(stats.activeMembers ?? 0),
+      newMembersThisWeek: Number(stats.newMembersThisWeek ?? 0),
+      postsScheduled: Number(stats.postsScheduled ?? 0),
+      postsPublishedThisWeek: Number(stats.postsPublishedThisWeek ?? 0),
+      postsDraft: Number(stats.postsDraft ?? 0),
+      invitesExpiringSoon: Number(stats.invitesExpiringSoon ?? 0),
+      averageEngagement:
+        typeof stats.averageEngagement === 'number' && Number.isFinite(stats.averageEngagement)
+          ? stats.averageEngagement
+          : 0,
+      trendingTopics: Array.isArray(stats.trendingTopics) ? stats.trendingTopics : [],
+    };
+  }, [groups]);
+
+  const aggregatedEngagementLevel = useMemo(() => {
+    const score = aggregatedMetrics.averageEngagement ?? 0;
+    if (score >= 0.75) {
+      return 'surging';
+    }
+    if (score >= 0.5) {
+      return 'growing';
+    }
+    if (score >= 0.3) {
+      return 'steady';
+    }
+    return 'emerging';
+  }, [aggregatedMetrics]);
+
+  const aggregatedHelpers = useMemo(
+    () => ({
+      newMembers: aggregatedMetrics.newMembersThisWeek
+        ? `+${formatCount(aggregatedMetrics.newMembersThisWeek)} joined this week`
+        : 'Onboarding steady',
+      invites:
+        aggregatedMetrics.invitesExpiringSoon > 0
+          ? `${formatCount(aggregatedMetrics.invitesExpiringSoon)} expiring soon`
+          : 'All invites healthy',
+      invitedOverall:
+        aggregatedMetrics.invitedMembers > 0
+          ? `${formatCount(aggregatedMetrics.invitedMembers)} invited overall`
+          : 'No open invites sent',
+      approvals:
+        aggregatedMetrics.pendingApprovals > 0
+          ? `${formatCount(aggregatedMetrics.pendingApprovals)} approvals waiting`
+          : 'All approvals cleared',
+      scheduled:
+        aggregatedMetrics.postsDraft > 0
+          ? `${formatCount(aggregatedMetrics.postsDraft)} drafts ready`
+          : 'Draft backlog clear',
+    }),
+    [aggregatedMetrics],
+  );
 
   const [formMode, setFormMode] = useState('create');
   const [activeGroup, setActiveGroup] = useState(null);
@@ -1130,6 +1373,61 @@ export default function GroupManagementPanel({ groups, userId, onRefresh }) {
           Create group
         </button>
       </div>
+
+      {managedGroups.length ? (
+        <div className="rounded-3xl border border-accent/30 bg-white/95 p-5 shadow-inner">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-accent">Engagement pulse</p>
+              <p className="mt-1 text-sm text-slate-600">
+                {formatPercent(aggregatedMetrics.averageEngagement)} avg engagement · {aggregatedEngagementLevel} communities
+              </p>
+            </div>
+            <span className="inline-flex items-center rounded-full border border-accent/40 bg-accentSoft px-3 py-1 text-xs font-semibold text-accent">
+              {formatCount(aggregatedMetrics.activeMembers)} active members
+            </span>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <InsightStat
+              label="New members"
+              value={`+${formatCount(aggregatedMetrics.newMembersThisWeek)}`}
+              helper={aggregatedHelpers.newMembers}
+              tone={aggregatedMetrics.newMembersThisWeek > 0 ? 'accent' : 'default'}
+            />
+            <InsightStat
+              label="Invites & approvals"
+              value={formatCount(aggregatedMetrics.pendingInvites)}
+              helper={`${aggregatedHelpers.invites} · ${aggregatedHelpers.approvals} · ${aggregatedHelpers.invitedOverall}`}
+              tone={
+                aggregatedMetrics.invitesExpiringSoon > 0 || aggregatedMetrics.pendingApprovals > 0
+                  ? 'warning'
+                  : 'default'
+              }
+            />
+            <InsightStat
+              label="Scheduled posts"
+              value={formatCount(aggregatedMetrics.postsScheduled)}
+              helper={aggregatedHelpers.scheduled}
+            />
+            <InsightStat
+              label="Published this week"
+              value={formatCount(aggregatedMetrics.postsPublishedThisWeek)}
+              helper={`${formatPercent(aggregatedMetrics.averageEngagement)} engagement`}
+              tone={aggregatedEngagementLevel === 'surging' ? 'accent' : aggregatedEngagementLevel === 'growing' ? 'positive' : 'default'}
+            />
+          </div>
+          {aggregatedMetrics.trendingTopics.length ? (
+            <div className="mt-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Trending topics</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {aggregatedMetrics.trendingTopics.map((topic) => (
+                  <TrendingTopicPill key={topic} topic={topic} />
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="grid gap-5">
         {allGroups.length ? (

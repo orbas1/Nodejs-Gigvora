@@ -46,7 +46,22 @@ describe('CommunityManagementSection', () => {
       <CommunityManagementSection
         data={{
           groups: {
-            stats: { total: 5, managed: 2, pendingInvites: 1 },
+            stats: {
+              total: 5,
+              managed: 2,
+              pendingInvites: 1,
+              activeMembers: 120,
+              newMembersThisWeek: 5,
+              postsScheduled: 3,
+              postsPublishedThisWeek: 4,
+              postsDraft: 6,
+              invitesExpiringSoon: 2,
+              pendingApprovals: 3,
+              invitedMembers: 8,
+              suspendedMembers: 1,
+              averageEngagement: 0.62,
+              trendingTopics: ['growth', 'ops'],
+            },
             items: [
               {
                 id: 'group-1',
@@ -57,7 +72,35 @@ describe('CommunityManagementSection', () => {
                 role: 'owner',
                 visibility: 'public',
                 memberPolicy: 'request',
-                metrics: { invitesPending: 1 },
+                metrics: {
+                  invitesPending: 1,
+                  invitesExpiringSoon: 1,
+                  membersPending: 2,
+                  membersInvited: 4,
+                  membersActive: 58,
+                  membersJoinedThisWeek: 2,
+                  postsPublished: 12,
+                  postsPublishedThisWeek: 3,
+                  postsScheduled: 2,
+                  scheduledNext7Days: 1,
+                  engagementScore: 0.64,
+                  engagementLevel: 'growing',
+                  trendingTopics: ['brand'],
+                },
+                posts: [
+                  {
+                    id: 'post-101',
+                    title: 'Weekly sync',
+                    status: 'scheduled',
+                    scheduledAt: '2024-06-05T10:00:00Z',
+                  },
+                  {
+                    id: 'post-100',
+                    title: 'Kickoff recap',
+                    status: 'published',
+                    publishedAt: '2024-06-01T09:00:00Z',
+                  },
+                ],
               },
             ],
           },
@@ -85,6 +128,11 @@ describe('CommunityManagementSection', () => {
     expect(screen.getByText(/Design leaders/)).toBeInTheDocument();
     expect(screen.getByText(/Gigvora Careers/)).toBeInTheDocument();
     expect(screen.getByText(/3 managed spaces/)).toBeInTheDocument();
+    expect(screen.getByText(/Engagement pulse/)).toBeInTheDocument();
+    expect(screen.getByText(/\+5 joined this week/i)).toBeInTheDocument();
+    expect(screen.getByText(/120\s+active members/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/approvals waiting/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/#growth/i)).toBeInTheDocument();
   });
 });
 

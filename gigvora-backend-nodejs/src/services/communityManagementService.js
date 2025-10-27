@@ -1,3 +1,4 @@
+import { fn, col, literal } from 'sequelize';
 import {
   Group,
   GroupMembership,
@@ -14,6 +15,128 @@ import { ValidationError } from '../utils/errors.js';
 const GROUP_MANAGER_ROLES = new Set(['owner', 'moderator']);
 const PAGE_MANAGER_ROLES = new Set(['owner', 'admin']);
 
+function subDays(date, days) {
+  const result = new Date(date);
+  result.setDate(result.getDate() - days);
+  return result;
+}
+
+function addDays(date, days) {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+}
+
+function parseNumber(value, fallback = 0) {
+  const numeric = Number(value ?? fallback);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+  return numeric;
+}
+
+function parseDate(value) {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function computeTrendingTopics(posts = []) {
+  const map = new Map();
+  for (const post of posts) {
+    const status = post.status ?? post.Status;
+    if (status && status !== 'published') {
+      continue;
+    }
+    const tags = [];
+    if (Array.isArray(post.topicTags)) {
+      tags.push(...post.topicTags);
+    }
+    const metadataTags = post.metadata?.tags ?? post.metadata?.topics;
+    if (Array.isArray(metadataTags)) {
+      tags.push(...metadataTags);
+    }
+    for (const tag of tags) {
+      const trimmed = `${tag ?? ''}`.trim();
+      if (!trimmed) {
+        continue;
+      }
+      map.set(trimmed, (map.get(trimmed) ?? 0) + 1);
+    }
+  }
+
+  return Array.from(map.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([topic]) => topic);
+}
+
+function summarisePostTimings(posts = [], { now, sevenDaysAhead }) {
+  let scheduledNext7Days = 0;
+  let latestPublishedAt = null;
+  for (const post of posts) {
+    const scheduledAt = parseDate(post.scheduledAt);
+    if (post.status === 'scheduled' && scheduledAt && scheduledAt >= now && scheduledAt <= sevenDaysAhead) {
+      scheduledNext7Days += 1;
+    }
+    const publishedAt = parseDate(post.publishedAt ?? post.updatedAt);
+    if (post.status === 'published' && publishedAt && (!latestPublishedAt || publishedAt > latestPublishedAt)) {
+      latestPublishedAt = publishedAt;
+    }
+  }
+  return {
+    scheduledNext7Days,
+    latestPublishedAt: latestPublishedAt ? latestPublishedAt.toISOString() : null,
+  };
+}
+
+function summariseInvites(invites = [], { now, sevenDaysAgo, threeDaysAhead }) {
+  let pending = 0;
+  let expiringSoon = 0;
+  let acceptedThisWeek = 0;
+
+  for (const invite of invites) {
+    const status = invite.status ?? invite.Status ?? '';
+    if (status === 'pending') {
+      pending += 1;
+      const expiry = parseDate(invite.expiresAt);
+      if (expiry && expiry >= now && expiry <= threeDaysAhead) {
+        expiringSoon += 1;
+      }
+    }
+    if (status === 'accepted') {
+      const updatedAt = parseDate(invite.updatedAt ?? invite.createdAt);
+      if (updatedAt && updatedAt >= sevenDaysAgo) {
+        acceptedThisWeek += 1;
+      }
+    }
+  }
+
+  return { pending, expiringSoon, acceptedThisWeek };
+}
+
+function computeEngagementScore({ activeMembers, postsPublishedThisWeek, membersJoinedThisWeek, invitesAcceptedThisWeek }) {
+  const denominator = Math.max(1, activeMembers);
+  const weighted = postsPublishedThisWeek * 0.5 + membersJoinedThisWeek * 0.3 + invitesAcceptedThisWeek * 0.2;
+  const score = Math.min(1, Math.max(0, weighted / denominator));
+  return Number(score.toFixed(2));
+}
+
+function computeEngagementLevel(score) {
+  if (score >= 0.75) {
+    return 'surging';
+  }
+  if (score >= 0.5) {
+    return 'growing';
+  }
+  if (score >= 0.3) {
+    return 'steady';
+  }
+  return 'emerging';
+}
+
 function parseUserSummary(user) {
   if (!user) return null;
   const plain = user.get ? user.get({ plain: true }) : user;
@@ -27,11 +150,36 @@ function parseUserSummary(user) {
   };
 }
 
-function buildGroupSummary(membership, invitesByGroup, postsByGroup) {
+function buildGroupSummary(
+  membership,
+  { invitesByGroup, postsByGroup, membershipMetricsByGroup, postMetricsByGroup, now, sevenDaysAgo, threeDaysAhead, sevenDaysAhead },
+) {
   const plainMembership = membership.get ? membership.get({ plain: true }) : membership;
   const group = plainMembership.group ?? plainMembership.Group;
   const invites = invitesByGroup.get(group?.id) ?? [];
   const posts = postsByGroup.get(group?.id) ?? [];
+  const membershipMetrics = membershipMetricsByGroup.get(group?.id) ?? {};
+  const postMetrics = postMetricsByGroup.get(group?.id) ?? {};
+  const inviteSummary = summariseInvites(invites, { now, sevenDaysAgo, threeDaysAhead });
+  const postTimingSummary = summarisePostTimings(posts, { now, sevenDaysAhead });
+  const membersActive = parseNumber(membershipMetrics.active);
+  const membersPending = parseNumber(membershipMetrics.pending);
+  const membersJoinedThisWeek = parseNumber(membershipMetrics.joinedLast7Days);
+  const leadershipTeam = parseNumber(membershipMetrics.leaders);
+  const membersInvited = parseNumber(membershipMetrics.invited);
+  const membersSuspended = parseNumber(membershipMetrics.suspended);
+  const postsPublished = parseNumber(postMetrics.published);
+  const postsScheduled = parseNumber(postMetrics.scheduled);
+  const postsDraft = parseNumber(postMetrics.draft);
+  const postsPublishedThisWeek = parseNumber(postMetrics.publishedLast7Days);
+  const engagementScore = computeEngagementScore({
+    activeMembers: membersActive,
+    postsPublishedThisWeek,
+    membersJoinedThisWeek,
+    invitesAcceptedThisWeek: inviteSummary.acceptedThisWeek,
+  });
+  const engagementLevel = computeEngagementLevel(engagementScore);
+  const trendingTopics = computeTrendingTopics(posts);
   return {
     id: group?.id ?? null,
     name: group?.name ?? null,
@@ -47,9 +195,24 @@ function buildGroupSummary(membership, invitesByGroup, postsByGroup) {
     status: plainMembership.status,
     joinedAt: plainMembership.joinedAt ? new Date(plainMembership.joinedAt).toISOString() : null,
     metrics: {
-      invitesPending: invites.filter((invite) => invite.status === 'pending').length,
-      postsPublished: posts.filter((post) => post.status === 'published').length,
-      postsDraft: posts.filter((post) => post.status !== 'published').length,
+      invitesPending: inviteSummary.pending,
+      invitesExpiringSoon: inviteSummary.expiringSoon,
+      invitesAcceptedThisWeek: inviteSummary.acceptedThisWeek,
+      postsPublished,
+      postsDraft,
+      postsScheduled,
+      postsPublishedThisWeek,
+      scheduledNext7Days: postTimingSummary.scheduledNext7Days,
+      latestAnnouncementAt: postTimingSummary.latestPublishedAt,
+      membersActive,
+      membersInvited,
+      membersPending,
+      membersJoinedThisWeek,
+      leadershipTeam,
+      engagementScore,
+      engagementLevel,
+      trendingTopics,
+      membersSuspended,
     },
     invites,
     posts,
@@ -118,6 +281,8 @@ function sanitizePost(post) {
     publishedAt: plain.publishedAt ? new Date(plain.publishedAt).toISOString() : null,
     createdAt: plain.createdAt ? new Date(plain.createdAt).toISOString() : null,
     updatedAt: plain.updatedAt ? new Date(plain.updatedAt).toISOString() : null,
+    topicTags: Array.isArray(plain.topicTags) ? plain.topicTags : [],
+    metadata: plain.metadata ?? {},
     createdBy: parseUserSummary(plain.createdBy ?? plain.CreatedBy),
     updatedBy: parseUserSummary(plain.updatedBy ?? plain.UpdatedBy),
   };
@@ -128,6 +293,11 @@ export async function getCommunityManagementSnapshot(userId) {
   if (!numericUserId) {
     throw new ValidationError('A valid userId is required to load community management.');
   }
+
+  const now = new Date();
+  const sevenDaysAgo = subDays(now, 7);
+  const threeDaysAhead = addDays(now, 3);
+  const sevenDaysAhead = addDays(now, 7);
 
   const [groupMemberships, pageMemberships] = await Promise.all([
     GroupMembership.findAll({
@@ -187,7 +357,16 @@ export async function getCommunityManagementSnapshot(userId) {
     .filter((membership) => PAGE_MANAGER_ROLES.has(membership.role) && membership.status === 'active')
     .map((membership) => membership.pageId);
 
-  const [groupInvites, groupPosts, pageInvites, pagePosts] = await Promise.all([
+  const groupIds = Array.from(new Set(groupMemberships.map((membership) => membership.groupId))).filter(Boolean);
+
+  const [
+    groupInvites,
+    groupPosts,
+    pageInvites,
+    pagePosts,
+    membershipAggregateRows,
+    postAggregateRows,
+  ] = await Promise.all([
     managedGroupIds.length
       ? GroupInvite.findAll({
           where: { groupId: managedGroupIds },
@@ -224,6 +403,54 @@ export async function getCommunityManagementSnapshot(userId) {
           limit: managedPageIds.length * 6,
         })
       : [],
+    groupIds.length
+      ? GroupMembership.findAll({
+          attributes: [
+            'groupId',
+            [fn('COUNT', col('id')), 'total'],
+            [fn('SUM', literal("CASE WHEN status = 'active' THEN 1 ELSE 0 END")), 'active'],
+            [fn('SUM', literal("CASE WHEN status = 'invited' THEN 1 ELSE 0 END")), 'invited'],
+            [fn('SUM', literal("CASE WHEN status = 'pending' THEN 1 ELSE 0 END")), 'pending'],
+            [fn('SUM', literal("CASE WHEN status = 'suspended' THEN 1 ELSE 0 END")), 'suspended'],
+            [fn('SUM', literal("CASE WHEN role IN ('owner','moderator') AND status = 'active' THEN 1 ELSE 0 END")), 'leaders'],
+            [
+              fn(
+                'SUM',
+                literal(
+                  `CASE WHEN "GroupMembership"."joinedAt" IS NOT NULL AND "GroupMembership"."joinedAt" >= '${sevenDaysAgo.toISOString()}' THEN 1 ELSE 0 END`,
+                ),
+              ),
+              'joinedLast7Days',
+            ],
+          ],
+          where: { groupId: groupIds },
+          group: ['groupId'],
+          raw: true,
+        })
+      : [],
+    managedGroupIds.length
+      ? GroupPost.findAll({
+          attributes: [
+            'groupId',
+            [fn('COUNT', col('id')), 'total'],
+            [fn('SUM', literal("CASE WHEN status = 'published' THEN 1 ELSE 0 END")), 'published'],
+            [fn('SUM', literal("CASE WHEN status = 'draft' THEN 1 ELSE 0 END")), 'draft'],
+            [fn('SUM', literal("CASE WHEN status = 'scheduled' THEN 1 ELSE 0 END")), 'scheduled'],
+            [
+              fn(
+                'SUM',
+                literal(
+                  `CASE WHEN "GroupPost"."publishedAt" IS NOT NULL AND "GroupPost"."publishedAt" >= '${sevenDaysAgo.toISOString()}' THEN 1 ELSE 0 END`,
+                ),
+              ),
+              'publishedLast7Days',
+            ],
+          ],
+          where: { groupId: managedGroupIds },
+          group: ['groupId'],
+          raw: true,
+        })
+      : [],
   ]);
 
   const invitesByGroup = new Map();
@@ -233,11 +460,35 @@ export async function getCommunityManagementSnapshot(userId) {
     invitesByGroup.set(invite.groupId, list);
   }
 
+  const membershipMetricsByGroup = new Map();
+  for (const row of membershipAggregateRows ?? []) {
+    membershipMetricsByGroup.set(row.groupId, {
+      total: parseNumber(row.total),
+      active: parseNumber(row.active),
+      invited: parseNumber(row.invited),
+      pending: parseNumber(row.pending),
+      suspended: parseNumber(row.suspended),
+      leaders: parseNumber(row.leaders),
+      joinedLast7Days: parseNumber(row.joinedLast7Days),
+    });
+  }
+
   const postsByGroup = new Map();
   for (const post of groupPosts) {
     const list = postsByGroup.get(post.groupId) ?? [];
     list.push(sanitizePost(post));
     postsByGroup.set(post.groupId, list);
+  }
+
+  const postMetricsByGroup = new Map();
+  for (const row of postAggregateRows ?? []) {
+    postMetricsByGroup.set(row.groupId, {
+      total: parseNumber(row.total),
+      published: parseNumber(row.published),
+      draft: parseNumber(row.draft),
+      scheduled: parseNumber(row.scheduled),
+      publishedLast7Days: parseNumber(row.publishedLast7Days),
+    });
   }
 
   const invitesByPage = new Map();
@@ -254,7 +505,18 @@ export async function getCommunityManagementSnapshot(userId) {
     postsByPage.set(post.pageId, list);
   }
 
-  const groupSummaries = groupMemberships.map((membership) => buildGroupSummary(membership, invitesByGroup, postsByGroup));
+  const groupSummaries = groupMemberships.map((membership) =>
+    buildGroupSummary(membership, {
+      invitesByGroup,
+      postsByGroup,
+      membershipMetricsByGroup,
+      postMetricsByGroup,
+      now,
+      sevenDaysAgo,
+      threeDaysAhead,
+      sevenDaysAhead,
+    }),
+  );
   const pageSummaries = pageMemberships.map((membership) => buildPageSummary(membership, invitesByPage, postsByPage));
 
   const managedGroups = groupSummaries.filter((item) => GROUP_MANAGER_ROLES.has(item.role));
@@ -262,6 +524,56 @@ export async function getCommunityManagementSnapshot(userId) {
 
   const pendingGroupInvites = managedGroups.reduce((acc, group) => acc + group.metrics.invitesPending, 0);
   const pendingPageInvites = managedPages.reduce((acc, page) => acc + page.metrics.invitesPending, 0);
+
+  const aggregatedGroupMetrics = groupSummaries.reduce(
+    (acc, group) => {
+      const metrics = group.metrics ?? {};
+      acc.activeMembers += parseNumber(metrics.membersActive);
+      acc.newMembersThisWeek += parseNumber(metrics.membersJoinedThisWeek);
+      acc.pendingInvites += parseNumber(metrics.invitesPending);
+      acc.invitesExpiringSoon += parseNumber(metrics.invitesExpiringSoon);
+      acc.postsScheduled += parseNumber(metrics.postsScheduled);
+      acc.postsPublishedThisWeek += parseNumber(metrics.postsPublishedThisWeek);
+      acc.postsDraft += parseNumber(metrics.postsDraft);
+      acc.pendingApprovals += parseNumber(metrics.membersPending);
+      acc.invitedMembers += parseNumber(metrics.membersInvited);
+      acc.suspendedMembers += parseNumber(metrics.membersSuspended);
+      if (typeof metrics.engagementScore === 'number') {
+        acc.engagementScoreSum += metrics.engagementScore;
+        acc.groupsWithEngagement += 1;
+      }
+      for (const topic of metrics.trendingTopics ?? []) {
+        const current = acc.trendingTopics.get(topic) ?? 0;
+        acc.trendingTopics.set(topic, current + 1);
+      }
+      return acc;
+    },
+    {
+      activeMembers: 0,
+      newMembersThisWeek: 0,
+      pendingInvites: 0,
+      invitesExpiringSoon: 0,
+      postsScheduled: 0,
+      postsPublishedThisWeek: 0,
+      postsDraft: 0,
+      pendingApprovals: 0,
+      invitedMembers: 0,
+      suspendedMembers: 0,
+      engagementScoreSum: 0,
+      groupsWithEngagement: 0,
+      trendingTopics: new Map(),
+    },
+  );
+
+  const trendingTopics = Array.from(aggregatedGroupMetrics.trendingTopics.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([topic]) => topic);
+
+  const averageEngagement =
+    aggregatedGroupMetrics.groupsWithEngagement > 0
+      ? Number((aggregatedGroupMetrics.engagementScoreSum / aggregatedGroupMetrics.groupsWithEngagement).toFixed(2))
+      : 0;
 
   return {
     groups: {
@@ -271,6 +583,17 @@ export async function getCommunityManagementSnapshot(userId) {
         total: groupSummaries.length,
         managed: managedGroups.length,
         pendingInvites: pendingGroupInvites,
+        activeMembers: aggregatedGroupMetrics.activeMembers,
+        newMembersThisWeek: aggregatedGroupMetrics.newMembersThisWeek,
+        postsScheduled: aggregatedGroupMetrics.postsScheduled,
+        postsPublishedThisWeek: aggregatedGroupMetrics.postsPublishedThisWeek,
+        postsDraft: aggregatedGroupMetrics.postsDraft,
+        invitesExpiringSoon: aggregatedGroupMetrics.invitesExpiringSoon,
+        pendingApprovals: aggregatedGroupMetrics.pendingApprovals,
+        invitedMembers: aggregatedGroupMetrics.invitedMembers,
+        suspendedMembers: aggregatedGroupMetrics.suspendedMembers,
+        averageEngagement,
+        trendingTopics,
       },
     },
     pages: {

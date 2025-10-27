@@ -38,6 +38,13 @@ describe('communityManagementService', () => {
       get: ({ plain: asPlain } = {}) => (asPlain ? { ...plain } : plain),
     });
 
+    const now = new Date();
+    const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
+    const expiresSoonIso = new Date(now.getTime() + twoDaysMs).toISOString();
+    const acceptedAtIso = new Date(now.getTime() - twoDaysMs).toISOString();
+    const publishedAtIso = new Date(now.getTime() - twoDaysMs).toISOString();
+    const scheduledAtIso = new Date(now.getTime() + twoDaysMs).toISOString();
+
     const groupMemberships = [
       makeMembership({
         id: 1,
@@ -101,8 +108,20 @@ describe('communityManagementService', () => {
         status: 'pending',
         token: 'INV-123',
         invitedBy: { id: 33, firstName: 'Jamie', lastName: 'Lee', email: 'jamie@gigvora.com' },
-        createdAt: '2023-12-10T08:00:00Z',
-        updatedAt: '2023-12-10T08:00:00Z',
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+        expiresAt: expiresSoonIso,
+      }),
+      makeInvite({
+        id: 302,
+        groupId: 71,
+        email: 'morgan@example.com',
+        role: 'member',
+        status: 'accepted',
+        token: 'INV-124',
+        invitedBy: { id: 33, firstName: 'Jamie', lastName: 'Lee', email: 'jamie@gigvora.com' },
+        createdAt: acceptedAtIso,
+        updatedAt: acceptedAtIso,
       }),
     ];
 
@@ -122,9 +141,27 @@ describe('communityManagementService', () => {
         status: 'published',
         visibility: 'members',
         scheduledAt: null,
-        publishedAt: '2023-12-12T09:00:00Z',
-        createdAt: '2023-12-11T09:00:00Z',
-        updatedAt: '2023-12-12T09:05:00Z',
+        publishedAt: publishedAtIso,
+        createdAt: publishedAtIso,
+        updatedAt: acceptedAtIso,
+        topicTags: ['growth', 'ops'],
+        metadata: { tags: ['ops', 'expansion'] },
+      }),
+      makePost({
+        id: 402,
+        groupId: 71,
+        pageId: null,
+        title: 'Roadmap AMA',
+        slug: 'roadmap-ama',
+        summary: 'Live discussion with founders',
+        status: 'scheduled',
+        visibility: 'members',
+        scheduledAt: scheduledAtIso,
+        publishedAt: null,
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+        topicTags: ['community'],
+        metadata: { tags: ['ops'] },
       }),
     ];
 
@@ -158,13 +195,43 @@ describe('communityManagementService', () => {
       }),
     ];
 
+    const groupMembershipFindAll = jest
+      .fn()
+      .mockResolvedValueOnce(groupMemberships)
+      .mockResolvedValueOnce([
+        {
+          groupId: 71,
+          total: '18',
+          active: '12',
+          invited: '3',
+          pending: '2',
+          suspended: '1',
+          leaders: '2',
+          joinedLast7Days: '4',
+        },
+      ]);
+
+    const groupPostFindAll = jest
+      .fn()
+      .mockResolvedValueOnce(posts)
+      .mockResolvedValueOnce([
+        {
+          groupId: 71,
+          total: '5',
+          published: '3',
+          draft: '1',
+          scheduled: '1',
+          publishedLast7Days: '2',
+        },
+      ]);
+
     await jest.unstable_mockModule(modelsModulePath, () => ({
       Group: {},
       Page: {},
-      GroupMembership: { findAll: jest.fn().mockResolvedValue(groupMemberships) },
+      GroupMembership: { findAll: groupMembershipFindAll },
       PageMembership: { findAll: jest.fn().mockResolvedValue(pageMemberships) },
       GroupInvite: { findAll: jest.fn().mockResolvedValue(invites) },
-      GroupPost: { findAll: jest.fn().mockResolvedValue(posts) },
+      GroupPost: { findAll: groupPostFindAll },
       PageInvite: { findAll: jest.fn().mockResolvedValue(pageInvites) },
       PagePost: { findAll: jest.fn().mockResolvedValue(pagePosts) },
       User: {},
@@ -174,9 +241,36 @@ describe('communityManagementService', () => {
 
     const snapshot = await getCommunityManagementSnapshot(33);
 
-    expect(snapshot.groups.stats).toEqual({ total: 1, managed: 1, pendingInvites: 1 });
+    expect(snapshot.groups.stats).toEqual({
+      total: 1,
+      managed: 1,
+      pendingInvites: 1,
+      activeMembers: 12,
+      newMembersThisWeek: 4,
+      postsScheduled: 1,
+      postsPublishedThisWeek: 2,
+      postsDraft: 1,
+      invitesExpiringSoon: 1,
+      pendingApprovals: 2,
+      invitedMembers: 3,
+      suspendedMembers: 1,
+      averageEngagement: 0.2,
+      trendingTopics: ['ops', 'growth', 'expansion'],
+    });
     expect(snapshot.pages.stats.pendingInvites).toBe(1);
-    expect(snapshot.groups.items[0].metrics.postsPublished).toBe(1);
+    expect(snapshot.groups.items[0].metrics).toMatchObject({
+      postsPublished: 3,
+      postsScheduled: 1,
+      postsDraft: 1,
+      postsPublishedThisWeek: 2,
+      membersActive: 12,
+      membersJoinedThisWeek: 4,
+      membersPending: 2,
+      membersInvited: 3,
+      membersSuspended: 1,
+      engagementScore: 0.2,
+      engagementLevel: 'emerging',
+    });
     expect(snapshot.pages.items[0].posts[0].status).toBe('draft');
   });
 });
