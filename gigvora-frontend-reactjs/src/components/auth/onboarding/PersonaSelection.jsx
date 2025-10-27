@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import PropTypes from 'prop-types';
+import { DEFAULT_PERSONAS_FOR_SELECTION } from './personaContent.js';
 
 const personaShape = PropTypes.shape({
   id: PropTypes.string.isRequired,
@@ -33,131 +34,8 @@ const personaShape = PropTypes.shape({
   }),
 });
 
-const DEFAULT_PERSONAS = [
-  {
-    id: 'founder',
-    title: 'Founder building a hiring brand',
-    subtitle: 'Grow your employer presence, spotlight wins, and keep pipelines warm.',
-    headline: 'Designed for founding teams scaling storytelling and inbound talent.',
-    benefits: [
-      'Launch a dynamic company profile with testimonials, playlists, and KPI spotlights.',
-      'Coordinate hiring sprints with ATS sync, referral hubs, and brand campaigns.',
-      'Surface people stories, product drops, and community updates to convert candidates.',
-    ],
-    metrics: [
-      { label: 'Brand impressions', value: '120K / mo', delta: '+38%' },
-      { label: 'Referral response time', value: '2.4 hrs', delta: '-41%' },
-    ],
-    signatureMoments: [
-      {
-        label: 'Activation sprint',
-        description: 'Connect ATS, seed media stories, and launch invite-only showcase events.',
-      },
-      {
-        label: 'Weekly ritual',
-        description: 'Publish hiring stories, review warm leads, and action employer brand insights.',
-      },
-    ],
-    recommendedModules: ['Company spotlight', 'Talent marketing studio', 'Referral hub', 'Executive briefings'],
-    heroMedia: {
-      poster: 'https://cdn.gigvora.com/onboarding/personas/founder/hero.jpg',
-      alt: 'Founding team reviewing brand analytics dashboards',
-    },
-    metadata: {
-      primaryCta: 'Launch hiring brand workspace',
-      personaPillar: 'hiring-brand',
-      primerHighlights: [
-        'Instantly publish a flagship profile with testimonials and impact stats.',
-        'Automate referral sourcing, warm outreach, and campaign recaps.',
-        'Keep leadership informed with Monday-ready hiring analytics.',
-      ],
-      recommendedRoles: ['Head of People', 'Talent partner', 'Employer brand lead'],
-    },
-  },
-  {
-    id: 'freelancer',
-    title: 'Independent specialist',
-    subtitle: 'Showcase your craft, activate deal-flow, and nurture premium collaborations.',
-    headline: 'Built for consultants, fractional leaders, and boutique studios.',
-    benefits: [
-      'Curate a services portfolio with case studies, pricing, and testimonials in minutes.',
-      'Sync availability, proposal templates, and pipeline kanban to stay in command.',
-      'Unlock network boosts, warm introductions, and collaboration pods tailored to your craft.',
-    ],
-    metrics: [
-      { label: 'Pipeline win rate', value: '62%', delta: '+19 pts' },
-      { label: 'Average project value', value: '£18.4K', delta: '+24%' },
-    ],
-    signatureMoments: [
-      {
-        label: 'Credibility burst',
-        description: 'Publish hero reel, highlight credentials, and promote packaged offers.',
-      },
-      {
-        label: 'Deal momentum',
-        description: 'Automate proposal follow-ups, highlight social proof, and track negotiations.',
-      },
-    ],
-    recommendedModules: ['Service portfolio', 'Gig pipeline', 'Proposal studio', 'Client collaboration hub'],
-    heroMedia: {
-      poster: 'https://cdn.gigvora.com/onboarding/personas/freelancer/hero.jpg',
-      alt: 'Independent consultant presenting a digital workspace to clients',
-    },
-    metadata: {
-      primaryCta: 'Spin up deal-flow cockpit',
-      personaPillar: 'independent-talent',
-      primerHighlights: [
-        'Curate your best work with reels, testimonials, and packaged offers.',
-        'Sync proposals, follow-ups, and warm intros to stay top-of-mind.',
-        'Activate AI insights so you never miss deal momentum.',
-      ],
-      recommendedRoles: ['Founder', 'Revenue partner', 'Operations lead'],
-    },
-  },
-  {
-    id: 'talent-leader',
-    title: 'Talent & people leader',
-    subtitle: 'Operationalise hiring, onboarding, and community updates with precision.',
-    headline: 'Supports heads of talent orchestrating global hiring and employee journeys.',
-    benefits: [
-      'Blend ATS intelligence, hiring health dashboards, and onboarding checklists.',
-      'Automate candidate storytelling, nurture talent pools, and activate employee advocates.',
-      'Partner with leadership via analytics-ready scorecards and executive briefing packs.',
-    ],
-    metrics: [
-      { label: 'Time-to-hire', value: '22 days', delta: '-9 days' },
-      { label: 'Onboarding satisfaction', value: '4.7 / 5', delta: '+0.8' },
-    ],
-    signatureMoments: [
-      {
-        label: 'Launch readiness',
-        description: 'Publish onboarding journey, calibrate hiring scorecards, and sync orientation assets.',
-      },
-      {
-        label: 'Executive reporting',
-        description: 'Review hiring velocity, onboarding health, and pipeline diversity every Monday.',
-      },
-    ],
-    recommendedModules: ['Talent analytics', 'Onboarding programs', 'Employee advocacy', 'Leadership dashboards'],
-    heroMedia: {
-      poster: 'https://cdn.gigvora.com/onboarding/personas/talent-leader/hero.jpg',
-      alt: 'People leader hosting a global onboarding workshop over video',
-    },
-    metadata: {
-      primaryCta: 'Orchestrate onboarding journeys',
-      personaPillar: 'people-ops',
-      primerHighlights: [
-        'Blend ATS signals, people analytics, and onboarding checklists.',
-        'Publish journeys with tailored templates and automation triggers.',
-        'Deliver executive briefings with hiring velocity and satisfaction deltas.',
-      ],
-      recommendedRoles: ['Chief of Staff', 'People partner', 'Operations lead'],
-    },
-  },
-];
-
 export default function PersonaSelection({
-  personas = DEFAULT_PERSONAS,
+  personas = DEFAULT_PERSONAS_FOR_SELECTION,
   value,
   onChange,
   onPreview,
@@ -352,12 +230,4 @@ PersonaSelection.propTypes = {
   disabled: PropTypes.bool,
 };
 
-PersonaSelection.defaultProps = {
-  personas: DEFAULT_PERSONAS,
-  value: undefined,
-  onChange: undefined,
-  onPreview: undefined,
-  disabled: false,
-};
-
-export { personaShape, DEFAULT_PERSONAS as DEFAULT_PERSONAS_FOR_SELECTION };
+export { personaShape, DEFAULT_PERSONAS_FOR_SELECTION };

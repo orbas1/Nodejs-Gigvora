@@ -6,8 +6,16 @@ import {
   sequelize,
 } from '../models/index.js';
 import { ValidationError, NotFoundError, AuthorizationError } from '../utils/errors.js';
+import calendarContract from '../../../shared-contracts/domain/platform/calendar/constants.js';
 
-const SUPPORTED_EVENT_TYPES = Object.freeze(['project', 'interview', 'gig', 'mentorship', 'volunteering']);
+const {
+  COMPANY_CALENDAR_EVENT_TYPES,
+  COMPANY_CALENDAR_EVENT_TYPE_SET,
+  normalizeCompanyCalendarEventType,
+} = calendarContract;
+
+const SUPPORTED_EVENT_TYPES = COMPANY_CALENDAR_EVENT_TYPES;
+const SUPPORTED_EVENT_TYPE_SET = COMPANY_CALENDAR_EVENT_TYPE_SET;
 const READ_ONLY_ROLES = new Set(['viewer']);
 const DEFAULT_WINDOW_DAYS = 30;
 const DEFAULT_LOOKAHEAD_DAYS = 45;
@@ -15,21 +23,11 @@ const MAX_EVENTS_LIMIT = 500;
 const DEFAULT_LIMIT = 250;
 
 function normaliseEventType(value) {
-  if (!value) {
+  const normalised = normalizeCompanyCalendarEventType(value);
+  if (!normalised || !SUPPORTED_EVENT_TYPE_SET.has(normalised)) {
     return null;
   }
-  const normalised = `${value}`
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
-  if (!normalised) {
-    return null;
-  }
-  if (SUPPORTED_EVENT_TYPES.includes(normalised)) {
-    return normalised;
-  }
-  return null;
+  return normalised;
 }
 
 function normaliseEventTypes(input) {
