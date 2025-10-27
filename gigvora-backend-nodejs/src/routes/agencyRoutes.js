@@ -430,8 +430,42 @@ router.delete(
   asyncHandler(agencyClientKanbanController.destroyColumn),
 );
 router.post('/client-kanban/cards', ...requireAgencyMember, asyncHandler(agencyClientKanbanController.storeCard));
-router.patch('/client-kanban/cards/:cardId', ...requireAgencyMember, asyncHandler(agencyClientKanbanController.updateCard));
-router.delete('/client-kanban/cards/:cardId', ...requireAgencyMember, asyncHandler(agencyClientKanbanController.destroyCard));
+router.patch(
+  '/client-kanban/cards/:cardId',
+  ...requireAgencyMember,
+  asyncHandler(agencyClientKanbanController.updateCardController),
+);
+router.post(
+  '/client-kanban/cards/:cardId/move',
+  ...requireAgencyMember,
+  asyncHandler(agencyClientKanbanController.moveCardController),
+);
+router.delete(
+  '/client-kanban/cards/:cardId',
+  ...requireAgencyMember,
+  asyncHandler(agencyClientKanbanController.destroyCard),
+);
+router.post(
+  '/client-kanban/cards/:cardId/checklist',
+  ...requireAgencyMember,
+  asyncHandler(agencyClientKanbanController.storeChecklistItem),
+);
+router.patch(
+  '/client-kanban/cards/:cardId/checklist/:itemId',
+  ...requireAgencyMember,
+  asyncHandler(agencyClientKanbanController.updateChecklistItemController),
+);
+router.delete(
+  '/client-kanban/cards/:cardId/checklist/:itemId',
+  ...requireAgencyMember,
+  asyncHandler(agencyClientKanbanController.destroyChecklistItem),
+);
+router.post('/client-kanban/clients', ...requireAgencyMember, asyncHandler(agencyClientKanbanController.storeClient));
+router.patch(
+  '/client-kanban/clients/:clientId',
+  ...requireAgencyMember,
+  asyncHandler(agencyClientKanbanController.updateClientController),
+);
 
 export default router;
 
