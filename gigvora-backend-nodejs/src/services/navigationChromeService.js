@@ -114,14 +114,33 @@ export async function getNavigationChrome({ includeFooter = true } = {}) {
       }
     : null;
 
+  const defaultLocale = locales.find((locale) => locale.isDefault)?.code ?? locales[0]?.code ?? 'en';
+  const localeStatusCounts = locales.reduce(
+    (acc, locale) => {
+      const statusKey = locale.status ?? 'ga';
+      acc[statusKey] = (acc[statusKey] ?? 0) + 1;
+      return acc;
+    },
+    { ga: 0, beta: 0, preview: 0 },
+  );
+  const rtlLocales = locales.filter((locale) => locale.direction === 'rtl').map((locale) => locale.code);
+  const timelineEnabledPersonaCount = personas.filter((persona) => persona.timelineEnabled).length;
+  const personaJourneys = personas
+    .map((persona) => persona.metadata?.journey)
+    .filter((journey, index, arr) => Boolean(journey) && arr.indexOf(journey) === index);
+
   return {
     locales,
     personas,
     footer,
     metadata: {
-      defaultLocale: locales.find((locale) => locale.isDefault)?.code ?? locales[0]?.code ?? 'en',
+      defaultLocale,
       personaCount: personas.length,
       updatedAt: new Date().toISOString(),
+      localeStatusCounts,
+      rtlLocales,
+      timelineEnabledPersonaCount,
+      personaJourneys,
     },
   };
 }

@@ -38,6 +38,7 @@ describe('ThemeProvider', () => {
     document.documentElement.removeAttribute('style');
     document.documentElement.removeAttribute('data-thememode');
     document.documentElement.removeAttribute('data-themedensity');
+    delete document.documentElement.dataset.themeAccent;
   });
 
   it('exposes default theme tokens', () => {
@@ -63,5 +64,8 @@ describe('ThemeProvider', () => {
     expect(document.documentElement.dataset.themeMode).toBe('dark');
     expect(document.documentElement.style.getPropertyValue('--gv-space-md')).not.toEqual('');
     expect(result.current.tokens.colors.accent).toContain('#');
+    expect(document.documentElement.dataset.themeAccent).toBe('violet');
+    expect(document.documentElement.style.getPropertyValue('--gv-font-heading-lg')).not.toEqual('');
+    expect(document.documentElement.style.getPropertyValue('--gv-density-scale')).not.toEqual('');
   });
 });
