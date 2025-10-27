@@ -1,24 +1,10 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowPathIcon, FaceSmileIcon, PaperAirplaneIcon, PhotoIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import UserAvatar from '../components/UserAvatar.jsx';
-import EmojiQuickPickerPopover from '../components/popovers/EmojiQuickPickerPopover.jsx';
-import GifSuggestionPopover from '../components/popovers/GifSuggestionPopover.jsx';
-import ReactionsBar from '../components/feed/ReactionsBar.jsx';
-import CommentsThread from '../components/feed/CommentsThread.jsx';
 import ShareModal from '../components/feed/ShareModal.jsx';
 import useCachedResource from '../hooks/useCachedResource.js';
 import { apiClient } from '../services/apiClient.js';
-import {
-  listFeedPosts,
-  createFeedPost,
-  updateFeedPost,
-  deleteFeedPost,
-  reactToFeedPost,
-  listFeedComments,
-  createFeedComment,
-  createFeedReply,
-} from '../services/liveFeed.js';
+import { listFeedPosts, createFeedPost, updateFeedPost, deleteFeedPost, reactToFeedPost } from '../services/liveFeed.js';
 import analytics from '../services/analytics.js';
 import { formatRelativeTime } from '../utils/date.js';
 import useSession from '../hooks/useSession.js';
@@ -28,62 +14,17 @@ import {
   moderateFeedComposerPayload,
   sanitiseExternalLink,
 } from '../utils/contentModeration.js';
-import { ALLOWED_FEED_MEMBERSHIPS, COMPOSER_OPTIONS } from '../constants/feedMeta.js';
+import { ALLOWED_FEED_MEMBERSHIPS } from '../constants/feedMeta.js';
+import FeedComposer from '../components/feed/FeedComposer.jsx';
+import FeedCard from '../components/feed/FeedCard.jsx';
+import ActivityFilters from '../components/feed/ActivityFilters.jsx';
 import {
-  REACTION_ALIASES,
-  REACTION_LOOKUP,
-  REACTION_OPTIONS,
-} from '../components/feed/reactionsConfig.js';
+  DEFAULT_EDIT_DRAFT,
+  normaliseFeedPost,
+  OPPORTUNITY_POST_TYPES,
+  resolvePostType,
+} from '../components/feed/feedHelpers.js';
 
-const DEFAULT_EDIT_DRAFT = {
-  title: '',
-  content: '',
-  link: '',
-  type: 'update',
-};
-
-const POST_TYPE_META = {
-  update: {
-    label: 'Update',
-    badgeClassName: 'bg-slate-100 text-slate-700',
-  },
-  media: {
-    label: 'Media drop',
-    badgeClassName: 'bg-indigo-100 text-indigo-700',
-  },
-  job: {
-    label: 'Job opportunity',
-    badgeClassName: 'bg-emerald-100 text-emerald-700',
-  },
-  gig: {
-    label: 'Gig opportunity',
-    badgeClassName: 'bg-orange-100 text-orange-700',
-  },
-  project: {
-    label: 'Project update',
-    badgeClassName: 'bg-blue-100 text-blue-700',
-  },
-  volunteering: {
-    label: 'Volunteer mission',
-    badgeClassName: 'bg-rose-100 text-rose-700',
-  },
-  launchpad: {
-    label: 'Experience Launchpad',
-    badgeClassName: 'bg-violet-100 text-violet-700',
-  },
-  news: {
-    label: 'Gigvora News',
-    badgeClassName: 'bg-sky-100 text-sky-700',
-  },
-};
-
-const QUICK_REPLY_SUGGESTIONS = [
-  'This is a fantastic milestone – congratulations! 👏',
-  'Looping the team so we can amplify this right away.',
-  'Let’s sync offline about how we can support the rollout.',
-  'Added this into the launch tracker so nothing slips.',
-];
-const MAX_CONTENT_LENGTH = 2200;
 const FEED_PAGE_SIZE = 12;
 const DEFAULT_FEED_VIRTUAL_CHUNK_SIZE = 5;
 const FEED_VIRTUAL_MIN_CHUNK_SIZE = 4;
@@ -91,657 +32,71 @@ const FEED_VIRTUAL_MAX_CHUNK_SIZE = 12;
 const DEFAULT_VIEWPORT_HEIGHT = 900;
 const FEED_VIRTUAL_THRESHOLD = 14;
 const DEFAULT_CHUNK_ESTIMATE = 420;
-const OPPORTUNITY_POST_TYPES = new Set(['job', 'gig', 'project', 'launchpad', 'volunteering', 'mentorship']);
 const COMPACT_NUMBER_FORMATTER = new Intl.NumberFormat('en', {
   notation: 'compact',
   maximumFractionDigits: 1,
 });
 
-export function resolveAuthor(post) {
-  const directAuthor = post?.author ?? {};
-  const user = post?.User ?? post?.user ?? {};
-  const profile = user?.Profile ?? user?.profile ?? {};
-  const fallbackName = [user.firstName, user.lastName].filter(Boolean).join(' ');
-  const name =
-    directAuthor.name || post?.authorName || fallbackName || post?.authorTitle || 'Gigvora member';
-  const headline =
-    directAuthor.headline ||
-    post?.authorHeadline ||
-    profile.headline ||
-    profile.bio ||
-    post?.authorTitle ||
-    'Marketplace community update';
-  const avatarSeed = directAuthor.avatarSeed || post?.authorAvatarSeed || profile.avatarSeed || name;
-  return {
-    name,
-    headline,
-    avatarSeed,
-  };
-}
-
-export function resolvePostType(post) {
-  const typeKey = (post?.type || post?.category || post?.opportunityType || 'update').toLowerCase();
-  const meta = POST_TYPE_META[typeKey] ?? POST_TYPE_META.update;
-  return { key: POST_TYPE_META[typeKey] ? typeKey : 'update', ...meta };
-}
-
-export function extractMediaAttachments(post) {
-  const attachments = [];
-  if (Array.isArray(post?.mediaAttachments)) {
-    post.mediaAttachments
-      .filter(Boolean)
-      .forEach((attachment, index) => {
-        if (!attachment?.url && !attachment?.src) {
-          return;
+const FEED_ACTIVITY_FILTERS = [
+  {
+    id: 'all',
+    label: 'All activity',
+    description: 'Latest updates from your network.',
+    predicate: () => true,
+  },
+  {
+    id: 'opportunities',
+    label: 'Opportunities',
+    description: 'Roles, gigs, projects, and cohorts ready to join.',
+    predicate: (post) => {
+      try {
+        return OPPORTUNITY_POST_TYPES.has(resolvePostType(post).key);
+      } catch (error) {
+        return false;
+      }
+    },
+  },
+  {
+    id: 'media',
+    label: 'Media & wins',
+    description: 'Milestones paired with videos, decks, or galleries.',
+    predicate: (post) => {
+      try {
+        const type = resolvePostType(post).key;
+        if (type === 'media') {
+          return true;
         }
-        attachments.push({
-          id: attachment.id ?? `${post.id ?? 'media'}-${index + 1}`,
-          type: attachment.type ?? (attachment.url?.endsWith('.gif') ? 'gif' : 'image'),
-          url: attachment.url ?? attachment.src,
-          alt: attachment.alt ?? attachment.caption ?? post.title ?? 'Feed media attachment',
-        });
-      });
-  }
-
-  const legacyUrl = post?.imageUrl || post?.mediaUrl || post?.coverImage;
-  if (legacyUrl) {
-    attachments.push({
-      id: `${post?.id ?? 'media'}-legacy`,
-      type: legacyUrl.endsWith('.gif') ? 'gif' : 'image',
-      url: legacyUrl,
-      alt: post?.imageAlt || post?.title || 'Feed media attachment',
-    });
-  }
-
-  return attachments;
-}
-
-function normaliseReactionSummary(reactions) {
-  const summary = {};
-  if (reactions && typeof reactions === 'object') {
-    Object.entries(reactions).forEach(([key, value]) => {
-      if (!Number.isFinite(Number(value))) {
-        return;
+        if (Array.isArray(post.mediaAttachments) && post.mediaAttachments.length) {
+          return true;
+        }
+        const tags = Array.isArray(post.tags) ? post.tags : [];
+        return tags.some((tag) => typeof tag === 'string' && /win|launch|celebrat/i.test(tag));
+      } catch (error) {
+        return false;
       }
-      const normalisedKey = key.toString().toLowerCase().replace(/[^a-z]/g, '');
-      const canonical = REACTION_ALIASES[normalisedKey] || (REACTION_LOOKUP[normalisedKey] ? normalisedKey : null);
-      if (!canonical) {
-        summary[normalisedKey] = (summary[normalisedKey] ?? 0) + Number(value);
-        return;
+    },
+  },
+  {
+    id: 'signals',
+    label: 'Signals & news',
+    description: 'Platform notices, executive alerts, and priority updates.',
+    predicate: (post) => {
+      try {
+        const type = resolvePostType(post).key;
+        if (type === 'news') {
+          return true;
+        }
+        if (post.isOfficial || post.isPinned) {
+          return true;
+        }
+        const tags = Array.isArray(post.insightTags) ? post.insightTags : [];
+        return tags.some((tag) => typeof tag === 'string' && /signal|alert|launch|breaking/i.test(tag));
+      } catch (error) {
+        return false;
       }
-      summary[canonical] = (summary[canonical] ?? 0) + Number(value);
-    });
-  }
-
-  REACTION_OPTIONS.forEach((option) => {
-    if (typeof summary[option.id] !== 'number') {
-      summary[option.id] = 0;
-    }
-  });
-
-  return summary;
-}
-
-export function normaliseFeedPost(post, fallbackSession) {
-  if (!post || typeof post !== 'object') {
-    return null;
-  }
-
-  const createdAt = post.createdAt ? new Date(post.createdAt).toISOString() : new Date().toISOString();
-  const normalisedType = (post.type || post.category || post.opportunityType || 'update').toLowerCase();
-
-  const derivedAuthorName =
-    post.authorName ||
-    [post.User?.firstName, post.User?.lastName, post.User?.name].filter(Boolean).join(' ') ||
-    fallbackSession?.name ||
-    'Gigvora member';
-
-  const reactionSummary = normaliseReactionSummary(post.reactions);
-  const reactionsMap = { ...reactionSummary };
-  if (typeof reactionsMap.like === 'number') {
-    reactionsMap.likes = reactionsMap.like;
-  }
-  const viewerReaction = (() => {
-    const rawReaction =
-      post.viewerReaction ||
-      post.viewerReactionType ||
-      (post.viewerHasLiked ? 'like' : null);
-    if (!rawReaction) {
-      return null;
-    }
-    const key = rawReaction.toString().toLowerCase().replace(/[^a-z]/g, '');
-    return REACTION_ALIASES[key] || (REACTION_LOOKUP[key] ? key : null);
-  })();
-
-  const normalised = {
-    id: post.id ?? `local-${Date.now()}`,
-    content: post.content ?? '',
-    summary: post.summary ?? post.content ?? '',
-    type: normalisedType,
-    link: post.link ?? post.resourceLink ?? null,
-    createdAt,
-    authorName: derivedAuthorName,
-    authorHeadline:
-      post.authorHeadline ||
-      post.authorTitle ||
-      post.User?.Profile?.headline ||
-      post.User?.Profile?.bio ||
-      fallbackSession?.title ||
-      'Marketplace community update',
-    reactions: reactionsMap,
-    reactionSummary,
-    viewerReaction,
-    viewerHasLiked: viewerReaction ? viewerReaction === 'like' : Boolean(post.viewerHasLiked),
-    comments: Array.isArray(post.comments) ? post.comments : [],
-    mediaAttachments: extractMediaAttachments(post),
-    User:
-      post.User ??
-      (fallbackSession
-        ? {
-            firstName: fallbackSession.name,
-            Profile: {
-              avatarSeed: fallbackSession.avatarSeed ?? fallbackSession.name,
-              headline: fallbackSession.title,
-            },
-          }
-        : undefined),
-  };
-
-  if (post.title) {
-    normalised.title = post.title;
-  }
-  if (post.source) {
-    normalised.source = post.source;
-  }
-
-  const shareCount = (() => {
-    const candidates = [
-      post.metrics?.shares,
-      post.metrics?.shareCount,
-      post.metrics?.share_count,
-      post.shareCount,
-      post.shares,
-    ];
-    for (const candidate of candidates) {
-      const numeric = Number.parseInt(candidate, 10);
-      if (Number.isFinite(numeric) && numeric >= 0) {
-        return numeric;
-      }
-    }
-    return 0;
-  })();
-
-  normalised.shareCount = shareCount;
-  if (post.metrics || shareCount) {
-    normalised.metrics = {
-      ...(post.metrics ?? {}),
-      shares: shareCount,
-    };
-  }
-
-  return normalised;
-}
-
-function normaliseCommentEntry(comment, { index = 0, prefix, fallbackAuthor } = {}) {
-  if (!comment) {
-    return null;
-  }
-
-  const basePrefix = prefix || 'comment';
-  const user = comment.user ?? comment.User ?? {};
-  const profile = user.Profile ?? user.profile ?? {};
-  const id = comment.id ?? `${basePrefix}-${index + 1}`;
-  const candidateAuthor =
-    comment.author ??
-    comment.authorName ??
-    [user.firstName, user.lastName, user.name].filter(Boolean).join(' ');
-  const author = (() => {
-    if (typeof candidateAuthor === 'string' && candidateAuthor.trim().length) {
-      return candidateAuthor.trim();
-    }
-    if (typeof fallbackAuthor?.name === 'string' && fallbackAuthor.name.trim().length) {
-      return fallbackAuthor.name.trim();
-    }
-    return 'Community member';
-  })();
-
-  const candidateHeadline =
-    comment.authorHeadline ??
-    user.title ??
-    user.role ??
-    profile.headline ??
-    profile.bio ??
-    fallbackAuthor?.headline;
-  const headline =
-    typeof candidateHeadline === 'string' && candidateHeadline.trim().length
-      ? candidateHeadline.trim()
-      : 'Gigvora member';
-  const message = (comment.body ?? comment.content ?? comment.message ?? comment.text ?? '').toString();
-  const createdAt = comment.createdAt ?? comment.updatedAt ?? new Date().toISOString();
-  const metadata = comment.metadata && typeof comment.metadata === 'object' ? comment.metadata : null;
-  const metadataFlags = metadata ?? {};
-  const insightTags = Array.isArray(comment.insightTags)
-    ? comment.insightTags
-    : Array.isArray(metadataFlags.insightTags)
-    ? metadataFlags.insightTags
-    : [];
-  const isPinned = Boolean(comment.isPinned ?? metadataFlags.isPinned ?? metadataFlags.pinned);
-  const isOfficial = Boolean(comment.isOfficial ?? metadataFlags.isOfficial ?? metadataFlags.official);
-  const guidance = typeof (comment.guidance ?? metadataFlags.guidance) === 'string'
-    ? (comment.guidance ?? metadataFlags.guidance)
-    : null;
-  const language = comment.language ?? metadataFlags.language ?? null;
-  const avatarSeed =
-    comment.authorAvatarSeed ??
-    comment.avatarSeed ??
-    profile.avatarSeed ??
-    fallbackAuthor?.avatarSeed ??
-    user.firstName ??
-    author;
-  const replies = Array.isArray(comment.replies)
-    ? comment.replies
-        .map((reply, replyIndex) =>
-          normaliseCommentEntry(reply, {
-            index: replyIndex,
-            prefix: `${id}-reply`,
-            fallbackAuthor: reply.user ?? fallbackAuthor ?? user,
-          }),
-        )
-        .filter(Boolean)
-    : [];
-
-  return {
-    id,
-    author,
-    headline,
-    message,
-    createdAt,
-    replies,
-    metadata,
-    insightTags,
-    isPinned,
-    isOfficial,
-    guidance,
-    language,
-    authorAvatarSeed: avatarSeed,
-  };
-}
-
-function normaliseCommentList(comments, post) {
-  if (!Array.isArray(comments)) {
-    return [];
-  }
-  const prefixBase = `${post?.id ?? 'feed-post'}-comment`;
-  return comments
-    .map((comment, index) => normaliseCommentEntry(comment, { index, prefix: prefixBase, fallbackAuthor: comment?.user }))
-    .filter(Boolean);
-}
-
-function normaliseCommentsFromResponse(response, post) {
-  if (!response) {
-    return [];
-  }
-  if (Array.isArray(response)) {
-    return normaliseCommentList(response, post);
-  }
-  if (Array.isArray(response.items)) {
-    return normaliseCommentList(response.items, post);
-  }
-  if (Array.isArray(response.data)) {
-    return normaliseCommentList(response.data, post);
-  }
-  if (Array.isArray(response.results)) {
-    return normaliseCommentList(response.results, post);
-  }
-  if (Array.isArray(response.comments)) {
-    return normaliseCommentList(response.comments, post);
-  }
-  return [];
-}
-
-function normaliseSingleComment(response, post, fallbackAuthor, { prefix } = {}) {
-  const list = normaliseCommentsFromResponse(response, post);
-  if (list.length) {
-    return list[0];
-  }
-  if (response && typeof response === 'object') {
-    return normaliseCommentEntry(response, {
-      index: 0,
-      prefix: prefix ?? `${post?.id ?? 'feed-post'}-comment`,
-      fallbackAuthor,
-    });
-  }
-  return null;
-}
-
-function MediaAttachmentPreview({ attachment, onRemove }) {
-  if (!attachment) {
-    return null;
-  }
-
-  return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-inner">
-      <div className="relative">
-        <img
-          src={attachment.url}
-          alt={attachment.alt || 'Feed media attachment'}
-          className="h-48 w-full object-cover"
-          loading="lazy"
-        />
-        <button
-          type="button"
-          onClick={onRemove}
-          className="absolute right-4 top-4 inline-flex items-center rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-white"
-        >
-          Remove media
-        </button>
-      </div>
-      {attachment.alt ? (
-        <p className="border-t border-slate-200 px-4 py-2 text-xs text-slate-500">{attachment.alt}</p>
-      ) : null}
-    </div>
-  );
-}
-
-function FeedComposer({ onCreate, session }) {
-  const [mode, setMode] = useState('update');
-  const [content, setContent] = useState('');
-  const [link, setLink] = useState('');
-  const [attachment, setAttachment] = useState(null);
-  const [attachmentAlt, setAttachmentAlt] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
-  const [showEmojiTray, setShowEmojiTray] = useState(false);
-  const [showGifTray, setShowGifTray] = useState(false);
-  const textareaId = useId();
-  const linkInputId = useId();
-  const mediaAltId = useId();
-
-  const selectedOption = COMPOSER_OPTIONS.find((option) => option.id === mode) ?? COMPOSER_OPTIONS[0];
-  const remainingCharacters = MAX_CONTENT_LENGTH - content.length;
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    if (submitting) {
-      return;
-    }
-    const draftPayload = {
-      type: mode,
-      content,
-      summary: content,
-      link: sanitiseExternalLink(link),
-      mediaAttachments: attachment
-        ? [
-            {
-              id: attachment.id,
-              type: attachment.type,
-              url: attachment.url,
-              alt: attachmentAlt?.trim() || attachment.alt,
-            },
-          ]
-        : [],
-    };
-
-    let moderated;
-    try {
-      moderated = moderateFeedComposerPayload(draftPayload);
-    } catch (moderationError) {
-      if (moderationError instanceof ContentModerationError) {
-        setError({
-          message: moderationError.message,
-          reasons: moderationError.reasons,
-        });
-        return;
-      }
-      setError({
-        message: moderationError?.message || 'We could not publish your update. Please try again in a moment.',
-      });
-      return;
-    }
-
-    const payload = {
-      type: mode,
-      content: moderated.content,
-      link: moderated.link,
-      mediaAttachments: moderated.attachments,
-    };
-
-    setSubmitting(true);
-    setError(null);
-    try {
-      await Promise.resolve(onCreate(payload));
-      setContent('');
-      setLink('');
-      setAttachment(null);
-      setAttachmentAlt('');
-      setMode('update');
-    } catch (composerError) {
-      if (composerError instanceof ContentModerationError) {
-        setError({ message: composerError.message, reasons: composerError.reasons });
-      } else {
-        const message =
-          composerError?.message || 'We could not publish your update. Please try again in a moment.';
-        setError({ message });
-      }
-    } finally {
-      setSubmitting(false);
-      setShowEmojiTray(false);
-      setShowGifTray(false);
-    }
-  };
-
-  return (
-    <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-      <form onSubmit={handleSubmit} className="space-y-6 px-6 py-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
-          <UserAvatar name={session?.name} seed={session?.avatarSeed ?? session?.name} size="md" />
-          <div className="flex-1 space-y-4">
-            <p className="text-sm font-semibold text-slate-800">Share with your network</p>
-            <div className="relative">
-              <label htmlFor={textareaId} className="sr-only">
-                Compose timeline update
-              </label>
-              <textarea
-                id={textareaId}
-                value={content}
-                onChange={(event) => {
-                  setContent(event.target.value.slice(0, MAX_CONTENT_LENGTH));
-                  setError(null);
-                }}
-                rows={5}
-                maxLength={MAX_CONTENT_LENGTH}
-                className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-base text-slate-900 shadow-inner transition focus:border-accent focus:bg-white focus:ring-2 focus:ring-accent/20"
-                placeholder={`Share an update about ${selectedOption.label.toLowerCase()}…`}
-                disabled={submitting}
-              />
-              <div className="pointer-events-none absolute bottom-3 right-4 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-400">
-                {remainingCharacters}
-              </div>
-            </div>
-            <p className="text-xs text-slate-500">{selectedOption.description}</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 border-y border-slate-200 py-4">
-          {COMPOSER_OPTIONS.map((option) => {
-            const Icon = option.icon;
-            const isActive = option.id === mode;
-            return (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => {
-                  if (!submitting) {
-                    setMode(option.id);
-                  }
-                }}
-                disabled={submitting}
-                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition ${
-                  isActive
-                    ? 'bg-accent text-white shadow-soft'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                {option.label}
-              </button>
-            );
-          })}
-        </div>
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowGifTray(false);
-                  setShowEmojiTray((previous) => !previous);
-                }}
-                className="inline-flex items-center gap-2 rounded-full border border-transparent bg-slate-100 px-3 py-2 font-semibold text-slate-600 transition hover:bg-slate-200 hover:text-slate-900"
-              >
-                <FaceSmileIcon className="h-4 w-4" />
-                Emoji
-              </button>
-              <EmojiQuickPickerPopover
-                open={showEmojiTray}
-                onClose={() => setShowEmojiTray(false)}
-                onSelect={(emoji) => setContent((previous) => `${previous}${emoji}`)}
-                labelledBy="composer-emoji-trigger"
-              />
-            </div>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowEmojiTray(false);
-                  setShowGifTray((previous) => !previous);
-                }}
-                className="inline-flex items-center gap-2 rounded-full border border-transparent bg-slate-100 px-3 py-2 font-semibold text-slate-600 transition hover:bg-slate-200 hover:text-slate-900"
-              >
-                <PhotoIcon className="h-4 w-4" />
-                GIF & media
-              </button>
-              <GifSuggestionPopover
-                open={showGifTray}
-                onClose={() => setShowGifTray(false)}
-                onSelect={(gif) => {
-                  setAttachment({ id: gif.id, type: 'gif', url: gif.url, alt: gif.tone });
-                  setAttachmentAlt(gif.tone);
-                }}
-                labelledBy="composer-gif-trigger"
-              />
-            </div>
-          </div>
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr),minmax(0,1fr)]">
-            <div className="space-y-2">
-              <label htmlFor={linkInputId} className="text-xs font-medium text-slate-600">
-                Attach a resource (deck, doc, or listing URL)
-              </label>
-              <input
-                id={linkInputId}
-                value={link}
-                onChange={(event) => {
-                  setLink(event.target.value);
-                  setError(null);
-                }}
-                placeholder="https://"
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                disabled={submitting}
-              />
-            </div>
-            <div className="space-y-2 text-xs text-slate-500">
-              <p className="font-medium text-slate-600">Need inspiration?</p>
-              <p>
-                Opportunity posts automatically appear inside Explorer with the right filters so talent can discover them alongside
-                jobs, gigs, projects, volunteering missions, and Launchpad cohorts.
-              </p>
-            </div>
-          </div>
-          {attachment ? (
-            <div className="space-y-2">
-              <label htmlFor={mediaAltId} className="text-xs font-medium text-slate-600">
-                Media alt text
-              </label>
-              <input
-                id={mediaAltId}
-                value={attachmentAlt}
-                onChange={(event) => setAttachmentAlt(event.target.value)}
-                maxLength={120}
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
-                placeholder="Describe the media for improved accessibility"
-              />
-              <MediaAttachmentPreview
-                attachment={{ ...attachment, alt: attachmentAlt }}
-                onRemove={() => {
-                  setAttachment(null);
-                  setAttachmentAlt('');
-                }}
-              />
-            </div>
-          ) : null}
-          {error ? (
-            <div
-              className="space-y-2 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700 shadow-inner"
-              role="alert"
-            >
-              <p className="font-semibold">{error.message}</p>
-              {Array.isArray(error.reasons) && error.reasons.length ? (
-                <ul className="list-disc space-y-1 pl-5 text-xs text-rose-600">
-                  {error.reasons.map((reason, index) => (
-                    <li key={index}>{reason}</li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
-          <p>Your update is routed to followers, connections, and workspace partners.</p>
-          <button
-            type="submit"
-            disabled={submitting || !content.trim()}
-            className={`inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold text-white shadow-soft transition ${
-              submitting || !content.trim()
-                ? 'cursor-not-allowed bg-accent/50'
-                : 'bg-accent hover:bg-accentDark'
-            }`}
-          >
-            {submitting ? <ArrowPathIcon className="h-4 w-4 animate-spin" /> : <ShareIcon className="h-4 w-4" />}
-            {submitting ? 'Publishing…' : 'Publish to timeline'}
-          </button>
-        </div>
-      </form>
-    </div>
-  );
-}
-
-function MediaAttachmentGrid({ attachments }) {
-  if (!attachments?.length) {
-    return null;
-  }
-  const columns = attachments.length === 1 ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2';
-  return (
-    <div className={`grid gap-4 ${columns}`}>
-      {attachments.map((attachment) => (
-        <figure
-          key={attachment.id}
-          className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-inner"
-        >
-          <img
-            src={attachment.url}
-            alt={attachment.alt || 'Feed media attachment'}
-            className="h-64 w-full object-cover"
-            loading="lazy"
-          />
-          {attachment.alt ? (
-            <figcaption className="border-t border-slate-200 px-4 py-2 text-xs text-slate-500">
-              {attachment.alt}
-            </figcaption>
-          ) : null}
-        </figure>
-      ))}
-    </div>
-  );
-}
+    },
+  },
+];
 
 function FeedLoadingSkeletons({ count = 2 }) {
   return (
@@ -867,433 +222,6 @@ function VirtualFeedChunk({
         </div>
       )}
     </div>
-  );
-}
-
-function FeedPostCard({
-  post,
-  onShare,
-  canManage = false,
-  viewer,
-  onEditStart,
-  onEditCancel,
-  onDelete,
-  isEditing = false,
-  editDraft = DEFAULT_EDIT_DRAFT,
-  onEditDraftChange,
-  onEditSubmit,
-  editSaving = false,
-  editError = null,
-  deleteLoading = false,
-  onReactionChange,
-}) {
-  const author = resolveAuthor(post);
-  const postType = resolvePostType(post);
-  const isNewsPost = postType.key === 'news';
-  const heading = isNewsPost ? post.title || post.summary || post.content || author.name : author.name;
-  const bodyText = isNewsPost ? post.summary || post.content || '' : post.content || '';
-  const linkLabel = isNewsPost ? 'Read full story' : 'View attached resource';
-  const publishedTimestamp = post.publishedAt || post.createdAt;
-  const viewerName = viewer?.name ?? 'You';
-  const viewerHeadline = viewer?.title ?? viewer?.headline ?? 'Shared via Gigvora';
-  const viewerAvatarSeed = viewer?.avatarSeed ?? viewer?.name ?? viewerName;
-  const computedReactionSummary = useMemo(
-    () => normaliseReactionSummary(post.reactionSummary ?? post.reactions ?? {}),
-    [post.reactionSummary, post.reactions],
-  );
-  const [reactionSummary, setReactionSummary] = useState(computedReactionSummary);
-  useEffect(() => {
-    setReactionSummary(computedReactionSummary);
-  }, [computedReactionSummary]);
-
-  const [activeReaction, setActiveReaction] = useState(
-    () => post.viewerReaction ?? (post.viewerHasLiked ? 'like' : null),
-  );
-  useEffect(() => {
-    setActiveReaction(post.viewerReaction ?? (post.viewerHasLiked ? 'like' : null));
-  }, [post.viewerHasLiked, post.viewerReaction]);
-
-  const [comments, setComments] = useState(() => normaliseCommentList(post?.comments ?? [], post));
-  const [commentsLoading, setCommentsLoading] = useState(false);
-  const [commentsError, setCommentsError] = useState(null);
-  const [commentDraft, setCommentDraft] = useState('');
-
-  useEffect(() => {
-    setComments(normaliseCommentList(post?.comments ?? [], post));
-  }, [post?.comments, post?.id]);
-
-  const loadComments = useCallback(
-    async ({ signal } = {}) => {
-      if (!post?.id) {
-        setComments([]);
-        return;
-      }
-      setCommentsLoading(true);
-      try {
-        const response = await listFeedComments(post.id, { signal });
-        if (signal?.aborted) {
-          return;
-        }
-        const fetched = normaliseCommentsFromResponse(response, post);
-        setComments(fetched.length ? fetched : []);
-        setCommentsError(null);
-      } catch (error) {
-        if (signal?.aborted) {
-          return;
-        }
-        setCommentsError(error);
-      } finally {
-        if (!signal?.aborted) {
-          setCommentsLoading(false);
-        }
-      }
-    },
-    [post],
-  );
-
-  useEffect(() => {
-    if (!post?.id) {
-      setComments([]);
-      return undefined;
-    }
-    const controller = new AbortController();
-    loadComments({ signal: controller.signal });
-    return () => controller.abort();
-  }, [loadComments, post?.id]);
-
-  const totalConversationCount = useMemo(
-    () =>
-      comments.reduce(
-        (total, comment) => total + 1 + (Array.isArray(comment.replies) ? comment.replies.length : 0),
-        0,
-      ),
-    [comments],
-  );
-
-  const handleReactionSelect = useCallback(
-    (reactionId) => {
-      setActiveReaction((previous) => {
-        const willActivate = previous !== reactionId;
-        setReactionSummary((current) => {
-          const updated = { ...(current ?? {}) };
-          if (previous && typeof updated[previous] === 'number') {
-            updated[previous] = Math.max(0, updated[previous] - 1);
-          }
-          if (willActivate) {
-            updated[reactionId] = (updated[reactionId] ?? 0) + 1;
-          }
-          return updated;
-        });
-        analytics.track(
-          'web_feed_reaction_click',
-          { postId: post.id, reaction: reactionId, active: willActivate },
-          { source: 'web_app' },
-        );
-        if (typeof onReactionChange === 'function') {
-          onReactionChange(post, { next: willActivate ? reactionId : null, previous });
-        }
-        return willActivate ? reactionId : null;
-      });
-    },
-    [onReactionChange, post],
-  );
-
-  const handleCommentSubmit = async (event) => {
-    event.preventDefault();
-    const trimmed = commentDraft.trim();
-    if (!trimmed) {
-      return;
-    }
-    const optimisticId = `${post.id ?? 'feed-post'}-draft-${Date.now()}`;
-    const optimisticComment = {
-      id: optimisticId,
-      author: viewerName,
-      headline: viewerHeadline,
-      message: trimmed,
-      createdAt: new Date().toISOString(),
-      replies: [],
-    };
-    setComments((previous) => [optimisticComment, ...previous]);
-    setCommentDraft('');
-    setCommentsError(null);
-    analytics.track('web_feed_comment_submit', { postId: post.id }, { source: 'web_app' });
-
-    try {
-      const response = await createFeedComment(post.id, { message: trimmed });
-      const persisted = normaliseSingleComment(response, post, {
-        name: viewerName,
-        headline: viewerHeadline,
-      });
-      if (persisted) {
-        setComments((previous) => {
-          const replaced = previous.map((existing) => (existing.id === optimisticId ? persisted : existing));
-          if (!replaced.some((comment) => comment.id === persisted.id)) {
-            return [persisted, ...replaced.filter((comment) => comment.id !== optimisticId)];
-          }
-          return replaced;
-        });
-      }
-    } catch (error) {
-      setComments((previous) => previous.filter((existing) => existing.id !== optimisticId));
-      setCommentsError(error);
-    }
-  };
-
-  const handleAddReply = async (commentId, replyMessage) => {
-    const trimmed = (replyMessage ?? '').trim();
-    if (!trimmed) {
-      return;
-    }
-    const replyId = `${commentId}-reply-${Date.now()}`;
-    const optimisticReply = {
-      id: replyId,
-      author: viewerName,
-      headline: viewerHeadline,
-      message: trimmed,
-      createdAt: new Date().toISOString(),
-    };
-
-    setComments((previous) =>
-      previous.map((existing) => {
-        if (existing.id !== commentId) {
-          return existing;
-        }
-        return {
-          ...existing,
-          replies: [optimisticReply, ...(existing.replies ?? [])],
-        };
-      }),
-    );
-    setCommentsError(null);
-    analytics.track('web_feed_reply_submit', { postId: post.id, commentId }, { source: 'web_app' });
-
-    try {
-      const response = await createFeedReply(post.id, commentId, { message: trimmed });
-      const persisted = normaliseSingleComment(
-        response,
-        post,
-        {
-          name: viewerName,
-          headline: viewerHeadline,
-        },
-        { prefix: `${commentId}-reply` },
-      );
-      if (persisted) {
-        setComments((previous) =>
-          previous.map((existing) => {
-            if (existing.id !== commentId) {
-              return existing;
-            }
-            const updatedReplies = (existing.replies ?? []).map((reply) =>
-              reply.id === replyId ? { ...persisted, id: persisted.id ?? replyId } : reply,
-            );
-            const hasPersisted = updatedReplies.some((reply) => reply.id === persisted.id);
-            return {
-              ...existing,
-              replies: hasPersisted ? updatedReplies : [persisted, ...updatedReplies.filter((reply) => reply.id !== replyId)],
-            };
-          }),
-        );
-      }
-    } catch (error) {
-      setComments((previous) =>
-        previous.map((existing) => {
-          if (existing.id !== commentId) {
-            return existing;
-          }
-          return {
-            ...existing,
-            replies: (existing.replies ?? []).filter((reply) => reply.id !== replyId),
-          };
-        }),
-      );
-      setCommentsError(error);
-    }
-  };
-
-  return (
-    <article className="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-md">
-      <div className="flex flex-wrap items-start justify-between gap-3 text-xs text-slate-400">
-        <span className="inline-flex items-center gap-2">
-          <UserAvatar name={author.name} seed={author.avatarSeed} size="xs" showGlow={false} />
-          <span>{author.headline}</span>
-        </span>
-        <div className="ml-auto flex items-center gap-2">
-          <span>{formatRelativeTime(publishedTimestamp)}</span>
-          {canManage ? (
-            isEditing ? (
-              <button
-                type="button"
-                onClick={() => onEditCancel?.(post)}
-                className="rounded-full border border-slate-200 px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 transition hover:border-rose-200 hover:text-rose-500"
-                disabled={editSaving}
-              >
-                Cancel edit
-              </button>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => onEditStart?.(post)}
-                  className="rounded-full border border-slate-200 px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 transition hover:border-accent hover:text-accent"
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onDelete?.(post)}
-                  className={`rounded-full border px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-wide transition ${
-                    deleteLoading
-                      ? 'border-rose-200 bg-rose-100 text-rose-500'
-                      : 'border-rose-200 text-rose-600 hover:bg-rose-50'
-                  }`}
-                  disabled={deleteLoading}
-                >
-                  {deleteLoading ? 'Removing…' : 'Delete'}
-                </button>
-              </>
-            )
-          ) : null}
-        </div>
-      </div>
-      {isEditing ? (
-        <form onSubmit={(event) => onEditSubmit?.(event, post)} className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block text-sm">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Title</span>
-              <input
-                type="text"
-                value={editDraft?.title ?? ''}
-                onChange={(event) => onEditDraftChange?.('title', event.target.value)}
-                placeholder="Optional headline"
-                className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
-                disabled={editSaving}
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Type</span>
-              <select
-                value={editDraft?.type ?? 'update'}
-                onChange={(event) => onEditDraftChange?.('type', event.target.value)}
-                className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-accent focus:ring-2 focus:ring-accent/20"
-                disabled={editSaving}
-              >
-                {COMPOSER_OPTIONS.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <label className="block text-sm">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">External link</span>
-            <input
-              type="url"
-              value={editDraft?.link ?? ''}
-              onChange={(event) => onEditDraftChange?.('link', event.target.value)}
-              placeholder="https://example.com/resource"
-              className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
-              disabled={editSaving}
-            />
-          </label>
-          <label className="block text-sm">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Content</span>
-            <textarea
-              value={editDraft?.content ?? ''}
-              onChange={(event) => onEditDraftChange?.('content', event.target.value)}
-              rows={6}
-              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-800 shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
-              placeholder="Share the full context for this update…"
-              disabled={editSaving}
-            />
-          </label>
-          {editError ? (
-            <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{editError}</p>
-          ) : null}
-          <div className="flex flex-wrap items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={() => onEditCancel?.(post)}
-              className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:border-slate-300"
-              disabled={editSaving}
-            >
-              Discard
-            </button>
-            <button
-              type="submit"
-              disabled={editSaving}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition ${
-                editSaving ? 'bg-accent/50' : 'bg-accent hover:bg-accentDark'
-              }`}
-            >
-              {editSaving ? 'Saving…' : 'Save changes'}
-            </button>
-          </div>
-        </form>
-      ) : (
-        <>
-          <div className="flex flex-wrap items-center gap-3">
-            <h2 className="text-lg font-semibold text-slate-900">{heading}</h2>
-            <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${postType.badgeClassName}`}>
-              {postType.label}
-            </span>
-            {isNewsPost && post.source ? (
-              <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-wide text-slate-600">
-                {post.source}
-              </span>
-            ) : null}
-          </div>
-          {OPPORTUNITY_POST_TYPES.has(postType.key) ? (
-            <div className="mt-2 inline-flex items-center gap-2 rounded-2xl bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-700">
-              <SparklesIcon className="h-4 w-4" /> Opportunity spotlight — invite warm intros or referrals.
-            </div>
-          ) : null}
-          {bodyText ? (
-            <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">{bodyText}</p>
-          ) : null}
-          {isNewsPost && author.name && heading !== author.name ? (
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{author.name}</p>
-          ) : null}
-          <MediaAttachmentGrid attachments={post.mediaAttachments} />
-          {post.link ? (
-            <a
-              href={post.link}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-accent transition hover:border-accent/50 hover:bg-white"
-            >
-              <ArrowPathIcon className="h-4 w-4" />
-              {linkLabel}
-            </a>
-          ) : null}
-          <ReactionsBar
-            postId={post.id}
-            reactionSummary={reactionSummary}
-            activeReaction={activeReaction}
-            onSelect={handleReactionSelect}
-            totalConversationCount={totalConversationCount}
-            shareCount={post.shareCount ?? post.metrics?.shares ?? 0}
-            onShare={() => onShare?.(post)}
-            insights={post.reactionInsights}
-          />
-          <CommentsThread
-            comments={comments}
-            loading={commentsLoading}
-            error={commentsError}
-            onRetry={() => loadComments()}
-            onReply={handleAddReply}
-            onSubmit={handleCommentSubmit}
-            commentDraft={commentDraft}
-            onCommentDraftChange={setCommentDraft}
-            quickReplies={QUICK_REPLY_SUGGESTIONS}
-            viewer={{ name: viewerName, avatarSeed: viewerAvatarSeed }}
-            postId={post.id}
-            postAuthorName={author.name}
-          />
-        </>
-      )}
-    </article>
   );
 }
 
@@ -1583,6 +511,7 @@ export default function FeedPage() {
   const { session, isAuthenticated } = useSession();
   const [localPosts, setLocalPosts] = useState([]);
   const [remotePosts, setRemotePosts] = useState([]);
+  const [activeFilterId, setActiveFilterId] = useState(FEED_ACTIVITY_FILTERS[0].id);
   const [remoteSuggestions, setRemoteSuggestions] = useState(null);
   const [editingPostId, setEditingPostId] = useState(null);
   const [editingDraft, setEditingDraft] = useState(DEFAULT_EDIT_DRAFT);
@@ -1640,7 +569,7 @@ export default function FeedPage() {
     setLoadMoreError(null);
   }, [data, loading, session]);
 
-  const posts = useMemo(() => {
+  const mergedPosts = useMemo(() => {
     const merged = [...localPosts, ...remotePosts];
     const deduped = [];
     const seen = new Set();
@@ -1657,6 +586,49 @@ export default function FeedPage() {
     });
     return deduped;
   }, [localPosts, remotePosts]);
+
+  const activeFilter = useMemo(() => {
+    return FEED_ACTIVITY_FILTERS.find((filter) => filter.id === activeFilterId) ?? FEED_ACTIVITY_FILTERS[0];
+  }, [activeFilterId]);
+
+  const filterCounts = useMemo(() => {
+    const counts = {};
+    FEED_ACTIVITY_FILTERS.forEach((filter) => {
+      counts[filter.id] = mergedPosts.filter((post) => {
+        try {
+          return filter.predicate(post);
+        } catch (error) {
+          return true;
+        }
+      }).length;
+    });
+    return counts;
+  }, [mergedPosts]);
+
+  const posts = useMemo(() => {
+    return mergedPosts.filter((post) => {
+      try {
+        return activeFilter.predicate(post);
+      } catch (error) {
+        return true;
+      }
+    });
+  }, [mergedPosts, activeFilter]);
+
+  const totalPosts = mergedPosts.length;
+  const newDraftCount = useMemo(
+    () => localPosts.filter((post) => `${post.id}`.startsWith('local-')).length,
+    [localPosts],
+  );
+
+  const lastUpdatedAt = useMemo(() => {
+    const candidates = [data?.generatedAt, data?.refreshedAt, data?.updatedAt, data?.timestamp];
+    if (remotePosts.length) {
+      const first = remotePosts[0];
+      candidates.push(first?.publishedAt ?? first?.createdAt ?? null);
+    }
+    return candidates.find((value) => value) ?? null;
+  }, [data, remotePosts]);
 
   const virtualizationEnabled = posts.length > FEED_VIRTUAL_THRESHOLD;
   const [virtualChunkSize, setVirtualChunkSize] = useState(DEFAULT_FEED_VIRTUAL_CHUNK_SIZE);
@@ -2287,7 +1259,7 @@ export default function FeedPage() {
 
   const renderFeedPost = useCallback(
     (post) => (
-      <FeedPostCard
+      <FeedCard
         key={post.id}
         post={post}
         onShare={handleShareClick}
@@ -2326,9 +1298,14 @@ export default function FeedPage() {
 
   const renderPosts = () => {
     if (!posts.length) {
+      const hasAnyPosts = mergedPosts.length > 0;
       return (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
-          {loading ? 'Syncing timeline…' : 'No timeline updates yet. Share something to start the conversation!'}
+          {loading
+            ? 'Syncing timeline…'
+            : hasAnyPosts
+            ? 'No updates match this focus yet. Try another filter or refresh to catch new signals.'
+            : 'No timeline updates yet. Share something to start the conversation!'}
         </div>
       );
     }
@@ -2468,6 +1445,18 @@ export default function FeedPage() {
             </div>
             <div className="order-1 space-y-6 lg:order-2 lg:col-span-6">
               <FeedComposer onCreate={handleComposerCreate} session={session} />
+              <ActivityFilters
+                filters={FEED_ACTIVITY_FILTERS}
+                activeFilterId={activeFilterId}
+                onFilterChange={setActiveFilterId}
+                counts={filterCounts}
+                total={totalPosts}
+                loading={loading}
+                fromCache={Boolean(fromCache)}
+                lastUpdated={lastUpdatedAt}
+                onRefresh={() => refresh({ force: true })}
+                newItems={newDraftCount}
+              />
               {error && !loading ? (
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
                   We’re showing the latest cached updates while we reconnect. {error.message || 'Please try again shortly.'}
