@@ -4,6 +4,7 @@ import PageHeader from '../components/PageHeader.jsx';
 import DataStatus from '../components/DataStatus.jsx';
 import OpportunityFilterPill from '../components/opportunity/OpportunityFilterPill.jsx';
 import GigLifecycleShowcase from '../components/gigs/GigLifecycleShowcase.jsx';
+import useGigBlueprint from '../hooks/useGigBlueprint.js';
 import useOpportunityListing from '../hooks/useOpportunityListing.js';
 import analytics from '../services/analytics.js';
 import { formatRelativeTime } from '../utils/date.js';
@@ -380,8 +381,10 @@ export default function GigsPage() {
   const [page, setPage] = useState(1);
   const [accumulatedItems, setAccumulatedItems] = useState([]);
   const filterSignatureRef = useRef('');
+  const blueprintExposureRef = useRef(null);
   const navigate = useNavigate();
   const { session, isAuthenticated } = useSession();
+  const hasFreelancerAccess = Boolean(session?.memberships?.includes('freelancer'));
   const { items: savedGigs, toggleGig: toggleSavedGig, removeGig, isSaved: isGigSaved } = useSavedGigs();
   const {
     page: gigSitePage,
@@ -390,7 +393,63 @@ export default function GigsPage() {
     usingFallback: gigSiteUsingFallback,
   } = useSitePage('gigs-marketplace', { fallback: FALLBACK_GIGS_PAGE_CONTENT });
   const gigContent = useMemo(() => resolveGigPageContent(gigSitePage), [gigSitePage]);
-  const hasFreelancerAccess = Boolean(session?.memberships?.includes('freelancer'));
+  const {
+    data: blueprintPayload,
+    loading: blueprintLoading,
+    error: blueprintError,
+    fromCache: blueprintFromCache,
+    lastUpdated: blueprintLastUpdated,
+    refresh: refreshBlueprint,
+  } = useGigBlueprint(undefined, { enabled: isAuthenticated && hasFreelancerAccess });
+  const gigLifecycleBlueprint = blueprintPayload?.blueprint ?? null;
+  const blueprintMeta = blueprintPayload?.meta ?? null;
+
+  useEffect(() => {
+    if (!gigLifecycleBlueprint?.id) {
+      return;
+    }
+    const version =
+      typeof blueprintMeta?.version === 'string' && blueprintMeta.version.trim().length
+        ? blueprintMeta.version.trim()
+        : null;
+    const trackingKey = `${gigLifecycleBlueprint.id}:${version ?? 'na'}`;
+    if (blueprintExposureRef.current === trackingKey) {
+      return;
+    }
+    blueprintExposureRef.current = trackingKey;
+    analytics.track(
+      'web_gig_blueprint_viewed',
+      {
+        blueprintId: gigLifecycleBlueprint.id,
+        version,
+        fromCache: Boolean(blueprintFromCache),
+      },
+      { source: 'web_app' },
+    );
+  }, [gigLifecycleBlueprint?.id, blueprintMeta?.version, blueprintFromCache]);
+
+  const blueprintMetaStats = useMemo(() => {
+    if (!blueprintMeta) {
+      return [];
+    }
+    const stats = [];
+    if (typeof blueprintMeta.version === 'string' && blueprintMeta.version.trim().length) {
+      stats.push({ label: 'Version', value: blueprintMeta.version.trim() });
+    }
+    const totalBlueprints = Number(blueprintMeta.total);
+    if (Number.isFinite(totalBlueprints)) {
+      stats.push({ label: 'Blueprints available', value: formatInteger(totalBlueprints) });
+    }
+    if (gigLifecycleBlueprint?.name || gigLifecycleBlueprint?.hero?.title) {
+      stats.push({
+        label: 'Default experience',
+        value: gigLifecycleBlueprint.name ?? gigLifecycleBlueprint.hero?.title,
+      });
+    } else if (blueprintMeta.defaultId) {
+      stats.push({ label: 'Default blueprint', value: `${blueprintMeta.defaultId}` });
+    }
+    return stats;
+  }, [blueprintMeta, gigLifecycleBlueprint]);
   const activeFilters = useMemo(() => {
     const payload = {};
     if (selectedTagSlugs.length) {
@@ -1393,7 +1452,24 @@ export default function GigsPage() {
             </div>
           </aside>
         </div>
-        <GigLifecycleShowcase />
+        <div className="space-y-6">
+          <GigLifecycleShowcase blueprint={gigLifecycleBlueprint} />
+          <DataStatus
+            loading={blueprintLoading}
+            fromCache={blueprintFromCache}
+            lastUpdated={blueprintLastUpdated}
+            onRefresh={() => refreshBlueprint({ force: true })}
+            error={blueprintError}
+            statusLabel="Blueprint data"
+            title="Marketplace blueprint is synced"
+            description="We mirror lifecycle guidance from the shared contract and refresh the cache every minute so your crews stay aligned."
+            insights={[
+              'Tap refresh if product operations ships an updated journey or addon set.',
+              'Blueprint payloads stay consistent across web, mobile, and enablement tooling.',
+            ]}
+            meta={blueprintMetaStats}
+          />
+        </div>
       </div>
     </section>
   );
