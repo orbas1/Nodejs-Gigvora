@@ -158,13 +158,42 @@ describe('communityManagementService', () => {
       }),
     ];
 
+    const groupMembershipFindAll = jest
+      .fn()
+      .mockResolvedValueOnce(groupMemberships)
+      .mockResolvedValueOnce([
+        {
+          groupId: 71,
+          total: '18',
+          active: '12',
+          invited: '3',
+          requested: '2',
+          leaders: '2',
+          joinedLast7Days: '4',
+        },
+      ]);
+
+    const groupPostFindAll = jest
+      .fn()
+      .mockResolvedValueOnce(posts)
+      .mockResolvedValueOnce([
+        {
+          groupId: 71,
+          total: '5',
+          published: '3',
+          draft: '1',
+          scheduled: '1',
+          publishedLast7Days: '2',
+        },
+      ]);
+
     await jest.unstable_mockModule(modelsModulePath, () => ({
       Group: {},
       Page: {},
-      GroupMembership: { findAll: jest.fn().mockResolvedValue(groupMemberships) },
+      GroupMembership: { findAll: groupMembershipFindAll },
       PageMembership: { findAll: jest.fn().mockResolvedValue(pageMemberships) },
       GroupInvite: { findAll: jest.fn().mockResolvedValue(invites) },
-      GroupPost: { findAll: jest.fn().mockResolvedValue(posts) },
+      GroupPost: { findAll: groupPostFindAll },
       PageInvite: { findAll: jest.fn().mockResolvedValue(pageInvites) },
       PagePost: { findAll: jest.fn().mockResolvedValue(pagePosts) },
       User: {},
@@ -174,9 +203,30 @@ describe('communityManagementService', () => {
 
     const snapshot = await getCommunityManagementSnapshot(33);
 
-    expect(snapshot.groups.stats).toEqual({ total: 1, managed: 1, pendingInvites: 1 });
+    expect(snapshot.groups.stats).toEqual({
+      total: 1,
+      managed: 1,
+      pendingInvites: 1,
+      activeMembers: 12,
+      newMembersThisWeek: 4,
+      postsScheduled: 1,
+      postsPublishedThisWeek: 2,
+      postsDraft: 1,
+      invitesExpiringSoon: 0,
+      averageEngagement: 0.18,
+      trendingTopics: [],
+    });
     expect(snapshot.pages.stats.pendingInvites).toBe(1);
-    expect(snapshot.groups.items[0].metrics.postsPublished).toBe(1);
+    expect(snapshot.groups.items[0].metrics).toMatchObject({
+      postsPublished: 3,
+      postsScheduled: 1,
+      postsDraft: 1,
+      postsPublishedThisWeek: 2,
+      membersActive: 12,
+      membersJoinedThisWeek: 4,
+      engagementScore: 0.18,
+      engagementLevel: 'emerging',
+    });
     expect(snapshot.pages.items[0].posts[0].status).toBe('draft');
   });
 });
