@@ -22,6 +22,7 @@ import { classNames } from '../../utils/classNames.js';
 import { resolveInitials } from '../../utils/user.js';
 import { formatRelativeTime } from '../../utils/date.js';
 import { deriveNavigationPulse, deriveNavigationTrending } from '../../utils/navigationPulse.js';
+import analytics from '../../services/analytics.js';
 
 function UserMenu({ session, onLogout }) {
   const initials = resolveInitials(session?.name ?? session?.email ?? 'GV');
@@ -471,6 +472,7 @@ export default function AppTopBar({
   navigationTrending,
 }) {
   const [searchQuery, setSearchQuery] = useState('');
+  const sessionId = session?.id ?? null;
   const resolvedMarketingMenus = marketingNavigation ?? [];
   const pulseInsights = useMemo(() => {
     if (Array.isArray(navigationPulse) && navigationPulse.length > 0) {
@@ -491,13 +493,25 @@ export default function AppTopBar({
       if (!entry) {
         return;
       }
-      analytics.track('web_header_trending_navigate', {
-        entryId: entry.id,
-        label: entry.label,
-        destination: entry.to ?? null,
-      });
+      if (typeof analytics?.track === 'function') {
+        const trackPromise = analytics.track(
+          'web_header_trending_navigate',
+          {
+            entryId: entry.id,
+            label: entry.label,
+            destination: entry.to ?? null,
+            persona: currentRoleKey ?? null,
+            badge: entry.badge ?? null,
+            source: 'web-header',
+          },
+          { userId: sessionId },
+        );
+        if (trackPromise && typeof trackPromise.catch === 'function') {
+          trackPromise.catch(() => {});
+        }
+      }
     },
-    [],
+    [currentRoleKey, sessionId],
   );
 
   const handleSearchSubmit = (event) => {

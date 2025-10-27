@@ -12,6 +12,7 @@ import {
   deriveNavigationTrending,
   normaliseTrendingEntries,
 } from '../../utils/navigationPulse.js';
+import analytics from '../../services/analytics.js';
 
 function PersonaPulse({ insights }) {
   if (!Array.isArray(insights) || insights.length === 0) {
@@ -154,6 +155,7 @@ export default function MobileNavigation({
   trendingEntries,
 }) {
   const resolvedPrimaryNavigation = useMemo(() => primaryNavigation ?? [], [primaryNavigation]);
+  const sessionId = session?.id ?? null;
   const personaPulse = useMemo(() => {
     if (Array.isArray(navigationPulse) && navigationPulse.length > 0) {
       return navigationPulse;
@@ -192,12 +194,31 @@ export default function MobileNavigation({
   }, [marketingNavigation, marketingSearch, resolvedPrimaryNavigation, trendingEntries]);
   const handleTrendingNavigate = useCallback(
     (entry) => {
-      onClose?.();
-      if (entry?.id?.startsWith('search-trending-')) {
-        onMarketingSearch?.(entry.label);
+      if (entry) {
+        if (typeof analytics?.track === 'function') {
+          const trackPromise = analytics.track(
+            'mobile_nav_trending_navigate',
+            {
+              entryId: entry.id,
+              label: entry.label,
+              destination: entry.to ?? null,
+              persona: currentRoleKey ?? null,
+              isSearchTrending: Boolean(entry.id?.startsWith('search-trending-')),
+              source: 'mobile-navigation',
+            },
+            { userId: sessionId },
+          );
+          if (trackPromise && typeof trackPromise.catch === 'function') {
+            trackPromise.catch(() => {});
+          }
+        }
+        if (entry.id?.startsWith('search-trending-')) {
+          onMarketingSearch?.(entry.label);
+        }
       }
+      onClose?.();
     },
-    [onClose, onMarketingSearch],
+    [currentRoleKey, onClose, onMarketingSearch, sessionId],
   );
 
   return (

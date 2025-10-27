@@ -6,6 +6,7 @@ import { ArrowUpRightIcon, ChevronDownIcon, MagnifyingGlassIcon } from '@heroico
 
 import { classNames } from '../../utils/classNames.js';
 import { deriveNavigationTrending, normaliseTrendingEntries } from '../../utils/navigationPulse.js';
+import analytics from '../../services/analytics.js';
 
 export default function MobileMegaMenu({ menus, search, onNavigate, onSearch, trendingEntries }) {
   const [query, setQuery] = useState('');
@@ -24,6 +25,21 @@ export default function MobileMegaMenu({ menus, search, onNavigate, onSearch, tr
   const trendingHelperText =
     search?.helperText ?? search?.trendingHelper ?? 'Popular destinations curated for your workspace.';
   const handleTrendingNavigate = (item) => {
+    if (item && typeof analytics?.track === 'function') {
+      const trackPromise = analytics.track(
+        'mobile_marketing_trending_navigate',
+        {
+          entryId: item.id,
+          label: item.label,
+          destination: item.to ?? null,
+          source: 'mobile-mega-menu',
+          isSearchTrending: Boolean(item.id?.startsWith('search-trending-')),
+        },
+      );
+      if (trackPromise && typeof trackPromise.catch === 'function') {
+        trackPromise.catch(() => {});
+      }
+    }
     onNavigate?.();
     if (item?.id?.startsWith('search-trending-')) {
       onSearch?.(item.label);
