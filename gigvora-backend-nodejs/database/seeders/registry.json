@@ -61,5 +61,12 @@
     "personas": ["executive", "operations", "platform-ops"],
     "domains": ["mobile", "platform", "governance"],
     "tags": ["mobile", "rollout", "executive"]
+  },
+  "20250420133000-admin-war-room-demo": {
+    "title": "Admin war-room telemetry & trust fabric demo",
+    "summary": "Seeds runtime telemetry, support cases, security alerts, analytics signals, and GDPR readiness so the executive war rooms light up with production-class data.",
+    "personas": ["platform-ops", "support", "trust", "security"],
+    "domains": ["reliability", "trust", "compliance", "analytics"],
+    "tags": ["war-room", "operations", "executive"]
   }
 }
