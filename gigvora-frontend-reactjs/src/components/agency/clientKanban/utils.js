@@ -146,3 +146,68 @@ export function buildTelHref(value) {
   }
   return `tel:${digits}`;
 }
+
+export function getInitials(name) {
+  if (!name) {
+    return '??';
+  }
+  const words = String(name)
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!words.length) {
+    return '??';
+  }
+  if (words.length === 1) {
+    return words[0].slice(0, 2).toUpperCase();
+  }
+  const [first, last] = [words[0], words[words.length - 1]];
+  return `${first[0] ?? ''}${last[0] ?? ''}`.toUpperCase();
+}
+
+const AVATAR_TONES = [
+  'bg-slate-200 text-slate-700 border-slate-300',
+  'bg-sky-100 text-sky-700 border-sky-200',
+  'bg-emerald-100 text-emerald-700 border-emerald-200',
+  'bg-violet-100 text-violet-700 border-violet-200',
+  'bg-amber-100 text-amber-700 border-amber-200',
+  'bg-rose-100 text-rose-700 border-rose-200',
+];
+
+function hashSeed(value) {
+  if (!value) {
+    return 0;
+  }
+  return Array.from(String(value)).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+}
+
+export function buildCollaboratorAvatar(collaborator = {}, seed = '') {
+  const name = collaborator.name?.trim() || collaborator.email?.trim() || 'Collaborator';
+  const key =
+    collaborator.id != null
+      ? String(collaborator.id)
+      : collaborator.email?.trim()
+        ? collaborator.email.trim().toLowerCase()
+        : seed || `collaborator-${hashSeed(name)}`;
+  const initials = getInitials(name);
+  const tone = AVATAR_TONES[hashSeed(collaborator.email || collaborator.id || seed || name) % AVATAR_TONES.length];
+  const lastActivity =
+    collaborator.lastActivityAt ??
+    collaborator.lastActivity ??
+    collaborator.updatedAt ??
+    collaborator.updated_at ??
+    null;
+
+  return {
+    key,
+    id: collaborator.id ?? null,
+    name,
+    role: collaborator.role?.trim() || null,
+    email: collaborator.email?.trim() || null,
+    initials,
+    imageUrl: collaborator.avatarUrl?.trim() || collaborator.imageUrl?.trim() || null,
+    tone,
+    lastActivity,
+    metadata: collaborator.metadata ?? null,
+  };
+}
