@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types';
-import { Fragment } from 'react';
+import { Fragment, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Menu, Transition } from '@headlessui/react';
 import { CheckIcon, ChevronUpDownIcon, GlobeAltIcon } from '@heroicons/react/24/outline';
@@ -56,18 +56,65 @@ const FALLBACK_LANGUAGE = {
 
 export default function LanguageSelector({ variant = 'header', className }) {
   const { availableLanguages, language, setLanguage, t } = useLanguage();
-  const languages = Array.isArray(availableLanguages) && availableLanguages.length ? availableLanguages : [FALLBACK_LANGUAGE];
+  const languages = useMemo(() => {
+    if (Array.isArray(availableLanguages) && availableLanguages.length) {
+      return availableLanguages.map((entry) => ({
+        ...FALLBACK_LANGUAGE,
+        ...entry,
+        code: entry.code ?? FALLBACK_LANGUAGE.code,
+        nativeLabel: entry.nativeLabel ?? entry.label ?? FALLBACK_LANGUAGE.nativeLabel,
+        label: entry.label ?? entry.nativeLabel ?? FALLBACK_LANGUAGE.label,
+      }));
+    }
+    return [FALLBACK_LANGUAGE];
+  }, [availableLanguages]);
   const activeLanguage = languages.find((entry) => entry.code === language) ?? languages[0] ?? FALLBACK_LANGUAGE;
   const buttonStyles = BUTTON_STYLES[variant] ?? BUTTON_STYLES.header;
   const menuPosition = MENU_POSITION[variant] ?? MENU_POSITION.header;
   const activeBadge = STATUS_BADGES[activeLanguage.status] ?? { label: 'In localisation', tone: 'bg-slate-200 text-slate-600' };
   const activeUpdate = describeUpdate(activeLanguage.lastUpdated, language);
+  const activeLocaleCode = activeLanguage.metadata?.localeCode ?? activeLanguage.localeCode;
+  const activeDirection = activeLanguage.direction === 'rtl' ? 'Right-to-left layout ready' : 'Left-to-right layout';
+  const localisationRequestPath = activeLanguage.metadata?.requestPath ?? '/support/localization';
 
-  const handleChange = (code) => {
-    if (code !== language) {
-      setLanguage(code);
-    }
-  };
+  const handleChange = useCallback(
+    (option) => {
+      const nextCode = option?.code;
+      if (!nextCode || nextCode === language) {
+        return;
+      }
+
+      setLanguage(nextCode);
+
+      if (typeof document !== 'undefined') {
+        if (option?.direction) {
+          document.documentElement.dataset.languageDirection = option.direction;
+        } else if (document.documentElement.dataset.languageDirection) {
+          delete document.documentElement.dataset.languageDirection;
+        }
+
+        if (option?.metadata?.localeCode) {
+          document.documentElement.dataset.localeCode = option.metadata.localeCode;
+        } else if (document.documentElement.dataset.localeCode) {
+          delete document.documentElement.dataset.localeCode;
+        }
+      }
+
+      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+        window.dispatchEvent(
+          new CustomEvent('gigvora:language-changed', {
+            detail: {
+              code: nextCode,
+              localeCode: option?.metadata?.localeCode ?? null,
+              status: option?.status ?? null,
+              coverage: option?.coverage ?? null,
+            },
+          }),
+        );
+      }
+    },
+    [language, setLanguage],
+  );
 
   return (
     <Menu as="div" className={classNames('relative', variant === 'mobile' ? 'w-full' : '', className)}>
@@ -114,10 +161,17 @@ export default function LanguageSelector({ variant = 'header', className }) {
                     {activeLanguage.region ?? 'Global'}
                     {activeLanguage.coverage ? ` • ${activeLanguage.coverage}% coverage` : ''}
                   </p>
+                  <p className="text-[0.65rem] uppercase tracking-[0.3em] text-slate-400/80">
+                    {activeLocaleCode ?? activeLanguage.code}
+                  </p>
+                  <p className="text-[0.65rem] text-slate-400/80">{activeDirection}</p>
                   {activeLanguage.summary ? (
                     <p className="text-xs text-slate-500/90">{activeLanguage.summary}</p>
                   ) : null}
                   {activeUpdate ? <p className="text-[0.65rem] text-slate-400">{activeUpdate}</p> : null}
+                  {activeLanguage.supportLead ? (
+                    <p className="text-[0.65rem] text-slate-400/80">Led by {activeLanguage.supportLead}</p>
+                  ) : null}
                 </div>
               </div>
               <span
@@ -134,12 +188,12 @@ export default function LanguageSelector({ variant = 'header', className }) {
             Localisation coverage
           </p>
           <div className="max-h-60 overflow-y-auto">
-            {availableLanguages.map((option) => (
+            {languages.map((option) => (
               <Menu.Item key={option.code}>
                 {({ active }) => (
                   <button
                     type="button"
-                    onClick={() => handleChange(option.code)}
+                    onClick={() => handleChange(option)}
                     className={classNames(
                       'flex w-full items-center justify-between rounded-xl px-3 py-2 text-left transition',
                       active || option.code === language
@@ -156,6 +210,12 @@ export default function LanguageSelector({ variant = 'header', className }) {
                         <span className="text-xs text-slate-400">{option.label}</span>
                         <span className="text-[0.65rem] uppercase tracking-[0.3em] text-slate-400/80">
                           {option.region ?? 'Global'}
+                        </span>
+                        <span className="text-[0.6rem] uppercase tracking-[0.3em] text-slate-400/70">
+                          {option.metadata?.localeCode ?? option.localeCode ?? option.code}
+                        </span>
+                        <span className="text-[0.6rem] text-slate-400/70">
+                          {option.direction === 'rtl' ? 'RTL ready' : 'LTR ready'}
                         </span>
                         {option.supportLead ? (
                           <span className="text-[0.65rem] text-slate-400">{option.supportLead}</span>
@@ -199,7 +259,7 @@ export default function LanguageSelector({ variant = 'header', className }) {
               Submit a localisation request so we can prioritise copy, QA, and support enablement for your market.
             </p>
             <Link
-              to="/support/localization"
+              to={localisationRequestPath}
               className="mt-2 inline-flex items-center gap-2 rounded-full border border-accent/60 px-3 py-1.5 font-semibold text-accent transition hover:border-accent hover:text-accentDark"
             >
               Raise a request

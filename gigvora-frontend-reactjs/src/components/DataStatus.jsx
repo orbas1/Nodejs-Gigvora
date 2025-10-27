@@ -45,6 +45,22 @@ const STATE_CONFIG = {
     description: 'We captured your changes and refreshed dependent analytics.',
     insights: ['Activity feed and notifications already reflect this update.'],
   },
+  degraded: {
+    icon: ExclamationTriangleIcon,
+    iconTone: 'text-amber-600',
+    surface: 'border-amber-200 bg-amber-50/80',
+    title: 'Performance is degraded',
+    description: 'We’re seeing slower responses from downstream services. Your data is safe and under active monitoring.',
+    insights: ['Telemetry is capturing elevated latency for affected regions.', 'Operations will post updates to the status page.'],
+  },
+  maintenance: {
+    icon: InformationCircleIcon,
+    iconTone: 'text-amber-500',
+    surface: 'border-amber-100 bg-amber-50/70',
+    title: 'Scheduled maintenance in progress',
+    description: 'Some analytics are briefly unavailable while we complete scheduled upgrades.',
+    insights: ['All changes are queued and will apply automatically once maintenance wraps.', 'Track progress on the status page.'],
+  },
   error: {
     icon: ExclamationTriangleIcon,
     iconTone: 'text-rose-600',
@@ -104,10 +120,11 @@ export default function DataStatus({
       actionLabel ||
       helpLink,
   );
+  const statusAriaLive = ['error', 'degraded', 'maintenance'].includes(resolvedState) ? 'assertive' : 'polite';
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+    <div className="space-y-4" data-state={resolvedState}>
+      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500" role="status" aria-live={statusAriaLive}>
         <span className={classNames('inline-flex items-center gap-2 rounded-full px-3 py-1 font-semibold', badgeTone)}>
           <span aria-hidden="true" className={`inline-block h-2 w-2 rounded-full ${dotTone}`} />
           {label}
@@ -130,7 +147,10 @@ export default function DataStatus({
         ) : null}
       </div>
       {showPanel ? (
-        <div className={classNames('space-y-4 rounded-3xl border p-5 shadow-sm', statePreset.surface)}>
+        <div
+          className={classNames('space-y-4 rounded-3xl border p-5 shadow-sm', statePreset.surface)}
+          data-state={resolvedState}
+        >
           <div className="flex items-start gap-3">
             <span
               className={classNames(
@@ -209,7 +229,7 @@ DataStatus.propTypes = {
     message: PropTypes.string,
   }),
   statusLabel: PropTypes.string,
-  state: PropTypes.oneOf(['loading', 'ready', 'success', 'error', 'empty']),
+    state: PropTypes.oneOf(['loading', 'ready', 'success', 'degraded', 'maintenance', 'error', 'empty']),
   title: PropTypes.string,
   description: PropTypes.string,
   empty: PropTypes.bool,
