@@ -29,6 +29,13 @@ const DEFAULT_SECONDARY_ACTION = {
   label: 'Explore the product',
 };
 
+const DEFAULT_PERSONA_CHIPS = [
+  { id: 'founders', label: 'Founders & venture studios' },
+  { id: 'agencies', label: 'Agencies & collectives' },
+  { id: 'mentors', label: 'Mentors & advisors' },
+  { id: 'talent', label: 'Talent leads & ops' },
+];
+
 const DEFAULT_TICKER = [
   'AI-powered portfolio review in progress · Design ops',
   'Agency onboarding complete · Sydney',
@@ -128,6 +135,14 @@ export function PublicHero({
   mediaCaption,
 }) {
   const [reduceMotion, setReduceMotion] = useState(false);
+  const { personaHighlights, personaSource } = useMemo(() => {
+    const normalised = normalisePersonaChips(personaChips);
+    if (normalised.length) {
+      return { personaHighlights: normalised, personaSource: 'custom' };
+    }
+
+    return { personaHighlights: DEFAULT_PERSONA_CHIPS, personaSource: 'default' };
+  }, [personaChips]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
@@ -167,6 +182,28 @@ export function PublicHero({
     componentId,
     headline,
     tickerItems?.length,
+  ]);
+
+  useEffect(() => {
+    if (!personaHighlights.length) {
+      return;
+    }
+
+    analytics.track(
+      analyticsMetadata.personaEventName ?? 'marketing_hero_personas_resolved',
+      {
+        heroId: componentId,
+        personas: personaHighlights.map((chip) => chip.id ?? chip.label),
+        personaSource,
+      },
+      { source: analyticsMetadata.source ?? 'web_marketing_site' },
+    );
+  }, [
+    analyticsMetadata.personaEventName,
+    analyticsMetadata.source,
+    componentId,
+    personaHighlights,
+    personaSource,
   ]);
 
   const resolvedTicker = normaliseTickerItems(tickerItems);
@@ -224,8 +261,6 @@ export function PublicHero({
   }, [hasVideo, heroMedia.videoSources, heroMedia.videoType, heroMedia.videoUrl]);
 
   const showMediaSkeleton = loading && !heroMedia.imageUrl && !hasVideo;
-  const personaHighlights = normalisePersonaChips(personaChips);
-
   const handleAction = (action, actionType) => {
     analytics.track(
       analyticsMetadata.ctaEventName ?? 'marketing_hero_cta',
@@ -330,6 +365,7 @@ export function PublicHero({
   const renderPersonaChip = (chip) => (
     <span
       key={chip.id}
+      data-hero-persona={chip.id}
       className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-white/80 shadow-[0_10px_30px_rgba(15,23,42,0.35)]"
     >
       <span className="inline-block h-2 w-2 rounded-full bg-accent" aria-hidden="true" />
@@ -461,6 +497,7 @@ export function PublicHero({
             source: analyticsMetadata.source ?? 'web_marketing_site',
             heroId: componentId,
             pillarEventName: analyticsMetadata.pillarEventName,
+            viewEventName: analyticsMetadata.pillarViewEventName,
           }}
         />
       </div>
@@ -535,6 +572,8 @@ PublicHero.propTypes = {
     viewEventName: PropTypes.string,
     ctaEventName: PropTypes.string,
     pillarEventName: PropTypes.string,
+    personaEventName: PropTypes.string,
+    pillarViewEventName: PropTypes.string,
   }),
   personaChips: PropTypes.arrayOf(
     PropTypes.oneOfType([
