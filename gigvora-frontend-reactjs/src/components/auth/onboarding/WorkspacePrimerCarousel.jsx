@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
+import { DEFAULT_PERSONAS_FOR_SELECTION, DEFAULT_PRIMER_HIGHLIGHTS, buildPersonaPrimerSlides } from './personaContent.js';
 
-const DEFAULT_SLIDES = [
+const FALLBACK_SLIDES = [
   {
     id: 'primer-insights',
     pill: 'Workspace intelligence',
@@ -41,6 +42,31 @@ const DEFAULT_SLIDES = [
     },
   },
 ];
+
+const defaultPersona = DEFAULT_PERSONAS_FOR_SELECTION[0] ?? null;
+const defaultPersonaHighlights = defaultPersona?.metadata?.primerHighlights?.length
+  ? defaultPersona.metadata.primerHighlights
+  : defaultPersona?.benefits?.length
+  ? defaultPersona.benefits
+  : DEFAULT_PRIMER_HIGHLIGHTS;
+const defaultPersonaInsights = defaultPersona
+  ? [
+      {
+        label: 'Signature wins',
+        value: defaultPersonaHighlights.slice(0, 3),
+      },
+    ]
+  : [];
+
+const DEFAULT_SLIDES = (() => {
+  if (defaultPersona) {
+    const slides = buildPersonaPrimerSlides(defaultPersona, defaultPersonaInsights);
+    if (Array.isArray(slides) && slides.length) {
+      return slides;
+    }
+  }
+  return FALLBACK_SLIDES;
+})();
 
 function clampIndex(index, total) {
   if (total === 0) {
@@ -266,13 +292,6 @@ WorkspacePrimerCarousel.propTypes = {
   initialIndex: PropTypes.number,
   autoAdvanceMs: PropTypes.number,
   onSlideChange: PropTypes.func,
-};
-
-WorkspacePrimerCarousel.defaultProps = {
-  slides: DEFAULT_SLIDES,
-  initialIndex: 0,
-  autoAdvanceMs: 8000,
-  onSlideChange: undefined,
 };
 
 export { slideShape };
