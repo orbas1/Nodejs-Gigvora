@@ -9,6 +9,12 @@ export const ADMIN_MENU_SECTIONS = [
         sectionId: 'admin-runtime-health',
       },
       {
+        name: 'Runtime operations',
+        description: 'Site settings, maintenance broadcasts, and notification posture.',
+        tags: ['ops'],
+        href: '/dashboard/admin/runtime-operations',
+      },
+      {
         name: 'Release operations',
         description: 'Build pipelines, release digest automation, and rollout telemetry.',
         tags: ['ops'],

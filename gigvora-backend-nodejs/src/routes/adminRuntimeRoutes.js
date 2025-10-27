@@ -12,6 +12,8 @@ import {
   maintenanceWindowParamsSchema,
   maintenanceNotificationBodySchema,
   liveServiceTelemetryQuerySchema,
+  runtimeOperationsSettingsSchema,
+  notificationCampaignSchema,
 } from '../validation/schemas/runtimeSchemas.js';
 import {
   listMaintenance,
@@ -25,6 +27,10 @@ import {
   updateMaintenanceWindowController,
   deleteMaintenanceWindowController,
   sendMaintenanceNotification,
+  runtimeOperationsOverview,
+  updateRuntimeOperationsSettingsController,
+  notificationPipelineSummary,
+  createNotificationCampaign,
 } from '../controllers/adminRuntimeController.js';
 import { getLiveServiceTelemetry } from '../controllers/liveServiceTelemetryController.js';
 import { requireAdmin } from '../middleware/authenticate.js';
@@ -71,6 +77,22 @@ router.get(
   '/telemetry/live-services',
   validateRequest({ query: liveServiceTelemetryQuerySchema }),
   asyncHandler(getLiveServiceTelemetry),
+);
+
+router.get('/operations/summary', asyncHandler(runtimeOperationsOverview));
+
+router.patch(
+  '/operations/settings',
+  validateRequest({ body: runtimeOperationsSettingsSchema }),
+  asyncHandler(updateRuntimeOperationsSettingsController),
+);
+
+router.get('/operations/notifications/pipeline', asyncHandler(notificationPipelineSummary));
+
+router.post(
+  '/operations/notifications/campaigns',
+  validateRequest({ body: notificationCampaignSchema }),
+  asyncHandler(createNotificationCampaign),
 );
 
 router.post(
