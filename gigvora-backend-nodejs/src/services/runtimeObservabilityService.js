@@ -10,6 +10,7 @@ import { getPerimeterSnapshot } from '../observability/perimeterMetrics.js';
 import { getWebApplicationFirewallSnapshot } from '../security/webApplicationFirewall.js';
 import { getMetricsStatus } from '../observability/metricsRegistry.js';
 import { buildReadinessSnapshot } from './runtimeReadinessService.js';
+import { getEnterprise360Snapshot } from './enterprise360Service.js';
 
 const SEVERITY_RANKING = {
   security: 4,
@@ -166,7 +167,14 @@ function buildAnnouncementSummary(raw = {}) {
 }
 
 export async function getRuntimeOperationalSnapshot() {
-  const [{ readiness }, liveness, maintenanceAnnouncements, settings, securityEvents] = await Promise.all([
+  const [
+    { readiness },
+    liveness,
+    maintenanceAnnouncements,
+    settings,
+    securityEvents,
+    enterprise360,
+  ] = await Promise.all([
     buildReadinessSnapshot({ forceRefresh: true }),
     Promise.resolve(getLivenessReport()),
     getVisibleAnnouncements({
@@ -178,6 +186,7 @@ export async function getRuntimeOperationalSnapshot() {
     }),
     getPlatformSettings(),
     getRecentRuntimeSecurityEvents({ limit: 12 }),
+    getEnterprise360Snapshot({ includeInactive: false }),
   ]);
 
   return {
@@ -193,6 +202,7 @@ export async function getRuntimeOperationalSnapshot() {
     maintenance: buildAnnouncementSummary(maintenanceAnnouncements),
     scheduledMaintenance: buildScheduledMaintenanceSnapshot(settings),
     security: buildSecuritySnapshot(securityEvents),
+    enterprise360,
   };
 }
 

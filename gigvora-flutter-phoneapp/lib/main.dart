@@ -158,6 +158,23 @@ class GigvoraApp extends ConsumerWidget {
               debugPrint(message);
             }
           });
+        } else if (snapshot.hasEnterpriseContinuityRisk || snapshot.hasEnterpriseGovernanceRisk) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            final messenger = ScaffoldMessenger.maybeOf(context);
+            const message =
+                'Enterprise 360 flagged mobile parity or governance risks. Review the admin command center for cross-platform blockers.';
+            if (messenger != null) {
+              messenger.showSnackBar(
+                SnackBar(
+                  content: const Text(message),
+                  behavior: SnackBarBehavior.floating,
+                  backgroundColor: statusPalette.warning,
+                ),
+              );
+            } else {
+              debugPrint(message);
+            }
+          });
         }
       });
     });

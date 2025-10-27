@@ -25,6 +25,7 @@ import { getProjectPortfolioSummary } from './adminProjectManagementService.js';
 import { getProfileOverview, updateProfile } from './profileService.js';
 import { getCurrentWeather } from './weatherService.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
+import { getEnterprise360Snapshot } from './enterprise360Service.js';
 
 const DASHBOARD_CACHE_TTL = 45; // seconds
 
@@ -256,6 +257,7 @@ export async function getAdminDashboardSnapshot(options = {}) {
       criticalNotificationsCount,
       launchpadDashboard,
       projectPortfolioSummary,
+      enterprise360Snapshot,
     ] = await Promise.all([
       User.findAll({
         attributes: ['userType', [fn('COUNT', col('id')), 'count']],
@@ -378,6 +380,7 @@ export async function getAdminDashboardSnapshot(options = {}) {
       Notification.count({ where: { priority: 'critical', status: { [Op.ne]: 'read' } } }),
       getLaunchpadDashboard(undefined, { lookbackDays: Math.max(lookbackDays, 60) }),
       getProjectPortfolioSummary(),
+      getEnterprise360Snapshot({ includeInactive: false }),
     ]);
 
     const userBreakdown = ensureAllKeys(normaliseCounts(userBreakdownRows, 'userType'), [
@@ -545,6 +548,7 @@ export async function getAdminDashboardSnapshot(options = {}) {
       projectManagement: projectPortfolioSummary,
       ads,
       overview: adminOverview,
+      enterprise360: enterprise360Snapshot,
     };
   });
 }

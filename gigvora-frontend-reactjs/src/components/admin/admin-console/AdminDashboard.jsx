@@ -20,6 +20,7 @@ import clsx from 'clsx';
 import { Transition } from '@headlessui/react';
 import { fetchAdminDashboard } from '../../../services/admin.js';
 import { analytics } from '../../../services/analytics.js';
+import AdminEnterprise360Panel from './AdminEnterprise360Panel.jsx';
 
 const TIMEFRAMES = [
   { id: 7, label: '7 days', description: 'Rapid response pulse' },
@@ -462,6 +463,7 @@ export default function AdminDashboard({ initialLookbackDays, onNavigate }) {
     timeline: [],
     generatedAt: null,
     finance: {},
+    enterprise360: null,
   });
 
   const loadDashboard = useCallback(
@@ -495,6 +497,7 @@ export default function AdminDashboard({ initialLookbackDays, onNavigate }) {
           finance: payload.finance ?? response?.finance ?? {},
           support: payload.support ?? response?.support ?? {},
           reliability: payload.reliability ?? response?.reliability ?? {},
+          enterprise360: payload.enterprise360 ?? response?.enterprise360 ?? null,
         });
         setStatus('ready');
         analytics.track('admin.command-center.view', {
@@ -645,6 +648,8 @@ export default function AdminDashboard({ initialLookbackDays, onNavigate }) {
           </p>
         </div>
       ) : null}
+
+      <AdminEnterprise360Panel snapshot={dashboard.enterprise360} />
 
       {skeleton ? (
         <div className="grid gap-4 lg:grid-cols-4">
