@@ -15792,6 +15792,7 @@ UserWebsitePreference.prototype.toPublicObject = function toPublicObject() {
           content: {},
           localisation: {},
           compliance: {},
+          updatedAt: null,
         },
         {
           altText: {},
@@ -15799,6 +15800,7 @@ UserWebsitePreference.prototype.toPublicObject = function toPublicObject() {
           content: {},
           localisation: {},
           compliance: {},
+          updatedAt: null,
         },
       ),
     },

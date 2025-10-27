@@ -192,6 +192,7 @@ module.exports = {
             personalization_theme: null,
             personalization_layout: null,
             personalization_subscriptions: null,
+            personalization_accessibility: null,
           },
           { userId: user.id },
           { transaction },

@@ -31,8 +31,16 @@ function clonePersonalization(personalization) {
   if (!personalization) {
     return {
       theme: {},
-      layout: {},
-      subscriptions: {},
+      layout: { modules: [] },
+      subscriptions: { categories: [] },
+      accessibility: {
+        altText: {},
+        media: {},
+        content: {},
+        localisation: { languages: [] },
+        compliance: {},
+        updatedAt: null,
+      },
     };
   }
   return {
