@@ -1,27 +1,11 @@
 import PropTypes from 'prop-types';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
-
-function formatCurrency(amount, currency) {
-  if (amount == null) return '—';
-  try {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency,
-      maximumFractionDigits: 2,
-    }).format(Number(amount));
-  } catch (error) {
-    return `${currency} ${Number(amount).toFixed(2)}`;
-  }
-}
-
-function formatStatus(value) {
-  if (!value) return 'Unknown';
-  return value
-    .toString()
-    .split(/[_\s-]+/)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
+import {
+  formatCurrency,
+  formatStatus,
+  getStatusToneClasses,
+  resolveCounterpartyName,
+} from './escrowUtils.js';
 
 export default function EscrowActivityBoard({
   transactions,
@@ -53,7 +37,7 @@ export default function EscrowActivityBoard({
               <th className="px-4 py-3">Account</th>
               <th className="px-4 py-3">Amount</th>
               <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Updated</th>
+              <th className="px-4 py-3">Signals</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
@@ -68,14 +52,32 @@ export default function EscrowActivityBoard({
                         ? formatAbsolute(transaction.createdAt, { dateStyle: 'medium', timeStyle: 'short' })
                         : '—'}
                     </p>
+                    {resolveCounterpartyName(transaction.counterparty) ? (
+                      <p className="mt-1 text-xs text-slate-500">
+                        Counterparty · {resolveCounterpartyName(transaction.counterparty)}
+                      </p>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3 text-sm">{transaction.account?.displayName ?? `#${transaction.accountId}`}</td>
                   <td className="px-4 py-3 text-sm">
                     {formatCurrency(transaction.amount ?? 0, transaction.currencyCode ?? currency)}
                   </td>
-                  <td className="px-4 py-3 text-sm">{formatStatus(transaction.status)}</td>
+                  <td className="px-4 py-3 text-sm">
+                    <span
+                      className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${getStatusToneClasses(
+                        transaction.status,
+                      )}`}
+                    >
+                      {formatStatus(transaction.status)}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-xs text-slate-500">
-                    {transaction.updatedAt ? formatRelativeTime(transaction.updatedAt) : '—'}
+                    <div className="space-y-1">
+                      <p>Updated {transaction.updatedAt ? formatRelativeTime(transaction.updatedAt) : 'recently'}</p>
+                      {transaction.milestoneLabel ? (
+                        <p>Milestone · {transaction.milestoneLabel}</p>
+                      ) : null}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex flex-wrap items-center justify-end gap-2">

@@ -23,6 +23,7 @@ import EscrowMilestoneTracker from './EscrowMilestoneTracker.jsx';
 import InvoiceGenerator from './InvoiceGenerator.jsx';
 import SubscriptionManager from './SubscriptionManager.jsx';
 import { updateEscrowSettings as updateProjectEscrowSettings } from '../../services/projectGigManagement.js';
+import { resolveCounterpartyName } from './escrowUtils.js';
 
 function formatCurrency(amount, currency) {
   if (amount == null) {
@@ -438,10 +439,10 @@ export default function EscrowManagementSection({
   activeView,
   onViewChange,
 }) {
-  const summary = data?.summary ?? {};
+  const rawSummary = data?.summary ?? {};
   const permissions = data?.permissions ?? {};
   const forms = data?.forms ?? {};
-  const defaultCurrency = summary.currency ?? forms.defaultCurrency ?? 'USD';
+  const defaultCurrency = rawSummary.currency ?? forms.defaultCurrency ?? 'USD';
 
   const accounts = useMemo(() => (Array.isArray(data?.accounts) ? data.accounts : []), [data?.accounts]);
   const transactions = useMemo(
@@ -533,6 +534,107 @@ export default function EscrowManagementSection({
     }
     return buildSubscriptionFallback(enrichedTransactions, defaultCurrency);
   }, [data?.billing?.subscriptions, enrichedTransactions, defaultCurrency]);
+
+  const summary = useMemo(() => {
+    const currency = rawSummary.currency ?? defaultCurrency;
+    const totals = enrichedTransactions.reduce(
+      (accumulator, transaction) => {
+        const amount = Number(transaction.amount ?? 0);
+        const status = String(transaction.status ?? '').toLowerCase();
+        if (['released', 'completed', 'paid_out'].includes(status)) {
+          accumulator.released += amount;
+        } else if (['refunded'].includes(status)) {
+          accumulator.refunded += amount;
+        } else if (status === 'disputed') {
+          accumulator.disputed += amount;
+          accumulator.disputeCount += 1;
+          accumulator.inEscrow += amount;
+        } else {
+          accumulator.inEscrow += amount;
+        }
+        return accumulator;
+      },
+      { inEscrow: 0, released: 0, refunded: 0, disputed: 0, disputeCount: 0 },
+    );
+
+    const now = Date.now();
+    const queueAggregates = releaseQueue.reduce(
+      (accumulator, transaction) => {
+        const amount = Number(transaction.amount ?? 0);
+        accumulator.total += amount;
+        const scheduledAt = toDate(transaction.scheduledReleaseAt ?? transaction.createdAt);
+        if (scheduledAt) {
+          if (!accumulator.next || scheduledAt < accumulator.next.date) {
+            accumulator.next = {
+              date: scheduledAt,
+              amount,
+              reference: transaction.reference ?? `Transaction #${transaction.id}`,
+              counterpartyName: resolveCounterpartyName(transaction.counterparty),
+            };
+          }
+          const distance = scheduledAt.getTime() - now;
+          if (distance < 0) {
+            accumulator.overdue += amount;
+            accumulator.overdueCount += 1;
+          } else if (distance <= 1000 * 60 * 60 * 48) {
+            accumulator.dueSoon += amount;
+            accumulator.dueSoonCount += 1;
+          }
+        }
+        return accumulator;
+      },
+      { total: 0, overdue: 0, overdueCount: 0, dueSoon: 0, dueSoonCount: 0, next: null },
+    );
+
+    const milestoneSummary = milestoneData.summary ?? {};
+    const milestoneItems = Array.isArray(milestoneData.items) ? milestoneData.items : [];
+    const overdueCount = milestoneItems.filter((item) => item.status === 'overdue').length;
+
+    const subscriptionSummary = subscriptionData.summary ?? {};
+
+    return {
+      currency,
+      inEscrow: rawSummary.inEscrow ?? Number(totals.inEscrow.toFixed(2)),
+      released: rawSummary.released ?? Number(totals.released.toFixed(2)),
+      refunded: rawSummary.refunded ?? Number(totals.refunded.toFixed(2)),
+      disputed: rawSummary.disputed ?? Number(totals.disputed.toFixed(2)),
+      disputeCount: rawSummary.disputeCount ?? Math.max(disputes.length, totals.disputeCount ?? 0),
+      totalAccounts: rawSummary.totalAccounts ?? accounts.length,
+      releaseQueueSize: rawSummary.releaseQueueSize ?? releaseQueue.length,
+      releaseQueueTotal: rawSummary.releaseQueueTotal ?? Number(queueAggregates.total.toFixed(2)),
+      dueSoonCount:
+        rawSummary.dueSoonCount ?? (milestoneSummary.dueSoonCount ?? queueAggregates.dueSoonCount),
+      overdueAmount:
+        rawSummary.overdueAmount ?? Number((milestoneSummary.overdueAmount ?? queueAggregates.overdue).toFixed(2)),
+      overdueCount: rawSummary.overdueCount ?? (milestoneSummary.overdueCount ?? overdueCount),
+      monthlyRecurringRevenue:
+        rawSummary.monthlyRecurringRevenue ?? Number((subscriptionSummary.monthlyRecurringRevenue ?? 0).toFixed(2)),
+      activeSubscriptions: rawSummary.activeSubscriptions ?? (subscriptionSummary.activeCount ?? 0),
+      averageCycleDays: rawSummary.averageCycleDays ?? milestoneSummary.averageCycleDays ?? null,
+      cycleCalculatedAt: rawSummary.cycleCalculatedAt ?? data?.updatedAt ?? null,
+      upcomingRelease:
+        rawSummary.upcomingRelease ??
+        (queueAggregates.next
+          ? {
+              amount: Number(queueAggregates.next.amount.toFixed(2)),
+              scheduledAt: queueAggregates.next.date?.toISOString() ?? null,
+              reference: queueAggregates.next.reference,
+              counterpartyName: queueAggregates.next.counterpartyName ?? null,
+            }
+          : null),
+    };
+  }, [
+    rawSummary,
+    defaultCurrency,
+    enrichedTransactions,
+    releaseQueue,
+    disputes,
+    milestoneData.summary,
+    milestoneData.items,
+    subscriptionData.summary,
+    accounts,
+    data?.updatedAt,
+  ]);
 
   const [internalView, setInternalView] = useState('overview');
   const currentView = activeView ?? internalView;

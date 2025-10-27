@@ -1,27 +1,10 @@
 import PropTypes from 'prop-types';
-import { formatRelativeTime } from '../../utils/date.js';
-
-function formatCurrency(amount, currency) {
-  if (amount == null) return '—';
-  try {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency,
-      maximumFractionDigits: 2,
-    }).format(Number(amount));
-  } catch (error) {
-    return `${currency} ${Number(amount).toFixed(2)}`;
-  }
-}
-
-function formatStatus(value) {
-  if (!value) return 'Unknown';
-  return value
-    .toString()
-    .split(/[_\s-]+/)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
+import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
+import {
+  formatCurrency,
+  formatStatus,
+  getStatusToneClasses,
+} from './escrowUtils.js';
 
 export default function EscrowAccountBoard({ accounts, currency, onAdd, onInspect, onEdit }) {
   return (
@@ -41,58 +24,96 @@ export default function EscrowAccountBoard({ accounts, currency, onAdd, onInspec
           <thead className="bg-slate-50/80 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-4 py-3">Account</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Balance</th>
-              <th className="px-4 py-3">Pending</th>
-              <th className="px-4 py-3">Updated</th>
+              <th className="px-4 py-3">Health</th>
+              <th className="px-4 py-3">Balances</th>
+              <th className="px-4 py-3">Signals</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200 bg-white/60 text-slate-700">
             {accounts.length ? (
-              accounts.map((account) => (
-                <tr key={account.id} className="hover:bg-blue-50/40">
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-slate-900">
-                      {account.provider} · {account.currencyCode}
-                    </div>
-                    {account.externalId ? (
-                      <p className="text-xs text-slate-500">{account.externalId}</p>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-3 text-sm">{formatStatus(account.status)}</td>
-                  <td className="px-4 py-3 text-sm">
-                    {formatCurrency(account.currentBalance ?? 0, account.currencyCode ?? currency)}
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    {formatCurrency(account.pendingReleaseTotal ?? 0, account.currencyCode ?? currency)}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-slate-500">
-                    {account.updatedAt ? formatRelativeTime(account.updatedAt) : '—'}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="inline-flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => onInspect(account)}
-                        className="rounded-xl border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:text-blue-600"
-                      >
-                        View
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onEdit(account)}
-                        className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600 transition hover:border-blue-300 hover:bg-blue-100"
-                      >
-                        Edit
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+              accounts.map((account) => {
+                const badgeTone = getStatusToneClasses(account.status);
+                const displayCurrency = account.currencyCode ?? currency;
+                const lastReconciled = account.lastReconciledAt
+                  ? formatAbsolute(account.lastReconciledAt, { dateStyle: 'medium' })
+                  : '—';
+                return (
+                  <tr key={account.id} className="align-top hover:bg-blue-50/40">
+                    <td className="px-4 py-4">
+                      <div className="text-sm font-semibold text-slate-900">
+                        {account.provider} · {displayCurrency}
+                      </div>
+                      <p className="text-xs text-slate-500">Account #{account.id}</p>
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
+                        {account.externalId ? (
+                          <span className="rounded-full border border-slate-200 px-3 py-1">External · {account.externalId}</span>
+                        ) : null}
+                        {account.walletAccountId ? (
+                          <span className="rounded-full border border-slate-200 px-3 py-1">Wallet · {account.walletAccountId}</span>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 text-sm">
+                      <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${badgeTone}`}>
+                        {formatStatus(account.status)}
+                      </span>
+                      <p className="mt-2 text-xs text-slate-500">
+                        Updated {account.updatedAt ? formatRelativeTime(account.updatedAt) : 'recently'}
+                      </p>
+                      <p className="text-xs text-slate-500">Reconciled {lastReconciled}</p>
+                    </td>
+                    <td className="px-4 py-4 text-sm">
+                      <div className="font-semibold text-slate-900">
+                        {formatCurrency(account.currentBalance ?? 0, displayCurrency)}
+                      </div>
+                      <p className="text-xs text-slate-500">Balance</p>
+                      <div className="mt-2 font-semibold text-blue-700">
+                        {formatCurrency(account.pendingReleaseTotal ?? 0, displayCurrency)}
+                      </div>
+                      <p className="text-xs text-slate-500">Pending release</p>
+                    </td>
+                    <td className="px-4 py-4 text-xs">
+                      <div className="flex flex-wrap gap-2">
+                        {account.metadata?.riskScore ? (
+                          <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-amber-700">
+                            Risk score · {account.metadata.riskScore}
+                          </span>
+                        ) : null}
+                        {account.metadata?.region ? (
+                          <span className="rounded-full border border-slate-200 px-3 py-1 text-slate-600">
+                            Region · {account.metadata.region}
+                          </span>
+                        ) : null}
+                        <span className="rounded-full border border-slate-200 px-3 py-1 text-slate-600">
+                          {account.permissions?.autoReleaseEnabled ? 'Auto-release enabled' : 'Manual release'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 text-right">
+                      <div className="inline-flex flex-wrap justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onInspect(account)}
+                          className="rounded-xl border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:text-blue-600"
+                        >
+                          View
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onEdit(account)}
+                          className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600 transition hover:border-blue-300 hover:bg-blue-100"
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             ) : (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-sm text-slate-500">
+                <td colSpan={5} className="px-4 py-6 text-center text-sm text-slate-500">
                   No escrow accounts yet.
                 </td>
               </tr>
