@@ -46,6 +46,27 @@ const DEFAULT_HERO_PERSONA_CHIPS = [
   'Recruiters and talent leads hiring with real-time telemetry',
 ];
 
+const DEFAULT_HERO_INSIGHT_STATS = [
+  {
+    id: 'global-network',
+    label: 'Global network',
+    value: '7,800+ mentors & specialists',
+    helper: 'Curated pods across 60+ countries keep every launch moving.',
+  },
+  {
+    id: 'cycle-time',
+    label: 'Cycle-time gains',
+    value: '38% faster programme launches',
+    helper: 'Unified rituals and playbooks streamline every mission.',
+  },
+  {
+    id: 'trust-score',
+    label: 'Enterprise trust',
+    value: '99.95% uptime · SOC2 monitored',
+    helper: 'Treasury, legal, and risk automation built into every workflow.',
+  },
+];
+
 const DEFAULT_HERO_VALUE_PILLARS = [
   {
     id: 'command-centre',
@@ -662,6 +683,65 @@ function sanitizeStringArray(list, fallback = []) {
 function sanitizeHeroPersonaChips(chips, fallback = DEFAULT_HERO_PERSONA_CHIPS) {
   const cleaned = sanitizeStringArray(chips, fallback).slice(0, 8);
   return cleaned.length ? cleaned : [...DEFAULT_HERO_PERSONA_CHIPS];
+}
+
+function sanitizeHeroInsightStats(stats, fallback = DEFAULT_HERO_INSIGHT_STATS) {
+  const source = Array.isArray(stats) ? stats : [];
+  const base = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_HERO_INSIGHT_STATS;
+
+  const sanitized = source
+    .map((stat, index) => {
+      if (!stat) {
+        return null;
+      }
+
+      if (typeof stat === 'string') {
+        const label = coerceOptionalString(stat);
+        if (!label) {
+          return null;
+        }
+        return {
+          id: normalizeSlug(label) || `stat-${index + 1}`,
+          label,
+        };
+      }
+
+      if (typeof stat === 'object') {
+        const label = coerceOptionalString(stat.label ?? stat.title ?? stat.name);
+        const value = coerceOptionalString(stat.value ?? stat.metric ?? stat.copy ?? stat.stat);
+        const helper = coerceOptionalString(stat.helper ?? stat.description ?? stat.summary);
+
+        if (!label && !value && !helper) {
+          return null;
+        }
+
+        const id = normalizeSlug(stat.id ?? stat.key ?? stat.slug ?? label ?? value ?? helper) || `stat-${index + 1}`;
+        const result = { id, label: label || value || helper || 'Insight stat' };
+        if (value) {
+          result.value = value;
+        }
+        if (helper) {
+          result.helper = helper;
+        }
+        return result;
+      }
+
+      return null;
+    })
+    .filter(Boolean)
+    .slice(0, 6)
+    .map((stat) => ({
+      id: stat.id,
+      label: stat.label,
+      ...(stat.value ? { value: stat.value } : {}),
+      ...(stat.helper ? { helper: stat.helper } : {}),
+    }));
+
+  if (sanitized.length) {
+    return sanitized;
+  }
+
+  return base.map((stat) => ({ ...stat }));
 }
 
 const ALLOWED_HERO_PILLAR_ICONS = new Set([
@@ -1425,6 +1505,7 @@ function buildDefaultSiteSettings() {
     heroKeywords: [...DEFAULT_HERO_KEYWORDS],
     heroMedia: { ...DEFAULT_HERO_MEDIA },
     heroPersonaChips: [...DEFAULT_HERO_PERSONA_CHIPS],
+    heroInsightStats: DEFAULT_HERO_INSIGHT_STATS.map((stat) => ({ ...stat })),
     heroValuePillars: DEFAULT_HERO_VALUE_PILLARS.map((pillar) => clonePillar(pillar)),
     communityStats: [...DEFAULT_COMMUNITY_STATS],
     personaJourneys: [...DEFAULT_PERSONA_JOURNEYS],
@@ -1475,6 +1556,10 @@ function sanitizeSettingsCandidate(candidate = {}) {
   settings.heroPersonaChips = sanitizeHeroPersonaChips(
     candidate.heroPersonaChips ?? candidate.hero?.personaChips,
     baseline.heroPersonaChips,
+  );
+  settings.heroInsightStats = sanitizeHeroInsightStats(
+    candidate.heroInsightStats ?? candidate.hero?.insightStats ?? candidate.hero?.stats,
+    baseline.heroInsightStats,
   );
   settings.heroValuePillars = sanitizeHeroValuePillars(
     candidate.heroValuePillars ?? candidate.hero?.valuePillars ?? candidate.hero?.valueProps,
