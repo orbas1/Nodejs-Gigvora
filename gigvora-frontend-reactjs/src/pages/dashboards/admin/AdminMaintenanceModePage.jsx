@@ -3,6 +3,7 @@ import DashboardLayout from '../../../layouts/DashboardLayout.jsx';
 import MaintenanceStatusCard from '../../../components/admin/maintenance/MaintenanceStatusCard.jsx';
 import MaintenanceScheduleTable from '../../../components/admin/maintenance/MaintenanceScheduleTable.jsx';
 import MaintenanceNotificationForm from '../../../components/admin/maintenance/MaintenanceNotificationForm.jsx';
+import StubEnvironmentPanel from '../../../components/admin/maintenance/StubEnvironmentPanel.jsx';
 import SystemStatusToast from '../../../components/system/SystemStatusToast.jsx';
 import {
   fetchMaintenanceStatus,
@@ -12,6 +13,7 @@ import {
   deleteMaintenanceWindow,
   notifyMaintenanceAudience,
 } from '../../../services/maintenanceMode.js';
+import { fetchCalendarStubEnvironment } from '../../../services/integrationEnvironment.js';
 
 const MENU_SECTIONS = [
   {
@@ -20,6 +22,7 @@ const MENU_SECTIONS = [
       { id: 'maintenance-status', name: 'Status', sectionId: 'maintenance-status' },
       { id: 'maintenance-schedule', name: 'Schedule', sectionId: 'maintenance-schedule' },
       { id: 'maintenance-notifications', name: 'Notifications', sectionId: 'maintenance-notifications' },
+      { id: 'integration-stub', name: 'Stub environments', sectionId: 'integration-stub' },
     ],
   },
   {
@@ -192,6 +195,9 @@ export default function AdminMaintenanceModePage() {
   const [busyWindowId, setBusyWindowId] = useState('');
   const [creatingWindow, setCreatingWindow] = useState(false);
   const [sendingBroadcast, setSendingBroadcast] = useState(false);
+  const [stubEnvironment, setStubEnvironment] = useState(null);
+  const [stubLoading, setStubLoading] = useState(false);
+  const [stubError, setStubError] = useState('');
 
   const formatIcsDate = useCallback((value) => {
     const date = value instanceof Date ? value : new Date(value ?? Date.now());
@@ -298,6 +304,7 @@ export default function AdminMaintenanceModePage() {
     { id: 'maintenance-status', title: 'Status' },
     { id: 'maintenance-schedule', title: 'Schedule' },
     { id: 'maintenance-notifications', title: 'Notifications' },
+    { id: 'integration-stub', title: 'Stub environment' },
   ], []);
 
   const handleToggle = useCallback(
@@ -389,6 +396,45 @@ export default function AdminMaintenanceModePage() {
     },
     [],
   );
+
+  const loadStubEnvironment = useCallback(
+    async ({ signal } = {}) => {
+      setStubLoading(true);
+      setStubError('');
+      try {
+        const environment = await fetchCalendarStubEnvironment({ signal });
+        if (!signal?.aborted) {
+          setStubEnvironment(environment);
+        }
+      } catch (err) {
+        if (err?.name === 'AbortError') {
+          return;
+        }
+        const fallback = {
+          status: 'error',
+          error: err?.message || 'Unable to load stub environment.',
+          config: { requiresApiKey: false },
+        };
+        setStubEnvironment((current) => current ?? fallback);
+        setStubError(err?.message || 'Unable to load stub environment.');
+      } finally {
+        if (!signal?.aborted) {
+          setStubLoading(false);
+        }
+      }
+    },
+    [],
+  );
+
+  const handleRefreshStub = useCallback(() => {
+    loadStubEnvironment();
+  }, [loadStubEnvironment]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadStubEnvironment({ signal: controller.signal });
+    return () => controller.abort();
+  }, [loadStubEnvironment]);
 
   const statusToast = useMemo(() => {
     const metrics = {
@@ -521,6 +567,18 @@ export default function AdminMaintenanceModePage() {
         />
 
         <MaintenanceNotificationForm onSend={handleSendBroadcast} sending={sendingBroadcast} />
+
+        {stubError ? (
+          <p className="rounded-3xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-medium text-rose-700">
+            {stubError}
+          </p>
+        ) : null}
+
+        <StubEnvironmentPanel
+          environment={stubEnvironment}
+          loading={stubLoading}
+          onRefresh={handleRefreshStub}
+        />
 
         <section className="grid gap-6 rounded-3xl border border-slate-200 bg-white/80 p-8 shadow-soft lg:grid-cols-2">
           <div className="space-y-4">

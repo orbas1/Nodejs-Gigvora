@@ -25,6 +25,7 @@ import {
   updateMaintenanceWindowController,
   deleteMaintenanceWindowController,
   sendMaintenanceNotification,
+  fetchCalendarStubEnvironmentController,
 } from '../controllers/adminRuntimeController.js';
 import { getLiveServiceTelemetry } from '../controllers/liveServiceTelemetryController.js';
 import { requireAdmin } from '../middleware/authenticate.js';
@@ -40,6 +41,8 @@ router.get(
 );
 
 router.get('/maintenance/dashboard', asyncHandler(maintenanceDashboard));
+
+router.get('/maintenance/integration/calendar-stub', asyncHandler(fetchCalendarStubEnvironmentController));
 
 router.get('/maintenance/windows', asyncHandler(listMaintenanceWindowsController));
 

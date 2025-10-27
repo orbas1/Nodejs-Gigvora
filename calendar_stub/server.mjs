@@ -148,6 +148,99 @@ function buildRoleSet(input, fallback) {
   return new Set(effective.map((role) => role.toLowerCase()));
 }
 
+function summariseWorkspaceEvents(workspaces, events) {
+  const totals = new Map();
+  const nextEventByWorkspace = new Map();
+  const now = Date.now();
+
+  for (const event of events) {
+    const workspaceId = toPositiveInteger(event.workspaceId);
+    if (!workspaceId) {
+      continue;
+    }
+    totals.set(workspaceId, (totals.get(workspaceId) ?? 0) + 1);
+
+    if (!event.startsAt) {
+      continue;
+    }
+
+    const startsAt = new Date(event.startsAt);
+    if (Number.isNaN(startsAt.getTime()) || startsAt.getTime() < now) {
+      continue;
+    }
+
+    const existing = nextEventByWorkspace.get(workspaceId);
+    if (!existing || startsAt.getTime() < existing.getTime()) {
+      nextEventByWorkspace.set(workspaceId, startsAt);
+    }
+  }
+
+  return workspaces.map((workspace) => ({
+    id: workspace.id,
+    slug: workspace.slug,
+    name: workspace.name,
+    timezone: workspace.timezone,
+    defaultCurrency: workspace.defaultCurrency,
+    membershipRole: workspace.membershipRole,
+    upcomingEvents: totals.get(workspace.id) ?? 0,
+    nextEventStartsAt: nextEventByWorkspace.get(workspace.id)?.toISOString() ?? null,
+  }));
+}
+
+function computeLatestEventTimestamp(events) {
+  let latest = null;
+  for (const event of events) {
+    if (!event?.startsAt) {
+      continue;
+    }
+    const startsAt = new Date(event.startsAt);
+    if (Number.isNaN(startsAt.getTime())) {
+      continue;
+    }
+    if (!latest || startsAt.getTime() > latest.getTime()) {
+      latest = startsAt;
+    }
+  }
+  return latest ? latest.toISOString() : null;
+}
+
+function buildHeaderExamples({ viewRoles, manageRoles, stubApiKey }) {
+  const viewRole = viewRoles.size ? [...viewRoles][0] : 'calendar:view';
+  const manageRole = manageRoles.size ? [...manageRoles][0] : 'calendar:manage';
+
+  const base = stubApiKey
+    ? {
+        'x-api-key': 'YOUR_CALENDAR_STUB_KEY',
+      }
+    : {};
+
+  return {
+    view: {
+      ...base,
+      'x-roles': viewRole,
+    },
+    manage: {
+      ...base,
+      'x-roles': viewRole === manageRole ? manageRole : `${viewRole},${manageRole}`,
+      'x-user-id': '<operator-id>',
+    },
+  };
+}
+
+function buildDeploymentSnapshot(env) {
+  const releaseChannel = env.CALENDAR_STUB_RELEASE_CHANNEL?.trim() || 'stable';
+  const region = env.CALENDAR_STUB_REGION?.trim() || 'us-central';
+  const buildNumber = env.CALENDAR_STUB_BUILD_NUMBER?.trim() || null;
+  const ownerTeam = env.CALENDAR_STUB_OWNER_TEAM?.trim() || null;
+
+  return {
+    releaseChannel,
+    region,
+    buildNumber,
+    ownerTeam,
+  };
+}
+
 function evaluateOrigin(request, allowedOrigins, fallbackOrigin) {
   const requestedOrigin = request.headers.origin;
   if (!allowedOrigins.length || allowedOrigins.includes('*')) {
@@ -586,13 +679,13 @@ function validateDate(value) {
   return date;
 }
 
-function authorizeRequest(request, response, origin, { permission, viewRoles, manageRoles }) {
-  const apiKey = process.env.CALENDAR_STUB_API_KEY?.trim();
-  if (apiKey) {
+function authorizeRequest(request, response, origin, { permission, viewRoles, manageRoles, apiKey }) {
+  const enforcedApiKey = apiKey ?? process.env.CALENDAR_STUB_API_KEY?.trim();
+  if (enforcedApiKey) {
     const bearerHeader = request.headers['authorization'];
     const bearerKey = bearerHeader ? bearerHeader.replace(/Bearer\s+/i, '').trim() : undefined;
     const providedKey = request.headers['x-api-key']?.trim() || bearerKey;
-    if (providedKey !== apiKey) {
+    if (providedKey !== enforcedApiKey) {
       sendJson(response, request, origin, 401, { message: 'Invalid or missing API key' });
       return null;
     }
@@ -634,8 +727,11 @@ export function createCalendarServer(options = {}) {
     minLatencyMs = env.CALENDAR_STUB_MIN_LATENCY_MS,
     maxLatencyMs = env.CALENDAR_STUB_MAX_LATENCY_MS,
     scenarioHandlers,
+    defaultWorkspaceId: defaultWorkspaceIdOption = env.CALENDAR_STUB_DEFAULT_WORKSPACE_ID,
+    defaultWorkspaceSlug: defaultWorkspaceSlugOption = env.CALENDAR_STUB_DEFAULT_WORKSPACE_SLUG,
   } = options;
 
+  const stubApiKey = env.CALENDAR_STUB_API_KEY?.trim() || null;
   const baseSeed = { seedEvents, eventsFile };
   const allowedOriginList = resolveAllowedOrigins(allowedOrigins);
   const viewRoleSet = buildRoleSet(viewRoles, DEFAULT_VIEW_ROLES);
@@ -648,9 +744,84 @@ export function createCalendarServer(options = {}) {
   );
   const latencyFn =
     latencyProvider ?? createDefaultLatencyProvider({ minLatencyMs: minLatencyValue, maxLatencyMs: maxLatencyValue });
+  const defaultWorkspaceId = toPositiveInteger(defaultWorkspaceIdOption);
+  const defaultWorkspaceSlug = defaultWorkspaceSlugOption ? normaliseSlug(defaultWorkspaceSlugOption) : null;
+  const serverBootedAt = Date.now();
   let workspaceCatalog = normaliseWorkspaces(workspaceSource);
   let events = resolveSeedEvents({ ...baseSeed, now: Date.now() });
   let nextEventId = computeNextEventId(events);
+
+  const deploymentSnapshot = buildDeploymentSnapshot(env);
+
+  function buildMetadataSnapshot() {
+    const generatedAt = new Date();
+    const workspaceCatalogueWithCounts = summariseWorkspaceEvents(workspaceCatalog, events);
+    const totalEvents = workspaceCatalogueWithCounts.reduce((accumulator, workspace) => {
+      return accumulator + (workspace.upcomingEvents ?? 0);
+    }, 0);
+    const scenarioNames = Array.from(scenarioMap.keys());
+    const resolvedDefaultWorkspace =
+      (defaultWorkspaceSlug
+        ? workspaceCatalogueWithCounts.find((workspace) => workspace.slug === defaultWorkspaceSlug)
+        : null) ||
+      (defaultWorkspaceId
+        ? workspaceCatalogueWithCounts.find((workspace) => workspace.id === defaultWorkspaceId)
+        : null) ||
+      workspaceCatalogueWithCounts[0] ||
+      null;
+
+    const workspaceSummary = {
+      totalWorkspaces: workspaceCatalogueWithCounts.length,
+      totalEvents,
+      defaultWorkspace: resolvedDefaultWorkspace
+        ? {
+            id: resolvedDefaultWorkspace.id,
+            slug: resolvedDefaultWorkspace.slug,
+            name: resolvedDefaultWorkspace.name,
+            timezone: resolvedDefaultWorkspace.timezone,
+          }
+        : null,
+      defaultWorkspaceSlug: resolvedDefaultWorkspace?.slug ?? defaultWorkspaceSlug ?? null,
+      defaultWorkspaceId: resolvedDefaultWorkspace?.id ?? defaultWorkspaceId ?? null,
+    };
+
+    return {
+      service: 'calendar-stub',
+      version: env.CALENDAR_STUB_VERSION?.trim() || '2024.10',
+      allowedOrigins: [...allowedOriginList],
+      fallbackOrigin,
+      latency: { minMs: minLatencyValue, maxMs: maxLatencyValue },
+      viewRoles: [...viewRoleSet],
+      manageRoles: [...manageRoleSet],
+      requiresApiKey: Boolean(stubApiKey),
+      requiredHeaders: {
+        view: ['x-roles'].concat(stubApiKey ? ['x-api-key'] : []),
+        manage: ['x-roles', 'x-user-id'].concat(stubApiKey ? ['x-api-key'] : []),
+      },
+      headerExamples: buildHeaderExamples({ viewRoles: viewRoleSet, manageRoles: manageRoleSet, stubApiKey }),
+      scenarios: scenarioNames,
+      defaults: {
+        windowDays: DEFAULT_WINDOW_DAYS,
+        lookaheadDays: DEFAULT_LOOKAHEAD_DAYS,
+        limit: DEFAULT_LIMIT,
+        maxLimit: MAX_EVENTS_LIMIT,
+      },
+      availableWorkspaces: workspaceCatalogueWithCounts,
+      workspaceSummary,
+      telemetry: {
+        uptimeSeconds: Math.max(0, Math.round((Date.now() - serverBootedAt) / 1000)),
+        scenarioCount: scenarioNames.length,
+        totalEvents,
+        lastEventStartsAt: computeLatestEventTimestamp(events),
+        calculatedAt: generatedAt.toISOString(),
+      },
+      deployment: {
+        ...deploymentSnapshot,
+        version: env.CALENDAR_STUB_VERSION?.trim() || '2024.10',
+      },
+      generatedAt: generatedAt.toISOString(),
+    };
+  }
 
   const server = http.createServer(async (request, response) => {
     const requestId = randomUUID();
@@ -700,6 +871,23 @@ export function createCalendarServer(options = {}) {
       return;
     }
 
+    if (request.method === 'GET' && pathname === '/api/system/calendar-meta') {
+      const auth = authorizeRequest(request, response, origin, {
+        permission: 'view',
+        viewRoles: viewRoleSet,
+        manageRoles: manageRoleSet,
+        apiKey: stubApiKey,
+      });
+      if (!auth) {
+        return;
+      }
+
+      const stubMetadata = buildMetadataSnapshot();
+
+      sendJson(response, request, origin, 200, { status: 'ok', stub: stubMetadata });
+      return;
+    }
+
     if (!isEventPath) {
       sendJson(response, request, origin, 404, { message: 'Not found' });
       return;
@@ -710,6 +898,7 @@ export function createCalendarServer(options = {}) {
         permission: 'view',
         viewRoles: viewRoleSet,
         manageRoles: manageRoleSet,
+        apiKey: stubApiKey,
       });
       if (!auth) {
         return;
@@ -829,6 +1018,7 @@ export function createCalendarServer(options = {}) {
         permission: 'view',
         viewRoles: viewRoleSet,
         manageRoles: manageRoleSet,
+        apiKey: stubApiKey,
       });
       if (!auth) {
         return;
@@ -868,6 +1058,7 @@ export function createCalendarServer(options = {}) {
         permission: 'manage',
         viewRoles: viewRoleSet,
         manageRoles: manageRoleSet,
+        apiKey: stubApiKey,
       });
       if (!auth) {
         return;
@@ -948,6 +1139,7 @@ export function createCalendarServer(options = {}) {
         permission: 'manage',
         viewRoles: viewRoleSet,
         manageRoles: manageRoleSet,
+        apiKey: stubApiKey,
       });
       if (!auth) {
         return;
@@ -1024,6 +1216,7 @@ export function createCalendarServer(options = {}) {
         permission: 'manage',
         viewRoles: viewRoleSet,
         manageRoles: manageRoleSet,
+        apiKey: stubApiKey,
       });
       if (!auth) {
         return;
@@ -1071,6 +1264,12 @@ export function createCalendarServer(options = {}) {
     },
     getWorkspaces() {
       return workspaceCatalog.map((workspace) => ({ ...workspace }));
+    },
+    getMetadata() {
+      return {
+        status: 'ok',
+        stub: buildMetadataSnapshot(),
+      };
     },
   };
 }
