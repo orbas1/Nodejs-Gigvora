@@ -1,0 +1,174 @@
+{
+  "activeRelease": {
+    "id": "2025.04-platform-elevation",
+    "name": "Platform Elevation",
+    "version": "2025.04",
+    "owner": "ops@gigvora.com",
+    "phase": "canary",
+    "startedAt": "2025-04-15T09:00:00.000Z",
+    "targetCompletion": "2025-04-25T18:00:00.000Z",
+    "releaseNotesRef": "update_docs/release-notes/latest.md",
+    "phases": [
+      {
+        "key": "plan",
+        "name": "Planning",
+        "status": "complete",
+        "owner": "ops@gigvora.com",
+        "summary": "Scope, risks, and partner approvals signed off.",
+        "startedAt": null,
+        "completedAt": "2025-04-10T12:00:00.000Z",
+        "coverage": 100,
+        "health": null
+      },
+      {
+        "key": "enablement",
+        "name": "Enablement",
+        "status": "complete",
+        "owner": "enablement@gigvora.com",
+        "summary": "Docs, comms, and support scripts delivered to frontline teams.",
+        "startedAt": null,
+        "completedAt": "2025-04-12T18:00:00.000Z",
+        "coverage": 100,
+        "health": null
+      },
+      {
+        "key": "canary",
+        "name": "Canary Cohort",
+        "status": "in_progress",
+        "owner": "ops@gigvora.com",
+        "summary": "Operations advisors and executive sponsors validating the new storytelling stack.",
+        "startedAt": null,
+        "completedAt": null,
+        "coverage": 35,
+        "health": null
+      },
+      {
+        "key": "global",
+        "name": "Global Rollout",
+        "status": "pending",
+        "owner": "ops@gigvora.com",
+        "summary": null,
+        "startedAt": null,
+        "completedAt": null,
+        "coverage": 0,
+        "health": null
+      }
+    ],
+    "segments": [
+      {
+        "key": "operations",
+        "name": "Operations Staff",
+        "status": "complete",
+        "coverage": 100,
+        "owner": "ops@gigvora.com"
+      },
+      {
+        "key": "enterprise",
+        "name": "Enterprise Customers",
+        "status": "in_progress",
+        "coverage": 45,
+        "owner": "enterprise-success@gigvora.com"
+      },
+      {
+        "key": "freelancer",
+        "name": "Freelancer Network",
+        "status": "pending",
+        "coverage": 15,
+        "owner": "community@gigvora.com"
+      }
+    ],
+    "checklist": [
+      {
+        "key": "ux-approvals",
+        "name": "UX approvals",
+        "status": "complete",
+        "owner": null,
+        "summary": "Design leadership cleared the hero, dashboards, and guided flows.",
+        "completedAt": "2025-04-13T14:00:00.000Z"
+      },
+      {
+        "key": "legal-readout",
+        "name": "Legal and compliance readout",
+        "status": "complete",
+        "owner": null,
+        "summary": "All policy updates published to customer trust centre.",
+        "completedAt": "2025-04-14T16:30:00.000Z"
+      },
+      {
+        "key": "ci-signed-off",
+        "name": "CI signed off",
+        "status": "attention",
+        "owner": null,
+        "summary": "Front-end test suite failures flagged the CI gate during orchestration.",
+        "completedAt": null
+      }
+    ]
+  },
+  "monitors": {
+    "api-latency": {
+      "id": "api-latency",
+      "name": "API latency",
+      "description": null,
+      "environment": "production",
+      "status": "passing",
+      "lastSampleAt": "2025-04-16T08:00:00.000Z",
+      "metrics": {
+        "p95Ms": 280,
+        "p99Ms": 420
+      },
+      "coverage": null,
+      "trend": null
+    },
+    "error-rate": {
+      "id": "error-rate",
+      "name": "Error rate",
+      "description": "Tracks API 5xx during rollout windows.",
+      "environment": "production",
+      "status": "warning",
+      "lastSampleAt": "2025-04-16T08:05:00.000Z",
+      "metrics": {
+        "rate": 0.8
+      },
+      "coverage": null,
+      "trend": "descending"
+    },
+    "ci-frontend:lint": {
+      "id": "ci-frontend:lint",
+      "name": "CI Frontend lint",
+      "description": null,
+      "environment": "ci",
+      "status": "passing",
+      "lastSampleAt": "2025-10-27T00:21:30.885Z",
+      "metrics": {
+        "durationMs": 8186,
+        "exitCode": 0
+      },
+      "coverage": null,
+      "trend": null
+    }
+  },
+  "events": [
+    {
+      "id": "monitor-ci-frontend:lint-2025-10-27T00:21:30.885Z",
+      "type": "monitor_sample",
+      "monitorId": "ci-frontend:lint",
+      "status": "passing",
+      "metrics": {
+        "durationMs": 8186,
+        "exitCode": 0
+      },
+      "coverage": null,
+      "timestamp": "2025-10-27T00:21:30.885Z"
+    },
+    {
+      "id": "checklist-ci-signed-off-2025-10-27T00:23:32.200Z",
+      "type": "checklist_status",
+      "checklistKey": "ci-signed-off",
+      "status": "attention",
+      "actor": null,
+      "summary": "Front-end test suite failures flagged the CI gate during orchestration.",
+      "timestamp": "2025-10-27T00:23:32.200Z"
+    }
+  ],
+  "updatedAt": "2025-10-27T00:23:32.201Z"
+}

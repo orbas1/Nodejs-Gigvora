@@ -5,6 +5,7 @@ import { getPerimeterSnapshot } from './perimeterMetrics.js';
 import { getWebApplicationFirewallSnapshot } from '../security/webApplicationFirewall.js';
 import { getDatabasePoolSnapshot } from '../services/databaseLifecycleService.js';
 import { collectWorkerTelemetry } from '../lifecycle/workerManager.js';
+import { sampleReleaseRollout } from './releaseRolloutMetrics.js';
 import logger from '../utils/logger.js';
 
 const METRICS_ENDPOINT = '/health/metrics';
@@ -132,6 +133,42 @@ const workerIntervalGauge = createGauge(
   { labelNames: ['worker'] },
 );
 
+const releaseActiveGauge = createGauge('release_active', 'Flag indicating whether an upgrade rollout is active (1=yes, 0=no).');
+const releasePhaseIndexGauge = createGauge(
+  'release_phase_index',
+  'Index of the current rollout phase in sequence.',
+);
+const releasePhaseStatusGauge = createGauge(
+  'release_phase_status',
+  'Status value for each rollout phase (0=pending,1=in_progress,2=complete,-1=blocked).',
+  { labelNames: ['phase'] },
+);
+const releasePhaseCoverageGauge = createGauge(
+  'release_phase_coverage_percent',
+  'Percentage of coverage completed for each rollout phase.',
+  { labelNames: ['phase'] },
+);
+const releaseSegmentCoverageGauge = createGauge(
+  'release_segment_coverage_percent',
+  'Percentage of coverage completed for each rollout segment.',
+  { labelNames: ['segment'] },
+);
+const releaseMonitorHealthGauge = createGauge(
+  'release_monitor_health',
+  'Health status for rollout monitors (1=passing,0=warning,-1=failing).',
+  { labelNames: ['monitor'] },
+);
+const releaseMonitorMetricGauge = createGauge(
+  'release_monitor_duration_ms',
+  'Duration metrics for rollout monitors (ms).',
+  { labelNames: ['monitor', 'metric'] },
+);
+const releaseChecklistStatusGauge = createGauge(
+  'release_checklist_status',
+  'Status values for rollout checklist items (1=complete,0=in_progress,-1=blocked).',
+  { labelNames: ['item'] },
+);
+
 let previousRateLimitTotals = { hits: 0, allowed: 0, blocked: 0 };
 let previousWafTotals = { evaluated: 0, blocked: 0, autoBlocks: 0 };
 let previousPerimeterTotal = 0;
@@ -174,6 +211,17 @@ const metricsStatusCache = {
     updatedAt: null,
   },
   workers: [],
+  release: {
+    active: false,
+    releaseId: null,
+    name: null,
+    version: null,
+    phase: null,
+    phases: [],
+    segments: [],
+    monitors: [],
+    checklist: { total: 0, completed: 0, items: [] },
+  },
 };
 
 function incrementCounter(counter, currentValue, previousValue) {
@@ -194,6 +242,32 @@ const WORKER_STATUS_VALUES = {
   healthy: 1,
   stopped: 0,
   error: -1,
+};
+
+const PHASE_STATUS_VALUES = {
+  pending: 0,
+  in_progress: 1,
+  complete: 2,
+  paused: 0,
+  blocked: -1,
+  attention: -1,
+};
+
+const MONITOR_HEALTH_VALUES = {
+  passing: 1,
+  warning: 0,
+  info: 0,
+  attention: -1,
+  failing: -1,
+  unknown: 0,
+};
+
+const CHECKLIST_STATUS_VALUES = {
+  pending: 0,
+  in_progress: 0,
+  complete: 1,
+  blocked: -1,
+  attention: -1,
 };
 
 function deriveWorkerStatus(metrics = {}) {
@@ -379,6 +453,61 @@ async function refreshMetricSnapshots({ updateCounters = false } = {}) {
       metadata: snapshot.metadata ?? {},
     };
   });
+
+  const releaseSnapshot = await sampleReleaseRollout();
+  releaseActiveGauge.set(releaseSnapshot.active ? 1 : 0);
+  releasePhaseStatusGauge.reset();
+  releasePhaseCoverageGauge.reset();
+  releaseSegmentCoverageGauge.reset();
+  releaseMonitorHealthGauge.reset();
+  releaseMonitorMetricGauge.reset();
+  releaseChecklistStatusGauge.reset();
+
+  metricsStatusCache.release = {
+    active: releaseSnapshot.active,
+    releaseId: releaseSnapshot.release?.id ?? null,
+    name: releaseSnapshot.release?.name ?? null,
+    version: releaseSnapshot.release?.version ?? null,
+    phase: releaseSnapshot.release?.phase ?? null,
+    phases: releaseSnapshot.release?.phases ?? [],
+    segments: releaseSnapshot.release?.segments ?? [],
+    monitors: releaseSnapshot.monitors ?? [],
+    checklist: releaseSnapshot.checklist ?? { total: 0, completed: 0, items: [] },
+  };
+
+  if (releaseSnapshot.active && releaseSnapshot.release) {
+    const phases = releaseSnapshot.release.phases ?? [];
+    const phaseIndex = phases.findIndex((phase) => phase.key === releaseSnapshot.release.phase);
+    releasePhaseIndexGauge.set(phaseIndex >= 0 ? phaseIndex : 0);
+    phases.forEach((phase) => {
+      releasePhaseStatusGauge.set({ phase: phase.key }, PHASE_STATUS_VALUES[phase.status] ?? 0);
+      releasePhaseCoverageGauge.set({ phase: phase.key }, toNumber(phase.coverage, 0));
+    });
+
+    const segments = releaseSnapshot.release.segments ?? [];
+    segments.forEach((segment) => {
+      releaseSegmentCoverageGauge.set({ segment: segment.key }, toNumber(segment.coverage, 0));
+    });
+  } else {
+    releasePhaseIndexGauge.set(0);
+  }
+
+  (releaseSnapshot.monitors ?? []).forEach((monitor) => {
+    releaseMonitorHealthGauge.set({ monitor: monitor.id }, MONITOR_HEALTH_VALUES[monitor.status] ?? 0);
+    if (monitor.metrics && typeof monitor.metrics === 'object') {
+      Object.entries(monitor.metrics).forEach(([metricKey, metricValue]) => {
+        const numeric = Number(metricValue);
+        if (Number.isFinite(numeric)) {
+          releaseMonitorMetricGauge.set({ monitor: monitor.id, metric: metricKey }, numeric);
+        }
+      });
+    }
+  });
+
+  const checklistItems = releaseSnapshot.checklist?.items ?? [];
+  checklistItems.forEach((item) => {
+    releaseChecklistStatusGauge.set({ item: item.key }, CHECKLIST_STATUS_VALUES[item.status] ?? 0);
+  });
 }
 
 export async function collectMetrics() {
@@ -463,12 +592,31 @@ export function resetMetricsForTesting() {
     updatedAt: null,
   };
   metricsStatusCache.workers = [];
+  metricsStatusCache.release = {
+    active: false,
+    releaseId: null,
+    name: null,
+    version: null,
+    phase: null,
+    phases: [],
+    segments: [],
+    monitors: [],
+    checklist: { total: 0, completed: 0, items: [] },
+  };
   workerStatusGauge.reset();
   workerQueuePendingGauge.reset();
   workerQueueStuckGauge.reset();
   workerQueueFailedGauge.reset();
   workerLastSampleTimestamp.reset();
   workerIntervalGauge.reset();
+  releaseActiveGauge.reset();
+  releasePhaseIndexGauge.reset();
+  releasePhaseStatusGauge.reset();
+  releasePhaseCoverageGauge.reset();
+  releaseSegmentCoverageGauge.reset();
+  releaseMonitorHealthGauge.reset();
+  releaseMonitorMetricGauge.reset();
+  releaseChecklistStatusGauge.reset();
 }
 
 export default {
