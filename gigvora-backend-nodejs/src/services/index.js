@@ -39,6 +39,7 @@ export { default as taxDocumentService } from './taxDocumentService.js';
 export { default as taxDocumentStorageService } from './taxDocumentStorageService.js';
 export { default as consentService } from './consentService.js';
 export { default as securityPreferenceService } from './securityPreferenceService.js';
+export { default as securityOperationsService } from './securityOperationsService.js';
 export { default as dataExportService } from './dataExportService.js';
 export { default as legalPolicyService } from './legalPolicyService.js';
 export { default as catalogInsightsService } from './catalogInsightsService.js';

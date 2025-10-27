@@ -65,6 +65,7 @@ import formBlueprintRoutes from './formBlueprintRoutes.js';
 import presenceRoutes from './presenceRoutes.js';
 import onboardingRoutes from './onboardingRoutes.js';
 import navigationRoutes from './navigationRoutes.js';
+import securityOperationsRoutes from './securityOperationsRoutes.js';
 
 const router = Router();
 
@@ -127,6 +128,7 @@ const routeDefinitions = [
   ['/explorer', explorerRoutes],
   ['/search', searchRoutes],
   ['/support', supportRoutes],
+  ['/security', securityOperationsRoutes],
   ['/trust', trustRoutes],
   ['/route-registry', routeRegistryRoutes],
   ['/site', siteRoutes],

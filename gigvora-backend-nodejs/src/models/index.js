@@ -625,6 +625,19 @@ export {
 } from './navigationChromeModels.js';
 export { EmailSmtpConfig, EmailTemplate } from './emailModels.js';
 export {
+  SecurityPostureSnapshot,
+  SecurityAlert,
+  SecurityIncident,
+  SecurityPlaybook,
+  SecurityPlaybookRun,
+  SecurityThreatSweep,
+  SECURITY_ALERT_SEVERITIES,
+  SECURITY_ALERT_STATUSES,
+  SECURITY_INCIDENT_STATUSES,
+  SECURITY_PLAYBOOK_STATUSES,
+  SECURITY_THREAT_SWEEP_STATUSES,
+} from './securityOperationsModels.js';
+export {
   CreationStudioItem,
   CreationStudioCollaborator,
   CreationStudioStep,

@@ -110,6 +110,27 @@ export const __setModelStubs = (overrides = {}) => {
 
 export default stubModel;
 
+// Consent governance models required by compliance and analytics suites
+export const ConsentPolicy = createModelBinding('ConsentPolicy');
+export const ConsentPolicyVersion = createModelBinding('ConsentPolicyVersion');
+export const UserConsent = createModelBinding('UserConsent');
+export const ConsentAuditEvent = createModelBinding('ConsentAuditEvent');
+
+// Security operations fabric models surfaced in war room integration tests
+export const SecurityPostureSnapshot = createModelBinding('SecurityPostureSnapshot');
+export const SecurityAlert = createModelBinding('SecurityAlert');
+export const SecurityIncident = createModelBinding('SecurityIncident');
+export const SecurityPlaybook = createModelBinding('SecurityPlaybook');
+export const SecurityPlaybookRun = createModelBinding('SecurityPlaybookRun');
+export const SecurityThreatSweep = createModelBinding('SecurityThreatSweep');
+
+export const SECURITY_ALERT_SEVERITIES = createEnumBinding();
+export const SECURITY_ALERT_STATUSES = createEnumBinding();
+export const SECURITY_INCIDENT_STATUSES = createEnumBinding();
+export const SECURITY_PLAYBOOK_STATUSES = createEnumBinding();
+export const SECURITY_THREAT_SWEEP_STATUSES = createEnumBinding();
+
+
 export const AdCampaign = createModelBinding('AdCampaign');
 export const AdCoupon = createModelBinding('AdCoupon');
 export const AdCreative = createModelBinding('AdCreative');
