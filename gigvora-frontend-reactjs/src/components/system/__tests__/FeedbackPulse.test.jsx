@@ -10,6 +10,7 @@ const ANALYTICS = {
   medianResponseMinutes: 3,
   lastUpdated: '2024-05-11T22:50:00.000Z',
   reviewUrl: 'https://gigvora.com/ops/feedback',
+  queueTarget: 6,
   segments: [
     { id: 'enterprise', label: 'Enterprise', score: 4.8, delta: 0.2, sampleSize: 124 },
     { id: 'smb', label: 'SMB', score: 4.3, delta: -0.1, sampleSize: 98 },
@@ -23,6 +24,14 @@ const ANALYTICS = {
       recordedAt: '2024-05-11T22:40:00.000Z',
     },
   ],
+  alerts: [
+    { id: 'alert-1', message: 'APAC queue depth 35% over target.', severity: 'caution' },
+  ],
+  responseBreakdown: [
+    { id: 'web', label: 'Web', percentage: 48 },
+  ],
+  topDrivers: ['Localized status copy improved transparency scores.'],
+  sentimentNarrative: 'Sentiment remains above target.',
 };
 
 describe('formatTrend', () => {
@@ -40,6 +49,10 @@ describe('FeedbackPulse', () => {
     expect(screen.getByText('4.6')).toBeInTheDocument();
     expect(screen.getByText('Enterprise')).toBeInTheDocument();
     expect(screen.getByText(/Positive/i)).toBeInTheDocument();
+    expect(screen.getByText(/Response mix/i)).toBeInTheDocument();
+    expect(screen.getByText(/Insight drivers/i)).toBeInTheDocument();
+    expect(screen.getByText(/APAC queue depth/i)).toBeInTheDocument();
+    expect(screen.getByText(/Localized status copy/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /review insights/i })).toBeInTheDocument();
   });
 

@@ -6,6 +6,20 @@ const PERSONAS = [
     title: 'Founder building a hiring brand',
     subtitle: 'Grow your employer presence, spotlight wins, and keep pipelines warm.',
     headline: 'Designed for founding teams scaling storytelling and inbound talent.',
+    heroMedia: {
+      poster: 'https://cdn.gigvora.com/onboarding/personas/founder/hero.jpg',
+      alt: 'Founding team reviewing brand analytics dashboards',
+    },
+    metadata: {
+      primaryCta: 'Launch hiring brand workspace',
+      personaPillar: 'hiring-brand',
+      primerHighlights: [
+        'Instantly publish a flagship profile with testimonials and impact stats.',
+        'Automate referral sourcing, warm outreach, and campaign recaps.',
+        'Keep leadership informed with Monday-ready hiring analytics.',
+      ],
+      recommendedRoles: ['Head of People', 'Talent partner', 'Employer brand lead'],
+    },
     benefits: [
       'Launch a dynamic company profile with testimonials, playlists, and KPI spotlights.',
       'Coordinate hiring sprints with ATS sync, referral hubs, and brand campaigns.',
@@ -32,6 +46,20 @@ const PERSONAS = [
     title: 'Independent specialist',
     subtitle: 'Showcase your craft, activate deal-flow, and nurture premium collaborations.',
     headline: 'Built for consultants, fractional leaders, and boutique studios.',
+    heroMedia: {
+      poster: 'https://cdn.gigvora.com/onboarding/personas/freelancer/hero.jpg',
+      alt: 'Independent consultant presenting a digital workspace to clients',
+    },
+    metadata: {
+      primaryCta: 'Spin up deal-flow cockpit',
+      personaPillar: 'independent-talent',
+      primerHighlights: [
+        'Curate your best work with reels, testimonials, and packaged offers.',
+        'Sync proposals, follow-ups, and warm intros to stay top-of-mind.',
+        'Activate AI insights so you never miss deal momentum.',
+      ],
+      recommendedRoles: ['Founder', 'Revenue partner', 'Operations lead'],
+    },
     benefits: [
       'Curate a services portfolio with case studies, pricing, and testimonials in minutes.',
       'Sync availability, proposal templates, and pipeline kanban to stay in command.',
@@ -58,6 +86,20 @@ const PERSONAS = [
     title: 'Talent & people leader',
     subtitle: 'Operationalise hiring, onboarding, and community updates with precision.',
     headline: 'Supports heads of talent orchestrating global hiring and employee journeys.',
+    heroMedia: {
+      poster: 'https://cdn.gigvora.com/onboarding/personas/talent-leader/hero.jpg',
+      alt: 'People leader hosting a global onboarding workshop over video',
+    },
+    metadata: {
+      primaryCta: 'Orchestrate onboarding journeys',
+      personaPillar: 'people-ops',
+      primerHighlights: [
+        'Blend ATS signals, people analytics, and onboarding checklists.',
+        'Publish journeys with tailored templates and automation triggers.',
+        'Deliver executive briefings with hiring velocity and satisfaction deltas.',
+      ],
+      recommendedRoles: ['Chief of Staff', 'People partner', 'Operations lead'],
+    },
     benefits: [
       'Blend ATS intelligence, hiring health dashboards, and onboarding checklists.',
       'Automate candidate storytelling, nurture talent pools, and activate employee advocates.',
@@ -101,7 +143,10 @@ module.exports = {
         heroMedia: persona.heroMedia ?? {},
         status: 'active',
         sortOrder: index,
-        metadata: { seed: '20250401101500-onboarding-personas-seed' },
+        metadata: {
+          ...persona.metadata,
+          seed: '20250401101500-onboarding-personas-seed',
+        },
         createdAt: now,
         updatedAt: now,
       })),

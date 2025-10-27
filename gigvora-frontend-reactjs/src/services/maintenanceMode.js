@@ -1,7 +1,7 @@
 import apiClient from './apiClient.js';
 
 export async function fetchMaintenanceStatus({ signal, params } = {}) {
-  return apiClient.get('/admin/maintenance', { signal, params });
+  return apiClient.get('/admin/maintenance/dashboard', { signal, params });
 }
 
 export async function updateMaintenanceStatus(payload = {}, { signal } = {}) {
@@ -12,8 +12,8 @@ export async function updateMaintenanceStatus(payload = {}, { signal } = {}) {
 }
 
 export async function scheduleMaintenanceWindow(payload = {}, { signal } = {}) {
-  if (!payload.startsAt || !payload.endsAt) {
-    throw new Error('startsAt and endsAt are required to schedule a maintenance window.');
+  if (!payload.startAt) {
+    throw new Error('startAt is required to schedule a maintenance window.');
   }
   return apiClient.post('/admin/maintenance/windows', payload, { signal });
 }

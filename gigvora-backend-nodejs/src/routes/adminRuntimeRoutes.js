@@ -7,6 +7,10 @@ import {
   updateMaintenanceBodySchema,
   maintenanceStatusBodySchema,
   maintenanceIdentifierParamsSchema,
+  maintenanceWindowBodySchema,
+  maintenanceWindowUpdateSchema,
+  maintenanceWindowParamsSchema,
+  maintenanceNotificationBodySchema,
   liveServiceTelemetryQuerySchema,
 } from '../validation/schemas/runtimeSchemas.js';
 import {
@@ -15,6 +19,12 @@ import {
   updateMaintenance,
   changeMaintenanceStatus,
   fetchMaintenance,
+  maintenanceDashboard,
+  listMaintenanceWindowsController,
+  createMaintenanceWindowController,
+  updateMaintenanceWindowController,
+  deleteMaintenanceWindowController,
+  sendMaintenanceNotification,
 } from '../controllers/adminRuntimeController.js';
 import { getLiveServiceTelemetry } from '../controllers/liveServiceTelemetryController.js';
 import { requireAdmin } from '../middleware/authenticate.js';
@@ -27,6 +37,34 @@ router.get(
   '/maintenance',
   validateRequest({ query: adminMaintenanceQuerySchema }),
   asyncHandler(listMaintenance),
+);
+
+router.get('/maintenance/dashboard', asyncHandler(maintenanceDashboard));
+
+router.get('/maintenance/windows', asyncHandler(listMaintenanceWindowsController));
+
+router.post(
+  '/maintenance/windows',
+  validateRequest({ body: maintenanceWindowBodySchema }),
+  asyncHandler(createMaintenanceWindowController),
+);
+
+router.put(
+  '/maintenance/windows/:windowId',
+  validateRequest({ params: maintenanceWindowParamsSchema, body: maintenanceWindowUpdateSchema }),
+  asyncHandler(updateMaintenanceWindowController),
+);
+
+router.delete(
+  '/maintenance/windows/:windowId',
+  validateRequest({ params: maintenanceWindowParamsSchema }),
+  asyncHandler(deleteMaintenanceWindowController),
+);
+
+router.post(
+  '/maintenance/notifications',
+  validateRequest({ body: maintenanceNotificationBodySchema }),
+  asyncHandler(sendMaintenanceNotification),
 );
 
 router.get(

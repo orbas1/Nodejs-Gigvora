@@ -13,6 +13,8 @@ function normalisePersona(persona) {
     metrics: Array.isArray(persona.metrics) ? persona.metrics : [],
     signatureMoments: Array.isArray(persona.signatureMoments) ? persona.signatureMoments : [],
     recommendedModules: Array.isArray(persona.recommendedModules) ? persona.recommendedModules : [],
+    heroMedia: typeof persona.heroMedia === 'object' && persona.heroMedia ? persona.heroMedia : {},
+    metadata: typeof persona.metadata === 'object' && persona.metadata ? persona.metadata : {},
   };
 }
 

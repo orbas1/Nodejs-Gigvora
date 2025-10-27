@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import PersonaSelection, { personaShape, DEFAULT_PERSONAS_FOR_SELECTION } from './PersonaSelection.jsx';
+import WorkspacePrimerCarousel from './WorkspacePrimerCarousel.jsx';
 import { listOnboardingPersonas, createOnboardingJourney } from '../../../services/onboarding.js';
 
 const STEP_SEQUENCE = [
@@ -32,6 +33,87 @@ const DEFAULT_PREFERENCES = {
 };
 
 const DEFAULT_INVITES = [{ email: '', role: 'Collaborator' }];
+
+const INVITE_LIMIT = 20;
+
+const EMAIL_REGEX = /^[^@\s]+@[^@\s]+\.[^@\s]+$/i;
+
+const DEFAULT_PRIMER_HIGHLIGHTS = [
+  'Personalise your hero, invites, and insights with persona-backed defaults.',
+  'Invite your core collaborators so approvals and rituals stay in sync.',
+  'Activate AI story starters, analytics, and executive briefs on launch.',
+];
+
+function createPersonaPrimerSlides(persona, insights) {
+  if (!persona) {
+    return [];
+  }
+
+  const modules = persona.recommendedModules ?? [];
+  const signatureMoments = persona.signatureMoments ?? [];
+  const heroMedia = persona.heroMedia ?? {};
+  const highlights = Array.isArray(persona.metadata?.primerHighlights) && persona.metadata.primerHighlights.length
+    ? persona.metadata.primerHighlights
+    : DEFAULT_PRIMER_HIGHLIGHTS;
+  const suggestedRoles = Array.isArray(persona.metadata?.recommendedRoles) ? persona.metadata.recommendedRoles : [];
+  const [winsInsight] = insights.filter((entry) => entry.label === 'Signature wins');
+  const metrics = (persona.metrics ?? []).slice(0, 2).map((metric) => ({
+    label: metric.label,
+    value: metric.value,
+  }));
+
+  const slides = [
+    {
+      id: `${persona.id}-overview`,
+      pill: persona.title,
+      title: `Launch the ${persona.title.toLowerCase()}`,
+      description: persona.subtitle || persona.headline || '',
+      metrics,
+      checklist: [
+        winsInsight?.value?.[0],
+        modules.length ? `Preloaded modules: ${modules.slice(0, 3).join(', ')}` : null,
+        highlights[0],
+      ].filter(Boolean),
+      media:
+        heroMedia.poster
+          ? {
+              type: 'image',
+              src: heroMedia.poster,
+              alt: heroMedia.alt || `${persona.title} hero media`,
+            }
+          : undefined,
+    },
+  ];
+
+  signatureMoments.forEach((moment, index) => {
+    slides.push({
+      id: `${persona.id}-moment-${index + 1}`,
+      pill: `Moment ${index + 1}`,
+      title: moment.label,
+      description: moment.description,
+      checklist: [
+        modules[index] ? `Align with ${modules[index]}` : null,
+        highlights[(index + 1) % highlights.length],
+      ].filter(Boolean),
+    });
+  });
+
+  slides.push({
+    id: `${persona.id}-collaboration`,
+    pill: 'Collaboration',
+    title: 'Invite collaborators and calibrate signals',
+    description:
+      'Confirm who publishes updates, reviews analytics, and approves storytelling so workflows stay coordinated.',
+    checklist: [
+      'Add at least one collaborator before launch',
+      persona.metrics?.[0]?.label ? `Track ${persona.metrics[0].label.toLowerCase()} from day one` : null,
+      suggestedRoles.length ? `Suggested roles: ${suggestedRoles.join(', ')}` : null,
+      highlights[(signatureMoments.length + 1) % highlights.length],
+    ].filter(Boolean),
+  });
+
+  return slides;
+}
 
 export default function OnboardingWizard({
   personas = DEFAULT_PERSONAS_FOR_SELECTION,
@@ -131,6 +213,9 @@ export default function OnboardingWizard({
     () => personaOptions.find((persona) => persona.id === selectedPersonaId),
     [personaOptions, selectedPersonaId],
   );
+  const selectedPersonaPillar = selectedPersona?.metadata?.personaPillar ?? null;
+  const selectedPersonaPrimaryCta = selectedPersona?.metadata?.primaryCta ?? null;
+  const selectedPersonaHero = selectedPersona?.heroMedia ?? {};
   const progress = useMemo(
     () => Math.round(((currentStepIndex + 1) / STEP_SEQUENCE.length) * 100),
     [currentStepIndex],
@@ -144,15 +229,16 @@ export default function OnboardingWizard({
       stepId: currentStep.id,
       stepTitle: currentStep.title,
       hasPersona: Boolean(selectedPersonaId),
+      personaPillar: selectedPersonaPillar,
     });
-  }, [analytics, currentStep, selectedPersonaId]);
+  }, [analytics, currentStep, selectedPersonaId, selectedPersonaPillar]);
 
   const personaInsights = useMemo(() => {
     if (!selectedPersona) {
       return [];
     }
     const modules = selectedPersona.recommendedModules ?? [];
-    return [
+    const base = [
       {
         label: 'Signature wins',
         value: selectedPersona.benefits.slice(0, 2),
@@ -166,7 +252,20 @@ export default function OnboardingWizard({
         value: (selectedPersona.metrics ?? []).map((metric) => `${metric.label}: ${metric.value}`),
       },
     ];
-  }, [selectedPersona]);
+    if (selectedPersonaPrimaryCta) {
+      base.push({
+        label: 'Launch focus',
+        value: [selectedPersonaPrimaryCta],
+      });
+    }
+    if (selectedPersonaPillar) {
+      base.push({
+        label: 'Persona pillar',
+        value: [selectedPersonaPillar],
+      });
+    }
+    return base;
+  }, [selectedPersona, selectedPersonaPillar, selectedPersonaPrimaryCta]);
 
   const reviewSummary = useMemo(() => {
     return {
@@ -177,6 +276,64 @@ export default function OnboardingWizard({
       modules: selectedPersona?.recommendedModules ?? [],
     };
   }, [invites, preferences, profile, selectedPersona]);
+
+  const personaPrimerSlides = useMemo(() => {
+    return createPersonaPrimerSlides(selectedPersona, personaInsights);
+  }, [personaInsights, selectedPersona]);
+
+  const primerHighlights = useMemo(() => {
+    if (selectedPersona?.metadata?.primerHighlights?.length) {
+      return selectedPersona.metadata.primerHighlights;
+    }
+    const personaWithHighlights = personaOptions.find((persona) => persona.metadata?.primerHighlights?.length);
+    if (personaWithHighlights) {
+      return personaWithHighlights.metadata.primerHighlights;
+    }
+    return DEFAULT_PRIMER_HIGHLIGHTS;
+  }, [personaOptions, selectedPersona]);
+
+  const inviteDiagnostics = useMemo(() => {
+    const errors = {};
+    const seen = new Map();
+    let hasValidInvite = false;
+
+    invites.forEach((invite, index) => {
+      const email = invite.email?.trim().toLowerCase();
+      if (!email) {
+        return;
+      }
+      if (!EMAIL_REGEX.test(email)) {
+        errors[index] = 'Enter a valid email.';
+        return;
+      }
+      if (seen.has(email)) {
+        errors[index] = 'Duplicate invite.';
+        const existingIndex = seen.get(email);
+        errors[existingIndex] = 'Duplicate invite.';
+        return;
+      }
+      seen.set(email, index);
+      hasValidInvite = true;
+    });
+
+    return {
+      errors,
+      hasValidInvite,
+      hasErrors: Object.keys(errors).length > 0,
+    };
+  }, [invites]);
+
+  const handlePrimerSlideChange = useCallback(
+    ({ index, slide }) => {
+      analytics?.track?.('web_onboarding_primer_viewed', {
+        personaId: selectedPersonaId,
+        personaPillar: selectedPersonaPillar,
+        slideIndex: index,
+        slideId: slide?.id,
+      });
+    },
+    [analytics, selectedPersonaId, selectedPersonaPillar],
+  );
 
   const canProceed = useMemo(() => {
     if (!currentStep) {
@@ -189,13 +346,23 @@ export default function OnboardingWizard({
       return Boolean(profile.companyName.trim() && profile.role.trim() && profile.timezone.trim());
     }
     if (currentStep.id === 'team') {
-      return invites.some((invite) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(invite.email.trim()));
+      return inviteDiagnostics.hasValidInvite && !inviteDiagnostics.hasErrors;
     }
     if (currentStep.id === 'preferences') {
       return Boolean(preferences.digestCadence);
     }
     return true;
-  }, [currentStep, invites, personasLoading, preferences.digestCadence, profile.companyName, profile.role, profile.timezone, selectedPersonaId]);
+  }, [
+    currentStep,
+    inviteDiagnostics.hasErrors,
+    inviteDiagnostics.hasValidInvite,
+    personasLoading,
+    preferences.digestCadence,
+    profile.companyName,
+    profile.role,
+    profile.timezone,
+    selectedPersonaId,
+  ]);
 
   const handleNext = () => {
     if (!canProceed) {
@@ -213,6 +380,7 @@ export default function OnboardingWizard({
     analytics?.track?.('web_onboarding_persona_selected', {
       personaId,
       title: persona?.title,
+      personaPillar: persona?.metadata?.personaPillar,
     });
     if (currentStep.id === 'persona' && personaId) {
       setCurrentStepIndex(1);
@@ -232,7 +400,12 @@ export default function OnboardingWizard({
   };
 
   const addInviteRow = () => {
-    setInvites((current) => [...current, { email: '', role: 'Collaborator' }]);
+    setInvites((current) => {
+      if (current.length >= INVITE_LIMIT) {
+        return current;
+      }
+      return [...current, { email: '', role: 'Collaborator' }];
+    });
   };
 
   const removeInviteRow = (index) => {
@@ -316,6 +489,7 @@ export default function OnboardingWizard({
 
       analytics?.track?.('web_onboarding_completed', {
         personaId: payload.persona?.id ?? selectedPersonaId,
+        personaPillar: payload.persona?.metadata?.personaPillar ?? selectedPersonaPillar,
         inviteCount: payload.invites.length,
         digestCadence: payload.preferences.digestCadence,
         hasAiDrafts: payload.preferences.enableAiDrafts,
@@ -335,24 +509,45 @@ export default function OnboardingWizard({
 
   const renderPersonaStep = () => {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         {personaLoadError && (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
             {personaLoadError}
           </div>
         )}
-        <PersonaSelection
-          personas={personaOptions}
-          value={selectedPersonaId}
-          onChange={handlePersonaChange}
-          disabled={launching || personasLoading}
-        />
-        {personasLoading && (
-          <div className="flex items-center gap-2 text-sm text-slate-500">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-accent" aria-hidden="true" />
-            Loading personas…
+        <div className="grid gap-6 xl:grid-cols-[3fr_2fr]">
+          <div className="space-y-4">
+            <PersonaSelection
+              personas={personaOptions}
+              value={selectedPersonaId}
+              onChange={handlePersonaChange}
+              disabled={launching || personasLoading}
+            />
+            {personasLoading && (
+              <div className="flex items-center gap-2 text-sm text-slate-500">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-accent" aria-hidden="true" />
+                Loading personas…
+              </div>
+            )}
           </div>
-        )}
+          <div className="space-y-4">
+            <WorkspacePrimerCarousel
+              slides={personaPrimerSlides.length ? personaPrimerSlides : undefined}
+              onSlideChange={handlePrimerSlideChange}
+            />
+            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h4 className="text-sm font-semibold text-slate-800">Why it matters</h4>
+              <ul className="mt-3 space-y-2 text-sm text-slate-600">
+                {primerHighlights.map((message) => (
+                  <li key={message} className="flex items-start gap-2">
+                    <span className="mt-1 inline-flex h-2 w-2 flex-none rounded-full bg-accent" aria-hidden="true" />
+                    <span>{message}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
       </div>
     );
   };
@@ -449,6 +644,8 @@ export default function OnboardingWizard({
   };
 
   const renderTeamStep = () => {
+    const recommendedRoles = selectedPersona?.metadata?.recommendedRoles ?? [];
+    const inviteLimitReached = invites.length >= INVITE_LIMIT;
     return (
       <div className="space-y-6">
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -462,7 +659,8 @@ export default function OnboardingWizard({
               const inviteId = `invite-${index}`;
               const emailId = `${inviteId}-email`;
               const roleId = `${inviteId}-role`;
-              const isValid = invite.email ? /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(invite.email.trim()) : true;
+              const helperId = `${inviteId}-helper`;
+              const rowError = inviteDiagnostics.errors[index];
               return (
                 <div key={inviteId} className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
                   <div className="flex flex-col gap-4 md:flex-row md:items-center">
@@ -475,7 +673,15 @@ export default function OnboardingWizard({
                         value={invite.email}
                         onChange={(event) => handleInviteChange(index, { email: event.target.value })}
                         placeholder="alex@gigvora.com"
+                        aria-invalid={Boolean(rowError)}
+                        aria-describedby={rowError ? helperId : undefined}
                       />
+                      <p
+                        id={helperId}
+                        className={`mt-2 text-xs ${rowError ? 'font-semibold text-rose-600' : 'text-slate-500'}`}
+                      >
+                        {rowError ?? 'We route invites with the right permissions and analytics tracking.'}
+                      </p>
                     </label>
                     <label htmlFor={roleId} className="w-full text-sm font-medium text-slate-600 md:w-48">
                       Role
@@ -499,25 +705,46 @@ export default function OnboardingWizard({
                       Remove
                     </button>
                   </div>
-                  {!isValid && <p className="mt-2 text-xs text-rose-600">Use a valid email address so we can send invites.</p>}
                 </div>
               );
             })}
           </div>
           <button
             type="button"
-            className="mt-4 inline-flex items-center justify-center rounded-full border border-dashed border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+            className="mt-4 inline-flex items-center justify-center rounded-full border border-dashed border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
             onClick={addInviteRow}
+            disabled={inviteLimitReached}
           >
             + Add teammate
           </button>
+          <p className="mt-2 text-xs text-slate-500">
+            You can invite up to {INVITE_LIMIT} collaborators during onboarding.
+          </p>
+          {inviteLimitReached ? (
+            <p className="mt-1 text-xs font-semibold text-amber-600">
+              You’ve reached the launch limit—invite additional teammates from workspace settings post-launch.
+            </p>
+          ) : null}
         </section>
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-inner">
           <h4 className="text-sm font-semibold text-slate-900">Recommended collaborators</h4>
           <p className="mt-2 text-sm text-slate-500">
-            Founders invite storytellers and operations leads to keep the journey resilient. Freelancers loop in project managers
-            and accountants. Talent leaders partner with hiring managers and exec sponsors.
+            {selectedPersona && recommendedRoles.length
+              ? `Invite ${recommendedRoles.slice(0, 3).join(', ')} so your ${selectedPersona.title.toLowerCase()} journey launches with the right rituals.`
+              : 'Founders invite storytellers and operations leads to keep the journey resilient. Freelancers loop in project managers and accountants. Talent leaders partner with hiring managers and exec sponsors.'}
           </p>
+          {recommendedRoles.length ? (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {recommendedRoles.map((role) => (
+                <span
+                  key={role}
+                  className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600"
+                >
+                  {role}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </section>
       </div>
     );
@@ -669,6 +896,29 @@ export default function OnboardingWizard({
           <p className="mt-2 text-sm text-slate-500">
             Confirm the highlights of your onboarding launch. You can revisit any step post-launch from workspace settings.
           </p>
+          {selectedPersonaHero?.poster ? (
+            <div className="mt-4 overflow-hidden rounded-2xl border border-slate-100">
+              <img
+                src={selectedPersonaHero.poster}
+                alt={selectedPersonaHero.alt || `${reviewSummary.persona?.title ?? 'Persona'} hero`}
+                className="w-full rounded-2xl object-cover"
+                loading="lazy"
+              />
+            </div>
+          ) : null}
+          {selectedPersonaPrimaryCta ? (
+            <div className="mt-4 flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">{selectedPersonaPrimaryCta}</p>
+                <p className="mt-1 text-xs text-slate-500">We’ll prioritise this moment as soon as you launch.</p>
+              </div>
+              {selectedPersonaPillar ? (
+                <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
+                  {selectedPersonaPillar}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
           <dl className="mt-6 space-y-4 text-sm text-slate-600">
             <div>
               <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Persona</dt>
@@ -703,6 +953,19 @@ export default function OnboardingWizard({
               </p>
             </div>
           </dl>
+          {primerHighlights.length ? (
+            <div className="mt-6">
+              <h4 className="text-sm font-semibold text-slate-900">Primer highlights</h4>
+              <ul className="mt-2 space-y-2 text-sm text-slate-600">
+                {primerHighlights.map((highlight) => (
+                  <li key={highlight} className="flex items-start gap-2">
+                    <span className="mt-1 inline-flex h-2 w-2 flex-none rounded-full bg-accent" aria-hidden="true" />
+                    <span>{highlight}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </section>
 
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-inner">
@@ -815,7 +1078,15 @@ export default function OnboardingWizard({
         </div>
       </div>
 
-      {error && <p className="rounded-2xl bg-rose-50 p-4 text-sm font-semibold text-rose-600">{error}</p>}
+      {error && (
+        <p
+          role="alert"
+          aria-live="assertive"
+          className="rounded-2xl bg-rose-50 p-4 text-sm font-semibold text-rose-600"
+        >
+          {error}
+        </p>
+      )}
     </div>
   );
 }

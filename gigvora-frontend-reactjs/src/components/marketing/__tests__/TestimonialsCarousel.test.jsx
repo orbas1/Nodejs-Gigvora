@@ -44,4 +44,22 @@ describe('TestimonialsCarousel', () => {
 
     expect(screen.getByText(/first testimonial/i)).toBeInTheDocument();
   });
+
+  it('supports keyboard navigation for manual control', async () => {
+    const user = userEvent.setup();
+
+    render(<TestimonialsCarousel testimonials={TESTIMONIALS} autoPlay={false} />);
+
+    const carousel = screen.getByRole('group', { name: /gigvora customer testimonials/i });
+    carousel.focus();
+
+    await user.keyboard('{ArrowRight}');
+    expect(screen.getByText(/second testimonial/i)).toBeInTheDocument();
+
+    await user.keyboard('{End}');
+    expect(screen.getByText(/third testimonial/i)).toBeInTheDocument();
+
+    await user.keyboard('{ArrowLeft}');
+    expect(screen.getByText(/second testimonial/i)).toBeInTheDocument();
+  });
 });

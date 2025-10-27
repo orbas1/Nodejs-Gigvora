@@ -521,28 +521,44 @@ function normalizeHomepageTestimonial(testimonial = {}, fallback = {}, index = 0
 
   const coerceCompany = () => {
     const companyCandidate =
-      testimonial.authorCompany ?? testimonial.company ?? testimonial.organisation ?? testimonial.organization;
-    return coerceOptionalString(companyCandidate, fallback.authorCompany ?? '');
+      testimonial.authorCompany ??
+      testimonial.company ??
+      testimonial.organisation ??
+      testimonial.organization ??
+      fallback.authorCompany ??
+      fallback.company;
+    return coerceOptionalString(companyCandidate, fallback.authorCompany ?? fallback.company ?? '');
   };
 
   const coerceAvatarAlt = () => {
-    const altCandidate = testimonial.avatarAlt ?? testimonial.avatarAltText ?? fallback.avatarAlt;
+    const altCandidate =
+      testimonial.avatarAlt ??
+      testimonial.avatar?.alt ??
+      testimonial.avatarAltText ??
+      fallback.avatarAlt ??
+      fallback.avatar?.alt;
     if (altCandidate) {
-      return coerceOptionalString(altCandidate, fallback.avatarAlt ?? '');
+      return coerceOptionalString(altCandidate, fallback.avatarAlt ?? fallback.avatar?.alt ?? '');
     }
     if (authorName) {
       return `${authorName} portrait`;
     }
-    return fallback.avatarAlt ?? '';
+    return fallback.avatarAlt ?? fallback.avatar?.alt ?? '';
   };
+
+  const role = coerceOptionalString(testimonial.authorRole ?? testimonial.role, fallback.authorRole ?? fallback.role ?? '');
+  const company = coerceCompany();
 
   return {
     id: ensureIdentifier('homepage-testimonial', testimonial.id, fallback.id, index),
     quote,
     authorName,
-    authorRole: coerceOptionalString(testimonial.authorRole, fallback.authorRole ?? ''),
-    authorCompany: coerceCompany(),
-    avatarUrl: coerceOptionalString(testimonial.avatarUrl, fallback.avatarUrl ?? ''),
+    name: authorName || fallback.name || fallback.authorName || '',
+    authorRole: role,
+    role,
+    authorCompany: company,
+    company,
+    avatarUrl: coerceOptionalString(testimonial.avatarUrl ?? testimonial.avatar?.src, fallback.avatarUrl ?? ''),
     avatarAlt: coerceAvatarAlt(),
     highlight: coerceHighlight(),
     badge: coerceBadge(),
@@ -889,17 +905,23 @@ function buildDefaultPlatformSettings() {
             quote:
               'Gigvora unlocked a vetted product pod in 48 hours—finance, compliance, and delivery were already aligned.',
             authorName: 'Leah Patel',
-            authorRole: 'VP Operations, Northwind Labs',
+            authorRole: 'VP Operations',
+            authorCompany: 'Northwind Labs',
             avatarUrl: 'https://cdn.gigvora.com/assets/avatars/leah-patel.png',
-            highlight: true,
+            avatarAlt: 'Portrait of Leah Patel smiling',
+            highlight: 'Scaled seven markets without adding ops headcount.',
+            badge: 'Enterprise rollout',
           },
           {
             id: 'acme',
             quote: 'Compliance workflows and milestone escrow meant we focused on shipping, not paperwork.',
             authorName: 'Marcus Chen',
-            authorRole: 'Head of Product, Acme Robotics',
+            authorRole: 'Head of Product',
+            authorCompany: 'Acme Robotics',
             avatarUrl: 'https://cdn.gigvora.com/assets/avatars/marcus-chen.png',
-            highlight: false,
+            avatarAlt: 'Portrait of Marcus Chen in a studio',
+            highlight: 'Closed enterprise launches with zero compliance escalations.',
+            badge: 'Automation leaders',
           },
         ],
         faqs: [

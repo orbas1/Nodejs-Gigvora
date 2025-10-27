@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import useFormState from '../../hooks/useFormState.js';
 import FormStatusMessage from '../forms/FormStatusMessage.jsx';
@@ -70,9 +70,11 @@ export default function PasswordReset({ token, className = '', onResetComplete }
   const [remainingSeconds, setRemainingSeconds] = useState(null);
   const [initialRemaining, setInitialRemaining] = useState(null);
   const [completionMeta, setCompletionMeta] = useState(null);
+  const [showExpiryWarning, setShowExpiryWarning] = useState(false);
 
   const { status, setStatus, message, messageType, setError, setInfo, setSuccess, clearMessage, feedbackProps } =
     useFormState('idle');
+  const passwordInputRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -159,6 +161,12 @@ export default function PasswordReset({ token, className = '', onResetComplete }
     }
   }, [setError, verificationState]);
 
+  useEffect(() => {
+    if (verificationState === 'valid' && passwordInputRef.current) {
+      passwordInputRef.current.focus({ preventScroll: true });
+    }
+  }, [verificationState]);
+
   const strength = useMemo(() => computeStrength(password), [password]);
   const strengthGuidance = useMemo(() => validatePasswordStrength(password), [password]);
   const passwordPolicySummary = useMemo(() => {
@@ -180,6 +188,14 @@ export default function PasswordReset({ token, className = '', onResetComplete }
     const consumed = Math.max(0, initialRemaining - remainingSeconds);
     return Math.min(100, Math.round((consumed / initialRemaining) * 100));
   }, [initialRemaining, remainingSeconds]);
+
+  useEffect(() => {
+    if (verificationState !== 'valid' || !Number.isFinite(remainingSeconds)) {
+      setShowExpiryWarning(false);
+      return;
+    }
+    setShowExpiryWarning(remainingSeconds <= 60);
+  }, [remainingSeconds, verificationState]);
 
   const disableForm =
     verificationState !== 'valid' || status === 'submitting' || status === 'verifying' || verificationState === 'expired';
@@ -255,6 +271,13 @@ export default function PasswordReset({ token, className = '', onResetComplete }
         </div>
       ) : null}
 
+      {showExpiryWarning ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700" role="alert">
+          <p className="font-semibold">Link expiring soon</p>
+          <p className="mt-1">Complete your reset within the next {formattedRemaining} to avoid requesting a new email.</p>
+        </div>
+      ) : null}
+
       <div className="space-y-2">
         <label htmlFor="new-password" className="text-sm font-medium text-slate-700">
           New password
@@ -273,6 +296,7 @@ export default function PasswordReset({ token, className = '', onResetComplete }
             autoComplete="new-password"
             minLength={12}
             required
+            ref={passwordInputRef}
           />
           <button
             type="button"

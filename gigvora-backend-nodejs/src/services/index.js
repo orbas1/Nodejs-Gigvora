@@ -62,6 +62,7 @@ export { default as creationStudioService } from './creationStudioService.js';
 export { default as runtimeMaintenanceService } from './runtimeMaintenanceService.js';
 export { default as runtimeObservabilityService } from './runtimeObservabilityService.js';
 export { default as liveServiceTelemetryService } from './liveServiceTelemetryService.js';
+export { default as backupRecoveryService } from './backupRecoveryService.js';
 export { default as networkingService } from './networkingService.js';
 export { default as newsAggregationService } from './newsAggregationService.js';
 export { default as adminMessagingService } from './adminMessagingService.js';

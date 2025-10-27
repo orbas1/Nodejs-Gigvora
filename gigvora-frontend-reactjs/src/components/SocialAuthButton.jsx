@@ -13,8 +13,9 @@ const PROVIDER_STYLES = {
       login: 'Instantly sync your professional identity and get back to your projects.',
       register: 'Bring your network, experience, and endorsements with a single click.',
     },
+    badge: 'Most popular with hiring teams',
     classes:
-      'bg-[#0A66C2] text-white hover:bg-[#0a61b6] focus-visible:outline-[#0A66C2]/80 focus-visible:ring-[#0A66C2]/40',
+      'bg-[#0A66C2] text-white hover:bg-[#0a61b6] focus-visible:outline-[#0A66C2]/80 focus-visible:ring-[#0A66C2]/40 focus-visible:ring-offset-2',
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-current">
         <path d="M4.98 3.5a2.48 2.48 0 1 1 0 4.96 2.48 2.48 0 0 1 0-4.96zM3 9.25h3.95V21H3zM9.5 9.25H13v1.6h.05c.49-.93 1.69-1.9 3.48-1.9 3.72 0 4.4 2.45 4.4 5.64V21H17V15c0-1.43-.03-3.27-1.99-3.27-1.99 0-2.3 1.56-2.3 3.16V21H9.5z" />
@@ -46,6 +47,7 @@ export default function SocialAuthButton({
   loading = false,
   className = '',
   showTagline = true,
+  surface = 'auth',
 }) {
   const style = PROVIDER_STYLES[provider];
 
@@ -56,6 +58,8 @@ export default function SocialAuthButton({
   const computedLabel = label || `${INTENT_LABELS[intent] ?? INTENT_LABELS.login} ${style.name}`;
   const resolvedTagline = tagline || style.tagline?.[intent] || style.tagline?.login || null;
   const isBusy = disabled || loading;
+  const taglineId = resolvedTagline ? `social-auth-${provider}-${intent}-tagline` : undefined;
+  const stackedContent = Boolean(style.badge);
 
   return (
     <div className={`group space-y-2 ${className}`}>
@@ -66,17 +70,27 @@ export default function SocialAuthButton({
         data-provider={provider}
         data-intent={intent}
         data-component="social-auth-button"
-        className={`flex w-full items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold shadow-soft transition focus-visible:outline focus-visible:outline-2 focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 ${style.classes}`}
+        data-analytics-surface={surface}
+        data-analytics-provider={provider}
+        data-analytics-intent={intent}
+        data-analytics-action="trigger-social-auth"
+        className={`flex w-full items-center justify-center gap-3 rounded-full px-6 py-3 text-sm font-semibold shadow-soft transition focus-visible:outline focus-visible:outline-2 focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 ${style.classes}`}
         aria-label={computedLabel}
         aria-busy={loading}
+        aria-describedby={taglineId}
       >
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/15">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15">
           {loading ? SPINNER_ICON : style.icon}
         </span>
-        <span>{computedLabel}</span>
+        <span className={`flex ${stackedContent ? 'flex-col items-start text-left leading-tight' : 'items-center gap-1'}`}>
+          <span>{computedLabel}</span>
+          {style.badge ? (
+            <span className="text-[10px] font-semibold uppercase tracking-[0.28em] text-white/80">{style.badge}</span>
+          ) : null}
+        </span>
       </button>
       {showTagline && resolvedTagline ? (
-        <p className="text-center text-xs text-slate-500 transition group-hover:text-slate-600">
+        <p id={taglineId} className="text-center text-xs text-slate-500 transition group-hover:text-slate-600">
           {resolvedTagline}
         </p>
       ) : null}
@@ -96,6 +110,7 @@ SocialAuthButton.propTypes = {
   loading: PropTypes.bool,
   className: PropTypes.string,
   showTagline: PropTypes.bool,
+  surface: PropTypes.string,
 };
 
 SocialAuthButton.defaultProps = {
@@ -107,4 +122,5 @@ SocialAuthButton.defaultProps = {
   loading: false,
   className: '',
   showTagline: true,
+  surface: 'auth',
 };

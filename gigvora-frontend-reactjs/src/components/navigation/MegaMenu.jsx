@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
 import analytics from '../../services/analytics.js';
 import { classNames } from '../../utils/classNames.js';
 
-export default function MegaMenu({ item }) {
+export default function MegaMenu({ item, forceOpen = false }) {
   const panelRef = useRef(null);
   const focusableSelector = useMemo(
     () => 'a[href]:not([tabindex="-1"]), button:not([disabled]), [tabindex]:not([tabindex="-1"])',
@@ -108,7 +108,7 @@ export default function MegaMenu({ item }) {
   }, [item.sections.length]);
 
   return (
-    <Popover className="relative">
+    <Popover className="relative" defaultOpen={forceOpen}>
       {({ open }) => (
         <>
           <Popover.Button
@@ -268,4 +268,5 @@ MegaMenu.propTypes = {
       }),
     ).isRequired,
   }).isRequired,
+  forceOpen: PropTypes.bool,
 };
