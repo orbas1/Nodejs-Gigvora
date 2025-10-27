@@ -1,6 +1,6 @@
 import React from 'react';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../services/apiClient.js', () => {
   const mock = {
@@ -15,14 +15,65 @@ vi.mock('../../services/apiClient.js', () => {
 import { SessionProvider, useSession } from '../SessionContext.jsx';
 import apiClient from '../../services/apiClient.js';
 
+class MockBroadcastChannel {
+  constructor(name) {
+    this.name = name;
+    this.listeners = new Set();
+    MockBroadcastChannel.channels.add(this);
+  }
+
+  postMessage(data) {
+    MockBroadcastChannel.channels.forEach((channel) => {
+      if (channel.name !== this.name) {
+        return;
+      }
+      channel.listeners.forEach((listener) => listener({ data }));
+    });
+  }
+
+  addEventListener(event, listener) {
+    if (event !== 'message') {
+      return;
+    }
+    this.listeners.add(listener);
+  }
+
+  removeEventListener(event, listener) {
+    if (event !== 'message') {
+      return;
+    }
+    this.listeners.delete(listener);
+  }
+
+  close() {
+    this.listeners.clear();
+    MockBroadcastChannel.channels.delete(this);
+  }
+}
+
+MockBroadcastChannel.channels = new Set();
+MockBroadcastChannel.reset = () => {
+  MockBroadcastChannel.channels.forEach((channel) => {
+    channel.listeners.clear();
+  });
+  MockBroadcastChannel.channels.clear();
+};
+
 function wrapper({ children }) {
   return <SessionProvider>{children}</SessionProvider>;
 }
 
 describe('SessionContext', () => {
   beforeEach(() => {
+    window.BroadcastChannel = MockBroadcastChannel;
+    MockBroadcastChannel.reset();
     window.localStorage.clear();
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    MockBroadcastChannel.reset();
+    delete window.BroadcastChannel;
   });
 
   it('normalises session payloads and exposes RBAC helpers', async () => {
@@ -43,6 +94,10 @@ describe('SessionContext', () => {
         },
       },
       features: ['reports:generate'],
+      featureFlags: {
+        'reports:generate': { enabled: true, metadata: { cohort: 'alpha' } },
+        'networking:beta': { enabled: false },
+      },
     };
 
     const { result } = renderHook(() => useSession(), { wrapper });
@@ -68,6 +123,11 @@ describe('SessionContext', () => {
     );
     expect(result.current.hasRole('ADMIN')).toBe(true);
     expect(result.current.hasPermission('calendar:manage')).toBe(true);
+    expect(result.current.isFeatureEnabled('reports:generate')).toBe(true);
+    expect(result.current.isFeatureEnabled('REPORTS_GENERATE')).toBe(true);
+    expect(result.current.isFeatureEnabled('networking:beta')).toBe(false);
+    expect(result.current.enabledFeatureFlagKeys).toContain('reports:generate');
+    expect(result.current.featureFlagKeys).toEqual(expect.arrayContaining(['reports:generate', 'networking:beta']));
     await waitFor(() => {
       expect(window.localStorage.getItem('gigvora:web:session')).not.toBeNull();
     });
@@ -104,5 +164,83 @@ describe('SessionContext', () => {
     expect(apiClient.clearRefreshToken).toHaveBeenCalled();
     expect(result.current.session).toBeNull();
     expect(window.localStorage.getItem('gigvora:web:session')).toBeNull();
+  });
+
+  it('synchronises session updates from storage events', async () => {
+    const { result } = renderHook(() => useSession(), { wrapper });
+
+    act(() => {
+      result.current.login({
+        id: 'user-10',
+        memberships: ['freelancer'],
+        tokens: { accessToken: 'initial-token', refreshToken: 'initial-refresh' },
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.session?.id).toBe('user-10');
+    });
+
+    const updatedSession = {
+      id: 'user-42',
+      memberships: ['company'],
+      featureFlags: { 'networking:beta': { enabled: true } },
+      tokens: { accessToken: 'shared-token', refreshToken: 'shared-refresh' },
+    };
+
+    window.localStorage.setItem('gigvora:web:session', JSON.stringify(updatedSession));
+
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent('storage', {
+          key: 'gigvora:web:session',
+          newValue: JSON.stringify(updatedSession),
+          storageArea: window.localStorage,
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(result.current.session?.id).toBe('user-42');
+      expect(result.current.isFeatureEnabled('networking:beta')).toBe(true);
+    });
+  });
+
+  it('propagates session updates through BroadcastChannel listeners', async () => {
+    const first = renderHook(() => useSession(), { wrapper });
+    const second = renderHook(() => useSession(), { wrapper });
+
+    await waitFor(() => {
+      expect(MockBroadcastChannel.channels.size).toBe(2);
+    });
+
+    act(() => {
+      first.result.current.login({
+        id: 'user-10',
+        memberships: ['freelancer'],
+        tokens: { accessToken: 'initial-token', refreshToken: 'initial-refresh' },
+      });
+    });
+
+    await waitFor(() => {
+      expect(first.result.current.session?.id).toBe('user-10');
+    });
+
+    await waitFor(() => {
+      expect(second.result.current.session?.id).toBe('user-10');
+    });
+
+    act(() => {
+      first.result.current.updateSession({
+        featureFlags: { 'networking:beta': { enabled: true } },
+      });
+    });
+
+    await waitFor(() => {
+      expect(second.result.current.isFeatureEnabled('networking:beta')).toBe(true);
+    });
+
+    first.unmount();
+    second.unmount();
   });
 });
