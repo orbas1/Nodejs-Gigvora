@@ -68,6 +68,11 @@ export const ADMIN_MENU_SECTIONS = [
         name: 'Audit',
         sectionId: 'admin-audit',
       },
+      {
+        name: 'Release ops',
+        sectionId: 'release-ops',
+        href: '/dashboard/admin/release-operations',
+      },
     ],
   },
   {
