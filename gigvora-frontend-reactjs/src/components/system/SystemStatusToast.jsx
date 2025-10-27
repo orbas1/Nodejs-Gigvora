@@ -435,8 +435,7 @@ export default function SystemStatusToast({
             <FeedbackMetric label="Experience score" value={feedback.experienceScore?.toFixed(1)} delta={feedback.trendDelta} />
             <FeedbackMetric
               label="Queue depth"
-              value={`${feedback.queueDepth ?? '—'}`
-              }
+              value={typeof feedback.queueDepth === 'number' ? feedback.queueDepth : '—'}
               target={feedback.queueTarget}
             />
             <FeedbackMetric
@@ -444,6 +443,11 @@ export default function SystemStatusToast({
               value={feedback.medianResponseMinutes ? `${feedback.medianResponseMinutes}m` : '—'}
             />
           </div>
+          {typeof feedback.totalResponses === 'number' ? (
+            <p className="mt-3 text-[0.7rem] uppercase tracking-[0.25em] text-white/50">
+              Total responses · {feedback.totalResponses.toLocaleString()}
+            </p>
+          ) : null}
           {Array.isArray(feedback.alerts) && feedback.alerts.length > 0 ? (
             <div className="mt-3 space-y-2">
               {feedback.alerts.map((alert) => (
@@ -679,11 +683,14 @@ function FeedbackMetric({ label, value = '—', delta, target }) {
   const deltaValue = typeof delta === 'number' ? `${delta > 0 ? '+' : ''}${delta.toFixed(1)}` : null;
   const hasTarget = typeof target === 'number';
   let loadColour = 'text-white';
-  if (hasTarget && typeof value === 'string') {
-    const numeric = Number.parseFloat(value);
-    if (!Number.isNaN(numeric)) {
-      loadColour = numeric > target ? 'text-amber-200' : 'text-emerald-200';
-    }
+  const numericValue =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? Number.parseFloat(value)
+        : Number.NaN;
+  if (hasTarget && Number.isFinite(numericValue)) {
+    loadColour = numericValue > target ? 'text-amber-200' : 'text-emerald-200';
   }
 
   return (
@@ -702,7 +709,7 @@ function FeedbackMetric({ label, value = '—', delta, target }) {
 
 FeedbackMetric.propTypes = {
   label: PropTypes.string.isRequired,
-  value: PropTypes.string,
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   delta: PropTypes.number,
   target: PropTypes.number,
 };

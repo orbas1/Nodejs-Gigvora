@@ -75,6 +75,7 @@ function buildStatus(overrides = {}) {
       medianResponseMinutes: 4,
       lastUpdated: '2024-05-11T22:55:00.000Z',
       reviewUrl: 'https://gigvora.com/ops/feedback',
+      totalResponses: 512,
       alerts: [
         {
           id: 'alert-1',
@@ -127,6 +128,7 @@ describe('SystemStatusToast', () => {
     expect(screen.getByText(/Impact overview/i)).toBeInTheDocument();
     expect(screen.getByText(/Draft postmortem template/)).toBeInTheDocument();
     expect(screen.getByText(/Queue depth/)).toBeInTheDocument();
+    expect(screen.getByText(/Total responses/)).toBeInTheDocument();
   });
 
   it('disables acknowledge button once acknowledged and triggers callback', async () => {
