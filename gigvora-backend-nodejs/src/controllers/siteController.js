@@ -5,6 +5,8 @@ import {
   getPublishedSitePage,
 } from '../services/siteManagementService.js';
 import { getNavigationChrome } from '../services/navigationChromeService.js';
+import { getDesignSystemSnapshot } from '../services/designSystemService.js';
+import { getNavigationGovernanceSnapshot } from '../services/navigationGovernanceService.js';
 import { AuthorizationError, ValidationError } from '../utils/errors.js';
 import { resolveRequestPermissions, resolveRequestUserId } from '../utils/requestContext.js';
 
@@ -78,6 +80,18 @@ export async function navigationChrome(req, res) {
   res.json({ chrome });
 }
 
+export async function navigationGovernance(req, res) {
+  const includeRoutes = req.query?.includeRoutes !== 'false';
+  const governance = await getNavigationGovernanceSnapshot({ includeRoutes });
+  res.json({ governance });
+}
+
+export async function designSystem(req, res) {
+  const { mode, accent, density } = req.query ?? {};
+  const designSystem = await getDesignSystemSnapshot({ mode, accent, density });
+  res.json({ designSystem });
+}
+
 export async function index(req, res) {
   const status = `${req.query?.status ?? 'published'}`.trim().toLowerCase();
   const includeDrafts = req.query?.includeDrafts === 'true';
@@ -108,6 +122,8 @@ export default {
   settings,
   navigation,
   navigationChrome,
+  navigationGovernance,
+  designSystem,
   index,
   show,
 };

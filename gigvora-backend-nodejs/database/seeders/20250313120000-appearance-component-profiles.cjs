@@ -50,20 +50,21 @@ module.exports = {
       );
 
       const themeId = defaultTheme?.id ?? null;
-      const components = [
-        {
-          componentKey: 'buttonSuite',
-          definition: tokens.buttonSuite ?? {},
-        },
-        {
-          componentKey: 'inputFieldSet',
-          definition: tokens.inputFieldSet ?? {},
-        },
-        {
-          componentKey: 'cardScaffold',
-          definition: tokens.cardScaffold ?? {},
-        },
+      const componentKeys = [
+        'buttonSuite',
+        'inputFieldSet',
+        'cardScaffold',
+        'brandBadge',
+        'personaChip',
+        'statBlock',
       ];
+
+      const components = componentKeys
+        .filter((componentKey) => tokens[componentKey])
+        .map((componentKey) => ({
+          componentKey,
+          definition: JSON.parse(JSON.stringify(tokens[componentKey])),
+        }));
 
       for (const component of components) {
         await queryInterface.bulkDelete(
