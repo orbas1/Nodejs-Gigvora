@@ -223,6 +223,36 @@ export default function HomePage() {
   const heroPersonaChips = Array.isArray(homeData?.settings?.heroPersonaChips)
     ? homeData.settings.heroPersonaChips
     : undefined;
+  const heroInsightStats = useMemo(() => {
+    if (!Array.isArray(homeData?.settings?.heroInsightStats)) {
+      return undefined;
+    }
+
+    const stats = homeData.settings.heroInsightStats
+      .map((stat) => {
+        if (!stat) return null;
+        if (typeof stat === 'string') {
+          return { id: stat, label: stat };
+        }
+        if (typeof stat === 'object') {
+          const label = stat.label ?? stat.title ?? stat.name ?? stat.value ?? stat.helper;
+          if (!label) {
+            return null;
+          }
+          return {
+            id: stat.id ?? stat.key ?? stat.slug ?? label,
+            label,
+            ...(stat.value ? { value: stat.value } : {}),
+            ...(stat.helper ? { helper: stat.helper } : {}),
+          };
+        }
+        return null;
+      })
+      .filter(Boolean)
+      .slice(0, 6);
+
+    return stats.length ? stats : undefined;
+  }, [homeData?.settings?.heroInsightStats]);
   const heroValuePillars = Array.isArray(homeData?.settings?.heroValuePillars)
     ? homeData.settings.heroValuePillars
     : undefined;
@@ -478,6 +508,7 @@ export default function HomePage() {
             onBrowseOpportunities={() => navigate('/gigs')}
             productMedia={heroMedia}
             personaChips={heroPersonaChips}
+            insightStats={heroInsightStats}
             valuePillars={heroValuePillars}
           />
         ),

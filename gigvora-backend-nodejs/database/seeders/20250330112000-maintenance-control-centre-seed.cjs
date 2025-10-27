@@ -16,6 +16,7 @@ module.exports = {
           queueDepth: 9,
           queueTarget: 6,
           medianResponseMinutes: 3,
+          totalResponses: 427,
           sentimentNarrative:
             'Sentiment remains above target; monitor APAC queue spikes and social chatter to keep delighters high.',
           reviewUrl: 'https://gigvora.com/ops/feedback',
@@ -73,6 +74,7 @@ module.exports = {
         severity: 'operational',
         impactSurface: 'Platform & APIs',
         capturedAt: now,
+        nextUpdateAt: new Date(now.getTime() + 30 * 60 * 1000),
         acknowledgedAt: null,
         acknowledgedBy: null,
         incidentRoomUrl: 'https://gigvora.slack.com/archives/gigvora-ops',
@@ -110,6 +112,24 @@ module.exports = {
             message: 'Pager duty escalation nearing 12m response SLA. Confirm command rotation availability.',
           },
         ],
+        impacts: [
+          {
+            id: 'impact-feed',
+            label: 'Member feed',
+            audience: 'Global members',
+            severity: 'notice',
+            description: 'Stories may refresh slower in EMEA cohorts while cache warming completes.',
+            degradation: 0.08,
+          },
+          {
+            id: 'impact-api',
+            label: 'Partner API',
+            audience: 'Strategic partners',
+            severity: 'operational',
+            description: 'Monitoring gateway metrics — no impact expected.',
+            degradation: 0,
+          },
+        ],
         escalations: [
           {
             id: 'escalation-postmortem',
@@ -132,6 +152,7 @@ module.exports = {
           startAt: new Date(now.getTime() + 45 * 60 * 1000),
           endAt: new Date(now.getTime() + 165 * 60 * 1000),
           timezone: 'UTC',
+          nextUpdateAt: new Date(now.getTime() + 75 * 60 * 1000),
         },
         feedbackSnapshotId: feedbackId,
         createdAt: now,

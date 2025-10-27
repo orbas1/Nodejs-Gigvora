@@ -34,6 +34,27 @@ const FALLBACK_PERSONA_CHIPS = [
   'Recruiters hiring across global hubs',
 ];
 
+const FALLBACK_INSIGHT_STATS = [
+  {
+    id: 'global-network',
+    label: 'Global network',
+    value: '7,800+ mentors & specialists',
+    helper: 'Curated pods across 60+ countries keep every launch moving.',
+  },
+  {
+    id: 'cycle-time',
+    label: 'Cycle-time gains',
+    value: '38% faster programme launches',
+    helper: 'Unified rituals and playbooks streamline every mission.',
+  },
+  {
+    id: 'trust-score',
+    label: 'Enterprise trust',
+    value: '99.95% uptime · SOC2 monitored',
+    helper: 'Treasury, legal, and risk automation built into every workflow.',
+  },
+];
+
 const FALLBACK_VALUE_PILLARS = [
   {
     id: 'command-centre',
@@ -97,6 +118,7 @@ export function HomeHeroSection({
   onBrowseOpportunities,
   productMedia,
   personaChips,
+  insightStats,
   valuePillars,
 }) {
   const resolvedKeywords = normaliseKeywords(keywords);
@@ -107,6 +129,7 @@ export function HomeHeroSection({
   const heroMedia = { ...FALLBACK_MEDIA, ...(productMedia ?? {}) };
 
   const heroPersonaChips = Array.isArray(personaChips) && personaChips.length ? personaChips : FALLBACK_PERSONA_CHIPS;
+  const heroInsightStats = Array.isArray(insightStats) && insightStats.length ? insightStats : FALLBACK_INSIGHT_STATS;
   const heroValuePillars = Array.isArray(valuePillars) && valuePillars.length ? valuePillars : FALLBACK_VALUE_PILLARS;
 
   const primaryAction = {
@@ -146,6 +169,7 @@ export function HomeHeroSection({
       primaryAction={primaryAction}
       secondaryAction={secondaryAction}
       personaChips={heroPersonaChips}
+      insightStats={heroInsightStats}
       valuePillars={heroValuePillars}
       media={heroMedia}
       mediaCaption={productMedia?.caption}
@@ -154,6 +178,7 @@ export function HomeHeroSection({
         viewEventName: 'web_home_hero_viewed',
         ctaEventName: 'web_home_hero_cta',
         pillarEventName: 'web_home_value_pillar_action',
+        statEventName: 'web_home_hero_stats_viewed',
       }}
     />
   );
@@ -200,6 +225,17 @@ HomeHeroSection.propTypes = {
       }),
     ]),
   ),
+  insightStats: PropTypes.arrayOf(
+    PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.shape({
+        id: PropTypes.string,
+        label: PropTypes.string,
+        value: PropTypes.string,
+        helper: PropTypes.string,
+      }),
+    ]),
+  ),
   valuePillars: PropTypes.arrayOf(
     PropTypes.shape({
       id: PropTypes.string,
@@ -231,6 +267,7 @@ HomeHeroSection.defaultProps = {
   onBrowseOpportunities: undefined,
   productMedia: undefined,
   personaChips: undefined,
+  insightStats: undefined,
   valuePillars: undefined,
 };
 

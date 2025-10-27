@@ -29,6 +29,13 @@ function formatUpdatedAt(value) {
   }
 }
 
+function clampToPercentage(value) {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    return null;
+  }
+  return Math.min(Math.max(value, 0), 200);
+}
+
 export default function FeedbackPulse({ analytics, onReview }) {
   const segments = Array.isArray(analytics.segments) ? analytics.segments : [];
   const highlights = Array.isArray(analytics.highlights) ? analytics.highlights : [];
@@ -40,23 +47,49 @@ export default function FeedbackPulse({ analytics, onReview }) {
     ? analytics.queueDepth / queueTarget
     : null;
   const queueAboveTarget = typeof queueLoad === 'number' && queueLoad > 1;
+  const totalResponses = typeof analytics.totalResponses === 'number' ? analytics.totalResponses : null;
+  const queuePercent = typeof queueLoad === 'number' ? clampToPercentage(queueLoad * 100) : null;
+  const queueStatusLabel = (() => {
+    if (queuePercent === null) {
+      return null;
+    }
+    if (queuePercent <= 100) {
+      return 'Within target';
+    }
+    const overage = Math.round(queuePercent - 100);
+    return `Over target by ${overage}%`;
+  })();
 
   return (
     <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-slate-900/95 p-6 text-white shadow-soft">
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/30 via-violet-500/20 to-slate-900/90" aria-hidden />
       <div className="relative space-y-6">
         <header className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-white/70">Experience pulse</p>
-            <h3 className="text-2xl font-semibold text-white">
-              {analytics.experienceScore.toFixed(1)}
-              <span className="ml-2 text-sm font-medium text-emerald-200">
-                {formatTrend(analytics.trendDelta)}
-              </span>
-            </h3>
-            <p className="mt-1 text-sm text-white/70">Real-time sentiment across maintenance audiences.</p>
+          <div className="flex items-start gap-4">
+            <div className="relative flex h-24 w-24 flex-col items-center justify-center">
+              <div className="absolute inset-0 animate-pulse rounded-full bg-emerald-500/10 blur-xl" aria-hidden />
+              <div className="relative flex h-full w-full flex-col items-center justify-center rounded-full border border-emerald-400/40 bg-white/10 text-center shadow-[0_12px_40px_rgba(16,185,129,0.25)]">
+                <span className="text-3xl font-semibold text-white">
+                  {analytics.experienceScore.toFixed(1)}
+                </span>
+                <span className="mt-1 text-xs font-semibold uppercase tracking-[0.3em] text-white/60">Pulse</span>
+              </div>
+              <span className="mt-2 text-sm font-medium text-emerald-200">{formatTrend(analytics.trendDelta)}</span>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-white/70">Experience pulse</p>
+              <h3 className="text-xl font-semibold text-white">Real-time sentiment across maintenance audiences.</h3>
+              <p className="mt-2 text-sm text-white/70">
+                Benchmarked against LinkedIn-class support programmes with concierge-grade storytelling.
+              </p>
+              {totalResponses !== null ? (
+                <p className="mt-3 text-[0.7rem] uppercase tracking-[0.3em] text-white/50">
+                  Total responses · {totalResponses.toLocaleString()}
+                </p>
+              ) : null}
+            </div>
           </div>
-          <div className="text-right text-xs text-white/70">
+          <div className="text-right text-xs text-white/70 space-y-1">
             <p>
               Queue depth:{' '}
               <span className={`font-semibold ${queueAboveTarget ? 'text-amber-200' : 'text-white'}`}>
@@ -70,6 +103,28 @@ export default function FeedbackPulse({ analytics, onReview }) {
             <p>Updated {formatUpdatedAt(analytics.lastUpdated)}</p>
           </div>
         </header>
+
+        {queuePercent !== null ? (
+          <div className="rounded-2xl border border-white/10 bg-white/10 p-4 text-xs text-white/80">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-semibold uppercase tracking-[0.3em] text-white/60">Queue load</p>
+              {queueStatusLabel ? (
+                <span className={`rounded-full px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.25em] ${queueAboveTarget ? 'bg-amber-500/20 text-amber-100' : 'bg-emerald-500/20 text-emerald-100'}`}>
+                  {queueStatusLabel}
+                </span>
+              ) : null}
+            </div>
+            <div className="mt-3 h-2 w-full rounded-full bg-white/10">
+              <div
+                className={`${queueAboveTarget ? 'bg-amber-400/80' : 'bg-emerald-400/80'} h-full rounded-full`}
+                style={{ width: `${queuePercent > 180 ? 180 : queuePercent}%` }}
+              />
+            </div>
+            <p className="mt-2 text-[0.65rem] uppercase tracking-[0.25em] text-white/50">
+              Target {queueTarget} · Current {analytics.queueDepth}
+            </p>
+          </div>
+        ) : null}
 
         {alerts.length > 0 ? (
           <div className="space-y-2">
@@ -236,6 +291,7 @@ FeedbackPulse.propTypes = {
     lastUpdated: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
     reviewUrl: PropTypes.string,
     queueTarget: PropTypes.number,
+    totalResponses: PropTypes.number,
     segments: PropTypes.arrayOf(
       PropTypes.shape({
         id: PropTypes.string.isRequired,

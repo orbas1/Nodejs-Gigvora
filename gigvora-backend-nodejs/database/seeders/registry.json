@@ -54,5 +54,12 @@
     "personas": ["founder", "freelancer", "talent"],
     "domains": ["onboarding", "workspace", "network"],
     "tags": ["onboarding", "personas", "journeys"]
+  },
+  "20250412094500-mobile-app-governance-demo": {
+    "title": "Mobile app governance & rollout cockpit",
+    "summary": "Seeds executive iOS and operations Android companions with governed versions, staged releases, and feature cohorts for transformation reviews.",
+    "personas": ["executive", "operations", "platform-ops"],
+    "domains": ["mobile", "platform", "governance"],
+    "tags": ["mobile", "rollout", "executive"]
   }
 }
