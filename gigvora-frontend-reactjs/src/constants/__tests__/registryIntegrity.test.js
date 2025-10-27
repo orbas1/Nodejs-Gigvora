@@ -54,6 +54,8 @@ import {
   resolvePrimaryNavigation,
   resolvePrimaryRoleKey,
   buildRoleOptions,
+  navigationGovernanceMatrix,
+  createNavigationGovernanceMatrix,
 } from '../navigation.js';
 import { DASHBOARD_LINKS } from '../dashboardLinks.js';
 import { DATABASE_STATUS_STYLES } from '../databaseStatusStyles.js';
@@ -181,10 +183,25 @@ describe('navigation', () => {
     expect(Object.isFrozen(timelineAccessRoles)).toBe(true);
   });
 
+  it('locks navigation governance metadata', () => {
+    expect(Object.isFrozen(navigationGovernanceMatrix)).toBe(true);
+    expect(Array.isArray(navigationGovernanceMatrix.marketing)).toBe(true);
+    const auditEntry = navigationGovernanceMatrix.marketing.find((item) => item.itemId === 'discover-connections');
+    expect(auditEntry.analyticsId).toBe('discover.connections');
+    expect(auditEntry.personas).toContain('mentor');
+    expect(Array.isArray(navigationGovernanceMatrix.personaDashboards)).toBe(true);
+  });
+
   it('resolves primary roles consistently', () => {
     expect(resolvePrimaryRoleKey({ primaryDashboard: 'Agency' })).toBe('agency');
     expect(resolvePrimaryRoleKey({ memberships: ['Freelancer', 'Agency'] })).toBe('freelancer');
     expect(resolvePrimaryRoleKey({})).toBe('user');
+  });
+
+  it('produces fresh governance matrices for runtime analytics', () => {
+    const dynamicMatrix = createNavigationGovernanceMatrix();
+    expect(Array.isArray(dynamicMatrix.marketing)).toBe(true);
+    expect(dynamicMatrix).not.toBe(navigationGovernanceMatrix);
   });
 
   it('builds specialised navigation by role', () => {
