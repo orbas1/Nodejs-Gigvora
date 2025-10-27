@@ -21,6 +21,16 @@ const personaShape = PropTypes.shape({
     }),
   ),
   recommendedModules: PropTypes.arrayOf(PropTypes.string),
+  heroMedia: PropTypes.shape({
+    poster: PropTypes.string,
+    alt: PropTypes.string,
+  }),
+  metadata: PropTypes.shape({
+    primaryCta: PropTypes.string,
+    personaPillar: PropTypes.string,
+    primerHighlights: PropTypes.arrayOf(PropTypes.string),
+    recommendedRoles: PropTypes.arrayOf(PropTypes.string),
+  }),
 });
 
 const DEFAULT_PERSONAS = [
@@ -49,6 +59,20 @@ const DEFAULT_PERSONAS = [
       },
     ],
     recommendedModules: ['Company spotlight', 'Talent marketing studio', 'Referral hub', 'Executive briefings'],
+    heroMedia: {
+      poster: 'https://cdn.gigvora.com/onboarding/personas/founder/hero.jpg',
+      alt: 'Founding team reviewing brand analytics dashboards',
+    },
+    metadata: {
+      primaryCta: 'Launch hiring brand workspace',
+      personaPillar: 'hiring-brand',
+      primerHighlights: [
+        'Instantly publish a flagship profile with testimonials and impact stats.',
+        'Automate referral sourcing, warm outreach, and campaign recaps.',
+        'Keep leadership informed with Monday-ready hiring analytics.',
+      ],
+      recommendedRoles: ['Head of People', 'Talent partner', 'Employer brand lead'],
+    },
   },
   {
     id: 'freelancer',
@@ -75,6 +99,20 @@ const DEFAULT_PERSONAS = [
       },
     ],
     recommendedModules: ['Service portfolio', 'Gig pipeline', 'Proposal studio', 'Client collaboration hub'],
+    heroMedia: {
+      poster: 'https://cdn.gigvora.com/onboarding/personas/freelancer/hero.jpg',
+      alt: 'Independent consultant presenting a digital workspace to clients',
+    },
+    metadata: {
+      primaryCta: 'Spin up deal-flow cockpit',
+      personaPillar: 'independent-talent',
+      primerHighlights: [
+        'Curate your best work with reels, testimonials, and packaged offers.',
+        'Sync proposals, follow-ups, and warm intros to stay top-of-mind.',
+        'Activate AI insights so you never miss deal momentum.',
+      ],
+      recommendedRoles: ['Founder', 'Revenue partner', 'Operations lead'],
+    },
   },
   {
     id: 'talent-leader',
@@ -101,6 +139,20 @@ const DEFAULT_PERSONAS = [
       },
     ],
     recommendedModules: ['Talent analytics', 'Onboarding programs', 'Employee advocacy', 'Leadership dashboards'],
+    heroMedia: {
+      poster: 'https://cdn.gigvora.com/onboarding/personas/talent-leader/hero.jpg',
+      alt: 'People leader hosting a global onboarding workshop over video',
+    },
+    metadata: {
+      primaryCta: 'Orchestrate onboarding journeys',
+      personaPillar: 'people-ops',
+      primerHighlights: [
+        'Blend ATS signals, people analytics, and onboarding checklists.',
+        'Publish journeys with tailored templates and automation triggers.',
+        'Deliver executive briefings with hiring velocity and satisfaction deltas.',
+      ],
+      recommendedRoles: ['Chief of Staff', 'People partner', 'Operations lead'],
+    },
   },
 ];
 
@@ -137,6 +189,12 @@ export default function PersonaSelection({
       <div className="grid gap-4 xl:grid-cols-3">
         {personaList.map((persona) => {
           const isSelected = persona.id === value;
+          const personaPillarLabel = persona.metadata?.personaPillar
+            ? persona.metadata.personaPillar
+                .split('-')
+                .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+                .join(' ')
+            : 'Premium onboarding';
           return (
             <button
               key={persona.id}
@@ -151,7 +209,27 @@ export default function PersonaSelection({
               ].join(' ')}
               disabled={disabled}
             >
-              <div className="flex items-start justify-between gap-3">
+              {persona.heroMedia?.poster ? (
+                <div className="overflow-hidden rounded-2xl">
+                  <img
+                    src={persona.heroMedia.poster}
+                    alt={persona.heroMedia.alt || `${persona.title} hero`}
+                    className="h-32 w-full rounded-2xl object-cover transition duration-200 group-hover:scale-[1.02]"
+                    loading="lazy"
+                  />
+                </div>
+              ) : (
+                <div className="flex h-32 items-center justify-start rounded-2xl bg-gradient-to-r from-slate-900 via-slate-700 to-slate-900 p-4 text-xs font-semibold uppercase tracking-[0.3em] text-emerald-300">
+                  Workspace preview
+                </div>
+              )}
+
+              <div className="mt-4 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                <span className="inline-flex h-2 w-2 rounded-full bg-accent" aria-hidden="true" />
+                {personaPillarLabel}
+              </div>
+
+              <div className="flex items-start justify-between gap-3 pt-5">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-accent">Persona</p>
                   <h3 className="mt-2 text-lg font-semibold text-slate-900">{persona.title}</h3>
@@ -226,6 +304,15 @@ export default function PersonaSelection({
                   </div>
                 </div>
               )}
+
+              {persona.metadata?.primaryCta ? (
+                <div className="mt-6 flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                  <span className="text-sm font-semibold text-slate-700">{persona.metadata.primaryCta}</span>
+                  <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
+                    Ready
+                  </span>
+                </div>
+              ) : null}
             </button>
           );
         })}

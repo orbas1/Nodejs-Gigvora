@@ -13,6 +13,11 @@ const DEFAULT_SLIDES = [
       { label: 'Launch readiness', value: '98%' },
     ],
     checklist: ['Smart metrics auto-refresh every Monday', 'Executive briefs ship to email and Slack'],
+    media: {
+      type: 'image',
+      src: 'https://cdn.gigvora.com/onboarding/primer/insights.jpg',
+      alt: 'Workspace insights dashboard with KPIs and deltas',
+    },
   },
   {
     id: 'primer-automation',
@@ -29,6 +34,11 @@ const DEFAULT_SLIDES = [
     description:
       'Invite leaders, approvers, and partners with role-based dashboards so everyone sees the right insights immediately.',
     checklist: ['Role-aware permissions with audit trails', 'Calendar-ready rituals and reminders'],
+    media: {
+      type: 'image',
+      src: 'https://cdn.gigvora.com/onboarding/primer/collaboration.jpg',
+      alt: 'Teammates collaborating across devices in a workspace',
+    },
   },
 ];
 
@@ -155,6 +165,16 @@ export default function WorkspacePrimerCarousel({
           </span>
           <h3 className="text-xl font-semibold text-slate-900">{activeSlide.title}</h3>
           <p className="text-sm text-slate-600">{activeSlide.description}</p>
+          {activeSlide.media?.type === 'image' && activeSlide.media?.src ? (
+            <div className="overflow-hidden rounded-2xl border border-slate-100 bg-slate-50">
+              <img
+                src={activeSlide.media.src}
+                alt={activeSlide.media.alt || `${activeSlide.title} preview`}
+                className="mt-4 w-full rounded-2xl object-cover"
+                loading="lazy"
+              />
+            </div>
+          ) : null}
           {activeSlide.metrics?.length ? (
             <dl className="grid gap-3 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600 md:grid-cols-2">
               {activeSlide.metrics.map((metric) => (
@@ -233,6 +253,12 @@ const slideShape = PropTypes.shape({
   description: PropTypes.string.isRequired,
   metrics: PropTypes.arrayOf(metricShape),
   checklist: PropTypes.arrayOf(PropTypes.string),
+  media: PropTypes.shape({
+    type: PropTypes.oneOf(['image', 'video']),
+    src: PropTypes.string,
+    alt: PropTypes.string,
+    poster: PropTypes.string,
+  }),
 });
 
 WorkspacePrimerCarousel.propTypes = {
