@@ -52,6 +52,22 @@ const baseProfileHub = {
     ],
     pending: [],
   },
+  workspace: {
+    metrics: {
+      followers: 42,
+      activeFollowers: 38,
+      connections: 12,
+      favouriteConnections: 4,
+      timelinePublished: 6,
+      portfolioPublished: 3,
+      engagementRate: '62%',
+    },
+    highlights: ['42 followers tuning into updates'],
+    actions: ['Review and schedule pending timeline drafts.'],
+    cadenceGoal: 'Publish twice weekly',
+    timezone: 'Europe/Berlin',
+    pinnedCampaigns: [{ id: 'camp-1', name: 'Founders Summit' }],
+  },
 };
 
 describe('ProfileHubWorkspace', () => {
@@ -175,5 +191,33 @@ describe('ProfileHubWorkspace', () => {
         expect.objectContaining({ favourite: true }),
       );
     });
+  });
+
+  it('surfaces workspace summary metrics and actions', async () => {
+    renderWorkspace();
+
+    expect(await screen.findByText(/Profile completeness/i)).toBeInTheDocument();
+    expect(screen.getByText('Publish twice weekly')).toBeInTheDocument();
+    expect(screen.getByText('42 followers tuning into updates')).toBeInTheDocument();
+    expect(screen.getByText(/Review and schedule pending timeline drafts\./i)).toBeInTheDocument();
+    expect(screen.getByText('Founders Summit')).toBeInTheDocument();
+  });
+
+  it('alerts when profile changes diverge from the saved baseline', async () => {
+    const user = userEvent.setup();
+    renderWorkspace();
+
+    const headlineInput = await screen.findByLabelText('Name headline');
+    await user.clear(headlineInput);
+    await user.type(headlineInput, 'Chief Product Officer');
+
+    expect(await screen.findByText(/Unsaved changes/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Reset draft/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Name headline')).toHaveValue('Product Lead');
+    });
+    expect(screen.queryByText(/Unsaved changes/i)).not.toBeInTheDocument();
   });
 });
