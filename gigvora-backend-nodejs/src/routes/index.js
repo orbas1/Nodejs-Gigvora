@@ -5,6 +5,7 @@ import { adminRoutes } from './adminRoutes.js';
 import adminModerationRoutes from './adminModerationRoutes.js';
 import adminComplianceRoutes from './adminComplianceRoutes.js';
 import adminPlatformRoutes from './adminPlatformRoutes.js';
+import adminMobileAppRoutes from './adminMobileAppRoutes.js';
 import agencyRoutes from './agencyRoutes.js';
 import agencyJobManagementRoutes from './agencyJobManagementRoutes.js';
 import agencyBlogRoutes from './agencyBlogRoutes.js';
@@ -65,6 +66,7 @@ import formBlueprintRoutes from './formBlueprintRoutes.js';
 import presenceRoutes from './presenceRoutes.js';
 import onboardingRoutes from './onboardingRoutes.js';
 import navigationRoutes from './navigationRoutes.js';
+import releaseEngineeringRoutes from './releaseEngineeringRoutes.js';
 
 const router = Router();
 
@@ -74,6 +76,7 @@ const routeDefinitions = [
   ['/admin/moderation', adminModerationRoutes],
   ['/admin/compliance', adminComplianceRoutes],
   ['/admin/platform', adminPlatformRoutes],
+  ['/admin/mobile-apps', adminMobileAppRoutes],
   ['/admin', adminRoutes],
   ['/agency/job-management', agencyJobManagementRoutes],
   ['/agency/wallet', agencyWalletRoutes],
@@ -125,6 +128,7 @@ const routeDefinitions = [
   ['/reputation', reputationRoutes],
   ['/runtime', runtimeRoutes],
   ['/explorer', explorerRoutes],
+  ['/release-engineering', releaseEngineeringRoutes],
   ['/search', searchRoutes],
   ['/support', supportRoutes],
   ['/trust', trustRoutes],

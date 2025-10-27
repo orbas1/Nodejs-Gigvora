@@ -51,6 +51,18 @@ import {
 import { FormBlueprint, FormBlueprintStep, FormBlueprintField, FormBlueprintValidation } from './formBlueprintModels.js';
 export { FORM_BLUEPRINT_STATUSES, FORM_BLUEPRINT_VALIDATION_SEVERITIES } from './formBlueprintModels.js';
 import {
+  MobileApp,
+  MobileAppVersion,
+  MobileAppFeature,
+  MOBILE_APP_PLATFORMS,
+  MOBILE_APP_STATUSES,
+  MOBILE_APP_RELEASE_CHANNELS,
+  MOBILE_APP_COMPLIANCE_STATUSES,
+  MOBILE_APP_VERSION_STATUSES,
+  MOBILE_APP_VERSION_TYPES,
+  MOBILE_APP_FEATURE_ROLLOUT_TYPES,
+} from './mobileAppModels.js';
+import {
   UserEvent,
   UserEventAgendaItem,
   UserEventTask,
@@ -25649,6 +25661,9 @@ export default {
   PlatformSetting,
   PlatformSettingsAuditEvent,
   PlatformSettingsWatcher,
+  MobileApp,
+  MobileAppVersion,
+  MobileAppFeature,
   SchemaMigrationAudit,
   SeedExecutionAudit,
   RuntimeSecurityAuditEvent,
@@ -25906,6 +25921,9 @@ domainRegistry.registerContext({
     'AdminCalendarAvailabilityWindow',
     'AdminTimeline',
     'AdminTimelineEvent',
+    'MobileApp',
+    'MobileAppVersion',
+    'MobileAppFeature',
   ],
   metadata: domainMetadata.platform,
 });
@@ -25939,4 +25957,14 @@ export {
   USER_EVENT_BUDGET_STATUSES,
   USER_EVENT_ASSET_TYPES,
   USER_EVENT_ASSET_VISIBILITIES,
+};
+
+export {
+  MOBILE_APP_PLATFORMS,
+  MOBILE_APP_STATUSES,
+  MOBILE_APP_RELEASE_CHANNELS,
+  MOBILE_APP_COMPLIANCE_STATUSES,
+  MOBILE_APP_VERSION_STATUSES,
+  MOBILE_APP_VERSION_TYPES,
+  MOBILE_APP_FEATURE_ROLLOUT_TYPES,
 };

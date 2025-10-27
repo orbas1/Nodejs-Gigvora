@@ -23,6 +23,7 @@ describe('maintenanceControlCentreService', () => {
       queueDepth: 7,
       queueTarget: 5,
       medianResponseMinutes: 4,
+      totalResponses: 321,
       sentimentNarrative: 'Customers remain confident; keep reinforcing proactive comms.',
       reviewUrl: 'https://gigvora.com/ops/reviews',
       segments: [{ id: 'enterprise', label: 'Enterprise', score: 4.9, delta: 0.4 }],
@@ -39,17 +40,20 @@ describe('maintenanceControlCentreService', () => {
       severity: 'operational',
       impactSurface: 'Platform',
       capturedAt,
+      nextUpdateAt: new Date(capturedAt.getTime() + 30 * 60 * 1000),
       metrics: { uptime: 99.99, latencyP95: 180, errorRate: 0.001, activeIncidents: 0 },
       incidents: [{ id: 'inc-1', title: 'Rehearsal', status: 'resolved', startedAt: capturedAt }],
       channels: [{ id: 'status-page', label: 'Status page' }],
       warnings: [{ id: 'warn-1', message: 'Confirm vendor standby rotations.' }],
       escalations: [{ id: 'esc-1', label: 'Review failover doc', dueAt: capturedAt }],
+      impacts: [{ id: 'impact-1', label: 'Member feed', severity: 'notice', degradation: 0.1 }],
       maintenanceWindow: {
         id: 'window-1',
         label: 'Database failover test',
         phase: 'scheduled',
         startAt: capturedAt,
         endAt: new Date(capturedAt.getTime() + 60 * 60 * 1000),
+        nextUpdateAt: new Date(capturedAt.getTime() + 45 * 60 * 1000),
         timezone: 'UTC',
       },
       feedbackSnapshotId: feedback.id,
@@ -69,7 +73,10 @@ describe('maintenanceControlCentreService', () => {
 
     expect(snapshot.status.title).toBe('Operational');
     expect(snapshot.status.feedback.experienceScore).toBeCloseTo(4.7);
+    expect(snapshot.status.feedback.totalResponses).toBe(321);
     expect(snapshot.status.metrics.uptime).toBeCloseTo(99.99);
+    expect(snapshot.status.nextUpdateAt).toBeTruthy();
+    expect(snapshot.status.impacts).toHaveLength(1);
     expect(snapshot.windows).toHaveLength(1);
     expect(snapshot.windows[0].channels).toEqual(['status-page', 'email']);
   });
