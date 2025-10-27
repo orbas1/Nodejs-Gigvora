@@ -506,6 +506,22 @@ export default function EscrowManagementSection({
     return buildMilestoneFallback(releaseQueue, defaultCurrency);
   }, [data?.milestones, releaseQueue, defaultCurrency]);
 
+  const autoReleasePolicy = useMemo(
+    () => ({
+      enabled: data?.settings?.autoReleaseEnabled ?? false,
+      autoReleaseEnabled: data?.settings?.autoReleaseEnabled ?? false,
+      autoReleaseAfterDays: data?.settings?.autoReleaseAfterDays ?? null,
+      autoReleaseAfterHours: data?.settings?.autoReleaseAfterHours ?? null,
+      alertHours: data?.settings?.autoReleaseAlertHours ?? null,
+    }),
+    [
+      data?.settings?.autoReleaseAfterDays,
+      data?.settings?.autoReleaseAfterHours,
+      data?.settings?.autoReleaseAlertHours,
+      data?.settings?.autoReleaseEnabled,
+    ],
+  );
+
   const invoiceData = useMemo(() => {
     if (data?.billing?.invoices) {
       return data.billing.invoices;
@@ -975,6 +991,7 @@ export default function EscrowManagementSection({
           onHold={handleMilestoneHold}
           onRequestReview={handleMilestoneReview}
           onInspect={handleMilestoneInspect}
+          autoReleasePolicy={autoReleasePolicy}
         />
         <div className="grid gap-6 xl:grid-cols-2">
           <InvoiceGenerator
