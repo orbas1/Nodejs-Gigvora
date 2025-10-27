@@ -34,6 +34,7 @@ const DEFAULT_PILLARS = [
     metric: { label: 'Operational clarity', value: '8.6/10 team confidence score' },
     icon: SparklesIcon,
     action: { id: 'command-centre', label: 'Explore HQ playbook', href: '/platform/command-centre' },
+    audiences: ['Founders', 'Operations'],
   },
   {
     id: 'compliance-trust',
@@ -47,6 +48,7 @@ const DEFAULT_PILLARS = [
     metric: { label: 'Trust signals', value: '99.95% uptime · SOC 2 monitored' },
     icon: ShieldCheckIcon,
     action: { id: 'trust-centre', label: 'Review trust centre', href: '/trust-center' },
+    audiences: ['Finance', 'Legal'],
   },
   {
     id: 'talent-network',
@@ -60,6 +62,7 @@ const DEFAULT_PILLARS = [
     metric: { label: 'Network activation', value: '7,800+ mentors & specialists' },
     icon: ChartBarIcon,
     action: { id: 'talent-network', label: 'Meet the network', href: '/network' },
+    audiences: ['Talent leaders', 'Agencies'],
   },
 ];
 
@@ -144,6 +147,18 @@ function normalisePillars(pillars) {
         }
       }
 
+      const audienceSource =
+        Array.isArray(pillar.audiences)
+          ? pillar.audiences
+          : Array.isArray(pillar.personas)
+          ? pillar.personas
+          : pillar.audiences || pillar.personas
+          ? [pillar.audiences || pillar.personas].flat()
+          : [];
+      const audiences = audienceSource
+        .map((audience) => coerceText(audience, null))
+        .filter(Boolean);
+
       return {
         id: coerceText(pillar.id ?? pillar.slug ?? pillar.key, title) || title,
         title,
@@ -152,6 +167,7 @@ function normalisePillars(pillars) {
         metric,
         icon: resolvedIcon,
         action,
+        audiences,
       };
     })
     .filter(Boolean);
@@ -190,24 +206,43 @@ export function ValuePillars({ pillars, loading = false, analyticsMetadata = {} 
     <div className="grid gap-6 lg:grid-cols-3">
       {displayPillars.map((pillar) => {
         const PillarIcon = pillar.icon ?? ICON_MAP.SparklesIcon ?? SparklesIcon;
+        const titleId = `${pillar.id}-title`;
         return (
           <article
             key={pillar.id}
             className="flex h-full flex-col gap-6 rounded-3xl border border-white/10 bg-slate-900/70 p-6 text-left shadow-[0_30px_90px_rgba(15,23,42,0.45)] backdrop-blur"
+            aria-labelledby={titleId}
+            aria-describedby={pillar.metric ? `${pillar.id}-metric` : undefined}
           >
             <div className="flex items-center gap-4">
               <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/20 text-accent">
                 <PillarIcon className="h-6 w-6" aria-hidden="true" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-white">{pillar.title}</h3>
+                <h3 id={titleId} className="text-lg font-semibold text-white">
+                  {pillar.title}
+                </h3>
                 {pillar.metric ? (
-                  <p className="text-sm font-medium text-accent/90">
+                  <p id={`${pillar.id}-metric`} className="text-sm font-medium text-accent/90">
                     {pillar.metric.label}: {pillar.metric.value}
                   </p>
                 ) : null}
               </div>
             </div>
+
+            {pillar.audiences?.length ? (
+              <ul className="flex flex-wrap gap-2 text-xs font-medium text-white/70">
+                {pillar.audiences.map((audience) => (
+                  <li
+                    key={`${pillar.id}-${audience}`}
+                    className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[0.7rem] uppercase tracking-[0.25em]"
+                  >
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
+                    {audience}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
 
             <p className="text-sm leading-relaxed text-white/80">{pillar.description}</p>
 
@@ -293,6 +328,7 @@ ValuePillars.propTypes = {
         to: PropTypes.string,
         onClick: PropTypes.func,
       }),
+      audiences: PropTypes.arrayOf(PropTypes.string),
     }),
   ),
   loading: PropTypes.bool,
