@@ -182,9 +182,40 @@ function resolveExpiresAt(snapshot, retentionDaysOverride) {
   return new Date(completion.getTime() + retention * 24 * 60 * 60 * 1000);
 }
 
+function computeDurationMs(start, end) {
+  if (!start || !end) {
+    return null;
+  }
+  const startDate = start instanceof Date ? start : new Date(start);
+  const endDate = end instanceof Date ? end : new Date(end);
+  const startMs = startDate.getTime();
+  const endMs = endDate.getTime();
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) {
+    return null;
+  }
+  return endMs - startMs;
+}
+
+function resolveMinutesFromDuration(durationMs) {
+  if (!Number.isFinite(durationMs) || durationMs <= 0) {
+    return null;
+  }
+  return Math.ceil(durationMs / (60 * 1000));
+}
+
+function resolveSecondsFromMinutes(minutes) {
+  if (!Number.isFinite(minutes) || minutes <= 0) {
+    return null;
+  }
+  return Math.max(Math.round(minutes * 60), 0);
+}
+
 export async function completeBackupSnapshot(snapshotIdOrKey, payload = {}, context = {}, options = {}) {
   const normalizedVerification = payload.verificationStatus
     ? assertInSet(payload.verificationStatus, BACKUP_VERIFICATION_STATUSES, 'Unsupported verification status.')
+    : null;
+  const statusOverride = payload.status
+    ? assertInSet(payload.status, BACKUP_STATUSES, 'Unsupported backup status override.')
     : null;
   const retentionOverrideRaw =
     payload.retentionDays != null ? Number.parseInt(payload.retentionDays, 10) : null;
@@ -194,16 +225,24 @@ export async function completeBackupSnapshot(snapshotIdOrKey, payload = {}, cont
   return withTransaction(async (transaction) => {
     const snapshot = await loadSnapshot(snapshotIdOrKey, { transaction, lock: transaction.LOCK.UPDATE });
     const completedAt = payload.completedAt ? new Date(payload.completedAt) : new Date();
-    const expiresAt = resolveExpiresAt({ ...snapshot.get(), completedAt }, retentionOverride);
     const verificationStatus = normalizedVerification ?? snapshot.verificationStatus ?? 'unverified';
-    const verifiedAt =
-      verificationStatus === 'verified'
-        ? new Date()
-        : snapshot.verifiedAt;
+    const verifiedAt = ['verified', 'failed'].includes(verificationStatus)
+      ? new Date(payload.verifiedAt ?? Date.now())
+      : snapshot.verifiedAt ?? null;
+    const finalStatus =
+      statusOverride ?? (verificationStatus === 'failed' ? 'failed' : 'success');
+    const expiresAt =
+      finalStatus === 'success'
+        ? resolveExpiresAt({ ...snapshot.get(), completedAt }, retentionOverride)
+        : null;
+    const failureReason =
+      finalStatus === 'failed'
+        ? payload.failureReason ?? snapshot.failureReason ?? 'Backup verification failed.'
+        : null;
 
     await snapshot.update(
       {
-        status: 'success',
+        status: finalStatus,
         completedAt,
         sizeBytes: payload.sizeBytes ?? snapshot.sizeBytes ?? null,
         checksum: payload.checksum ?? snapshot.checksum ?? null,
@@ -215,6 +254,8 @@ export async function completeBackupSnapshot(snapshotIdOrKey, payload = {}, cont
         verificationStatus,
         verifiedAt,
         expiresAt,
+        failureReason,
+        notes: payload.notes ?? snapshot.notes ?? null,
         metadata: buildAuditMetadata({ ...snapshot.metadata, ...(payload.metadata ?? {}) }, context),
       },
       { transaction },
@@ -253,18 +294,63 @@ export async function failBackupSnapshot(snapshotIdOrKey, payload = {}, context 
 }
 
 export async function verifyBackupSnapshot(snapshotIdOrKey, payload = {}, context = {}, options = {}) {
-  const status =
-    assertInSet(payload.status ?? 'verified', BACKUP_VERIFICATION_STATUSES, 'Unsupported verification status.') ??
-    'verified';
+  const desiredVerification = payload.verificationStatus ?? payload.status ?? 'verified';
+  const verificationStatus =
+    assertInSet(desiredVerification, BACKUP_VERIFICATION_STATUSES, 'Unsupported verification status.') ?? 'verified';
+  const backupStatusOverride = payload.backupStatus ?? payload.snapshotStatus ?? null;
+  const normalizedBackupStatus = backupStatusOverride
+    ? assertInSet(backupStatusOverride, BACKUP_STATUSES, 'Unsupported backup status override.')
+    : null;
+  const retentionOverrideRaw =
+    payload.retentionDays != null ? Number.parseInt(payload.retentionDays, 10) : null;
+  const retentionOverride =
+    Number.isFinite(retentionOverrideRaw) && retentionOverrideRaw > 0 ? retentionOverrideRaw : null;
 
   return withTransaction(async (transaction) => {
     const snapshot = await loadSnapshot(snapshotIdOrKey, { transaction, lock: transaction.LOCK.UPDATE });
+    const updates = {
+      verificationStatus,
+      verifiedAt: new Date(),
+      metadata: buildAuditMetadata({ ...snapshot.metadata, verification: payload.metadata ?? {} }, context),
+    };
+
+    const derivedStatus =
+      normalizedBackupStatus ??
+      (verificationStatus === 'failed'
+        ? 'failed'
+        : verificationStatus === 'verified'
+        ? 'success'
+        : null);
+
+    if (derivedStatus) {
+      updates.status = derivedStatus;
+      if (derivedStatus === 'failed') {
+        updates.failureReason = payload.failureReason ?? snapshot.failureReason ?? 'Backup verification failed.';
+        updates.expiresAt = null;
+      } else if (derivedStatus === 'success') {
+        updates.failureReason = payload.failureReason ?? null;
+        updates.expiresAt = resolveExpiresAt(
+          { ...snapshot.get(), completedAt: snapshot.completedAt ?? new Date() },
+          retentionOverride,
+        );
+        if (retentionOverride != null) {
+          updates.retentionDays = retentionOverride;
+        }
+      }
+    } else if (payload.failureReason) {
+      updates.failureReason = payload.failureReason;
+    }
+
+    if (retentionOverride != null && derivedStatus !== 'success') {
+      updates.retentionDays = retentionOverride;
+    }
+
+    if (payload.notes !== undefined) {
+      updates.notes = payload.notes;
+    }
+
     await snapshot.update(
-      {
-        verificationStatus: status,
-        verifiedAt: new Date(),
-        metadata: buildAuditMetadata({ ...snapshot.metadata, verification: payload.metadata ?? {} }, context),
-      },
+      updates,
       { transaction },
     );
     return snapshot.toPublicObject();
@@ -385,18 +471,38 @@ export async function completeRecoveryDrill(drillIdOrKey, payload = {}, context 
     const status = payload.status
       ? assertInSet(payload.status, DRILL_STATUSES, 'Unsupported disaster recovery status.') ?? 'passed'
       : 'passed';
+    const restoreStartedAt = payload.restoreStartedAt
+      ? new Date(payload.restoreStartedAt)
+      : drill.restoreStartedAt ?? drill.startedAt ?? new Date(completedAt.getTime() - 30 * 60 * 1000);
+    const restoreCompletedAt = payload.restoreCompletedAt
+      ? new Date(payload.restoreCompletedAt)
+      : drill.restoreCompletedAt ?? completedAt;
+    const restoreDurationMs =
+      payload.restoreDurationMs ??
+      drill.restoreDurationMs ??
+      computeDurationMs(restoreStartedAt ?? drill.startedAt, restoreCompletedAt);
+    const computedRtoMinutes = resolveMinutesFromDuration(
+      restoreDurationMs ?? computeDurationMs(drill.startedAt, completedAt),
+    );
+    const rtoMinutes = payload.rtoMinutes ?? computedRtoMinutes ?? drill.rtoMinutes ?? null;
+    const rpoMinutes = payload.rpoMinutes ?? drill.rpoMinutes ?? null;
+    const dataLossSeconds =
+      payload.dataLossSeconds ??
+      drill.dataLossSeconds ??
+      resolveSecondsFromMinutes(rpoMinutes) ??
+      0;
 
     await drill.update(
       {
         status,
-        restoreCompletedAt: payload.restoreCompletedAt ?? drill.restoreCompletedAt ?? new Date(),
-        restoreStartedAt: payload.restoreStartedAt ?? drill.restoreStartedAt ?? drill.startedAt ?? new Date(completedAt.getTime() - 600000),
-        restoreDurationMs: payload.restoreDurationMs ?? drill.restoreDurationMs ?? null,
-        dataLossSeconds: payload.dataLossSeconds ?? drill.dataLossSeconds ?? 0,
+        restoreCompletedAt,
+        restoreStartedAt,
+        restoreDurationMs,
+        dataLossSeconds,
         completedAt,
         verifiedAt,
-        rtoMinutes: payload.rtoMinutes ?? drill.rtoMinutes ?? null,
-        rpoMinutes: payload.rpoMinutes ?? drill.rpoMinutes ?? null,
+        rtoMinutes,
+        rpoMinutes,
         summary: payload.summary ?? drill.summary ?? null,
         issuesFound: Array.isArray(payload.issuesFound) ? payload.issuesFound : drill.issuesFound ?? [],
         evidenceUri: payload.evidenceUri ?? drill.evidenceUri ?? null,
@@ -414,18 +520,41 @@ export async function failRecoveryDrill(drillIdOrKey, payload = {}, context = {}
   return withTransaction(async (transaction) => {
     const drill = await loadDrill(drillIdOrKey, { transaction, lock: transaction.LOCK.UPDATE });
     const completedAt = payload.completedAt ? new Date(payload.completedAt) : new Date();
+    const restoreStartedAt = payload.restoreStartedAt
+      ? new Date(payload.restoreStartedAt)
+      : drill.restoreStartedAt ?? drill.startedAt ?? new Date(completedAt.getTime() - 30 * 60 * 1000);
+    const restoreCompletedAt = payload.restoreCompletedAt
+      ? new Date(payload.restoreCompletedAt)
+      : drill.restoreCompletedAt ?? completedAt;
+    const restoreDurationMs =
+      payload.restoreDurationMs ??
+      drill.restoreDurationMs ??
+      computeDurationMs(restoreStartedAt ?? drill.startedAt, restoreCompletedAt);
+    const computedRtoMinutes = resolveMinutesFromDuration(
+      restoreDurationMs ?? computeDurationMs(drill.startedAt, completedAt),
+    );
+    const rpoMinutes = payload.rpoMinutes ?? drill.rpoMinutes ?? null;
+    const rtoMinutes = payload.rtoMinutes ?? computedRtoMinutes ?? drill.rtoMinutes ?? null;
+    const dataLossSeconds =
+      payload.dataLossSeconds ??
+      drill.dataLossSeconds ??
+      resolveSecondsFromMinutes(rpoMinutes) ??
+      null;
 
     await drill.update(
       {
         status: 'failed',
         completedAt,
-        restoreCompletedAt: payload.restoreCompletedAt ?? drill.restoreCompletedAt ?? completedAt,
-        restoreDurationMs: payload.restoreDurationMs ?? drill.restoreDurationMs ?? null,
-        dataLossSeconds: payload.dataLossSeconds ?? drill.dataLossSeconds ?? null,
+        restoreStartedAt,
+        restoreCompletedAt,
+        restoreDurationMs,
+        dataLossSeconds,
         issuesFound: Array.isArray(payload.issuesFound)
           ? payload.issuesFound
           : [...(drill.issuesFound ?? []), payload.failureReason ?? 'Unspecified failure'],
         summary: payload.summary ?? drill.summary ?? 'Recovery drill failed.',
+        rtoMinutes,
+        rpoMinutes,
         metadata: buildAuditMetadata({ ...drill.metadata, ...(payload.metadata ?? {}) }, context),
       },
       { transaction },

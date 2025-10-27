@@ -79,6 +79,7 @@ describe('backupRecoveryService', () => {
     expect(completed.verification.status).toBe('verified');
     expect(completed.sizeBytes).toBe(1_572_864);
     expect(completed.expiresAt).toBeTruthy();
+    expect(completed.failureReason).toBeNull();
 
     const listed = await listBackupSnapshots({ environment: 'production' });
     expect(listed).toHaveLength(1);
@@ -91,7 +92,7 @@ describe('backupRecoveryService', () => {
   });
 
   it('records failed backups and verification updates', async () => {
-    await scheduleBackupSnapshot(
+    const scheduled = await scheduleBackupSnapshot(
       {
         snapshotKey: 'prod-incremental-2024-10-02',
         source: 'primary-db',
@@ -101,6 +102,8 @@ describe('backupRecoveryService', () => {
       adminContext,
     );
 
+    expect(scheduled.status).toBe('pending');
+
     const failed = await failBackupSnapshot(
       'prod-incremental-2024-10-02',
       { failureReason: 'Network disruption detected.' },
@@ -109,6 +112,18 @@ describe('backupRecoveryService', () => {
 
     expect(failed.status).toBe('failed');
     expect(failed.failureReason).toMatch(/Network disruption/);
+    expect(failed.verification.status).toBe('failed');
+    expect(failed.expiresAt).toBeNull();
+
+    const completed = await completeBackupSnapshot(
+      'prod-incremental-2024-10-02',
+      { verificationStatus: 'failed' },
+      adminContext,
+    );
+
+    expect(completed.status).toBe('failed');
+    expect(completed.verification.status).toBe('failed');
+    expect(completed.failureReason).toMatch(/Network disruption/);
 
     const verified = await verifyBackupSnapshot(
       'prod-incremental-2024-10-02',
@@ -117,9 +132,24 @@ describe('backupRecoveryService', () => {
     );
 
     expect(verified.verification.status).toBe('verified');
+    expect(verified.status).toBe('success');
+    expect(verified.failureReason).toBeNull();
+    expect(verified.expiresAt).toBeTruthy();
 
+    const degraded = await verifyBackupSnapshot(
+      'prod-incremental-2024-10-02',
+      { verificationStatus: 'failed', failureReason: 'Checksum mismatch', retentionDays: 10 },
+      adminContext,
+    );
+
+    expect(degraded.verification.status).toBe('failed');
+    expect(degraded.status).toBe('failed');
+    expect(degraded.failureReason).toContain('Checksum mismatch');
+    expect(degraded.expiresAt).toBeNull();
+
+    const snapshotHealth = await listBackupSnapshots({ environment: 'production' });
     const health = summarizeBackupHealth(
-      [failed, verified].map((entry) => ({
+      snapshotHealth.map((entry) => ({
         status: entry.status,
         verificationStatus: entry.verification.status,
         completedAt: entry.completedAt ? new Date(entry.completedAt) : null,
@@ -127,11 +157,13 @@ describe('backupRecoveryService', () => {
       })),
     );
 
-    expect(health.total).toBe(2);
+    expect(health.total).toBe(1);
     expect(health.unhealthy).toBeGreaterThanOrEqual(1);
   });
 
   it('tracks recovery drills from scheduling to completion', async () => {
+    const restoreStart = new Date('2024-01-02T10:00:00Z');
+    const restoreFinish = new Date('2024-01-02T10:20:00Z');
     const scheduled = await scheduleRecoveryDrill(
       {
         drillKey: 'prod-ransomware-q4',
@@ -147,13 +179,17 @@ describe('backupRecoveryService', () => {
     expect(scheduled.status).toBe('scheduled');
     expect(scheduled.objectives.rtoMinutes).toBe(45);
 
-    const running = await startRecoveryDrill('prod-ransomware-q4', { restoreStartedAt: new Date().toISOString() }, adminContext);
+    const running = await startRecoveryDrill(
+      'prod-ransomware-q4',
+      { restoreStartedAt: restoreStart.toISOString() },
+      adminContext,
+    );
     expect(running.status).toBe('running');
 
     const completed = await completeRecoveryDrill(
       'prod-ransomware-q4',
       {
-        restoreDurationMs: 1_200_000,
+        restoreCompletedAt: restoreFinish.toISOString(),
         dataLossSeconds: 120,
         issuesFound: [],
         summary: 'Met RTO/RPO targets with minor tooling cleanup.',
@@ -164,6 +200,7 @@ describe('backupRecoveryService', () => {
     expect(completed.status).toBe('passed');
     expect(completed.restore.durationMs).toBe(1_200_000);
     expect(completed.summary).toMatch(/Met RTO/);
+    expect(completed.objectives.rtoMinutes).toBe(20);
 
     await scheduleRecoveryDrill(
       {
@@ -178,8 +215,9 @@ describe('backupRecoveryService', () => {
     const failed = await failRecoveryDrill(
       'prod-data-center-loss',
       {
-        restoreDurationMs: 3_600_000,
-        dataLossSeconds: 600,
+        restoreCompletedAt: new Date('2024-02-16T09:15:00Z').toISOString(),
+        restoreStartedAt: new Date('2024-02-16T08:00:00Z').toISOString(),
+        rpoMinutes: 12,
         issuesFound: ['Failover networking misconfiguration'],
         summary: 'Regional failover exceeded RTO.',
       },
@@ -188,6 +226,9 @@ describe('backupRecoveryService', () => {
 
     expect(failed.status).toBe('failed');
     expect(failed.issuesFound).toContain('Failover networking misconfiguration');
+    expect(failed.restore.durationMs).toBe(4_500_000);
+    expect(failed.restore.dataLossSeconds).toBe(720);
+    expect(failed.objectives.rtoMinutes).toBe(75);
 
     const drills = await listRecoveryDrills({ environment: 'production' });
     expect(drills.length).toBeGreaterThanOrEqual(2);
