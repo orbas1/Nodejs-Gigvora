@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import PropTypes from 'prop-types';
 import {
+  ArrowUpRightIcon,
   BoltIcon,
   BuildingOffice2Icon,
   ChartBarIcon,
@@ -10,7 +11,10 @@ import {
   SparklesIcon,
 } from '@heroicons/react/24/outline';
 import analytics from '../../services/analytics.js';
+import CardScaffold from '../common/CardScaffold.jsx';
+import ButtonSuite from '../common/ButtonSuite.jsx';
 import PersonaChip from '../ui/PersonaChip.jsx';
+import InsightStatBlock from '../ui/InsightStatBlock.jsx';
 
 const ICON_MAP = {
   SparklesIcon,
@@ -207,103 +211,105 @@ export function ValuePillars({ pillars, loading = false, analyticsMetadata = {} 
     <div className="grid gap-6 lg:grid-cols-3">
       {displayPillars.map((pillar) => {
         const PillarIcon = pillar.icon ?? ICON_MAP.SparklesIcon ?? SparklesIcon;
-        const titleId = `${pillar.id}-title`;
-        return (
-          <article
-            key={pillar.id}
-            className="flex h-full flex-col gap-6 rounded-3xl border border-white/10 bg-slate-900/70 p-6 text-left shadow-[0_30px_90px_rgba(15,23,42,0.45)] backdrop-blur"
-            aria-labelledby={titleId}
-            aria-describedby={pillar.metric ? `${pillar.id}-metric` : undefined}
-          >
-            <div className="flex items-center gap-4">
-              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/20 text-accent">
-                <PillarIcon className="h-6 w-6" aria-hidden="true" />
-              </div>
-              <div>
-                <h3 id={titleId} className="text-lg font-semibold text-white">
-                  {pillar.title}
-                </h3>
-                {pillar.metric ? (
-                  <p id={`${pillar.id}-metric`} className="text-sm font-medium text-accent/90">
-                    {pillar.metric.label}: {pillar.metric.value}
-                  </p>
-                ) : null}
-              </div>
-            </div>
+        const actionLabel = pillar.action?.label ?? 'Explore pillar';
+        const actionIsLink = Boolean(pillar.action?.href || pillar.action?.to);
+        const actionHref = pillar.action?.href ?? pillar.action?.to ?? undefined;
 
+        const actionButton = pillar.action ? (
+          <ButtonSuite
+            as={actionIsLink ? 'a' : 'button'}
+            type={actionIsLink ? undefined : 'button'}
+            href={actionHref}
+            variant="ghost"
+            size="sm"
+            trailingIcon={<ArrowUpRightIcon className="h-4 w-4" aria-hidden="true" />}
+            onClick={(event) => {
+              if (actionIsLink && pillar.action?.onClick) {
+                event.preventDefault();
+              }
+              handleAction(pillar, event);
+            }}
+          >
+            {actionLabel}
+          </ButtonSuite>
+        ) : null;
+
+        return (
+          <CardScaffold
+            key={pillar.id}
+            variant="dark"
+            padding="lg"
+            highlight="primary"
+            media={
+              <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-accent/20 text-accent">
+                <PillarIcon className="h-7 w-7" aria-hidden="true" />
+              </div>
+            }
+            title={pillar.title}
+            description={pillar.description}
+            actions={actionButton}
+            footer={
+              pillar.metric ? (
+                <InsightStatBlock
+                  as="div"
+                  tone="accent"
+                  label={pillar.metric.label}
+                  value={pillar.metric.value}
+                  className="min-w-[11rem]"
+                />
+              ) : null
+            }
+            className="bg-slate-950/80 text-white"
+          >
             {Array.isArray(pillar.audiences) && pillar.audiences.length ? (
-              <div className="flex flex-wrap gap-2 text-xs font-medium text-white/70">
+              <div className="flex flex-wrap gap-2">
                 {pillar.audiences.filter(Boolean).map((audience) => (
                   <PersonaChip
                     key={`${pillar.id}-${audience}`}
                     label={audience}
-                    tone="accent"
+                    tone="frost"
                     size="sm"
-                    labelClassName="uppercase tracking-[0.25em]"
+                    indicator={false}
+                    className="shadow-none"
                   />
                 ))}
               </div>
             ) : null}
 
-            <p className="text-sm leading-relaxed text-white/80">{pillar.description}</p>
-
-            <ul className="space-y-2 text-sm text-white/70">
-              {(pillar.highlights?.length ? pillar.highlights : DEFAULT_PILLARS.find((item) => item.id === pillar.id)?.highlights ?? []).map(
-                (highlight) => (
-                  <li key={highlight} className="flex items-start gap-2">
-                    <span className="mt-1 inline-block h-1.5 w-1.5 flex-none rounded-full bg-accent" aria-hidden="true" />
-                    <span>{highlight}</span>
-                  </li>
-                ),
-              )}
+            <ul className="space-y-2 text-sm text-white/80">
+              {(pillar.highlights?.length
+                ? pillar.highlights
+                : DEFAULT_PILLARS.find((item) => item.id === pillar.id)?.highlights ?? []
+              ).map((highlight) => (
+                <li key={highlight} className="flex items-start gap-2">
+                  <span className="mt-1 inline-block h-1.5 w-1.5 flex-none rounded-full bg-accent" aria-hidden="true" />
+                  <span>{highlight}</span>
+                </li>
+              ))}
             </ul>
-
-            {pillar.action ? (
-              pillar.action.href || pillar.action.to ? (
-                <a
-                  href={pillar.action.href ?? pillar.action.to}
-                  onClick={(event) => {
-                    if (pillar.action.onClick) {
-                      event.preventDefault();
-                    }
-                    handleAction(pillar, event);
-                  }}
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-accent transition hover:text-accentLight"
-                >
-                  {pillar.action.label ?? 'Explore pillar'}
-                  <span aria-hidden="true">→</span>
-                </a>
-              ) : (
-                <button
-                  type="button"
-                  onClick={(event) => handleAction(pillar, event)}
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-accent transition hover:text-accentLight"
-                >
-                  {pillar.action.label ?? 'Explore pillar'}
-                  <span aria-hidden="true">→</span>
-                </button>
-              )
-            ) : null}
-          </article>
+          </CardScaffold>
         );
       })}
 
       {loading
         ? Array.from({ length: Math.max(0, 3 - displayPillars.length) }).map((_, index) => (
-            <div
+            <CardScaffold
               key={`pillar-skeleton-${index}`}
-              className="hidden rounded-3xl border border-white/10 bg-white/5 p-6 lg:block"
+              variant="dark"
+              padding="lg"
+              className="hidden animate-pulse text-white/60 lg:block"
               aria-hidden="true"
+              media={<div className="h-14 w-14 rounded-3xl bg-white/10" />}
+              title={<span className="block h-5 w-3/4 rounded-full bg-white/10" />}
+              description={<span className="block h-4 w-full rounded-full bg-white/10" />}
+              footer={<div className="h-16 w-full rounded-2xl bg-white/10" />}
             >
-              <div className="mb-4 h-12 w-12 rounded-2xl bg-white/10" />
-              <div className="mb-3 h-5 w-3/4 rounded-full bg-white/10" />
-              <div className="mb-6 h-4 w-full rounded-full bg-white/10" />
               <div className="space-y-3">
                 <div className="h-3 w-full rounded-full bg-white/10" />
                 <div className="h-3 w-5/6 rounded-full bg-white/10" />
                 <div className="h-3 w-2/3 rounded-full bg-white/10" />
               </div>
-            </div>
+            </CardScaffold>
           ))
         : null}
     </div>

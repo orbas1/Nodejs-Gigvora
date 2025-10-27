@@ -22,7 +22,14 @@ import {
 
 const log = logger.child({ module: 'AppearanceManagementService' });
 
-const COMPONENT_KEYS = Object.freeze(['buttonSuite', 'inputFieldSet', 'cardScaffold']);
+const COMPONENT_KEYS = Object.freeze([
+  'buttonSuite',
+  'inputFieldSet',
+  'cardScaffold',
+  'brandBadge',
+  'personaChip',
+  'statBlock',
+]);
 const COMPONENT_KEY_LOOKUP = new Map(
   [
     ['buttonsuite', 'buttonSuite'],
@@ -34,6 +41,15 @@ const COMPONENT_KEY_LOOKUP = new Map(
     ['cardscaffold', 'cardScaffold'],
     ['cardscaffoldjsx', 'cardScaffold'],
     ['card_scaffold', 'cardScaffold'],
+    ['brandbadge', 'brandBadge'],
+    ['brandbadgejsx', 'brandBadge'],
+    ['brand_badge', 'brandBadge'],
+    ['personachip', 'personaChip'],
+    ['persona_chip', 'personaChip'],
+    ['personachipjsx', 'personaChip'],
+    ['statblock', 'statBlock'],
+    ['stat_block', 'statBlock'],
+    ['statblockjsx', 'statBlock'],
   ].map(([key, value]) => [key.replace(/[^a-z0-9]/gi, '').toLowerCase(), value]),
 );
 
