@@ -426,6 +426,21 @@ const ROUTE_COLLECTION_DEFINITIONS = {
         relativePath: 'release-operations',
       },
       {
+        path: 'dashboard/admin/governance',
+        module: 'pages/dashboards/admin/AdminGovernancePortalPage.jsx',
+        relativePath: 'governance',
+      },
+      {
+        path: 'dashboard/admin/governance/policies',
+        module: 'pages/dashboards/admin/AdminPolicyManagementPage.jsx',
+        relativePath: 'governance/policies',
+      },
+      {
+        path: 'dashboard/admin/governance/documents',
+        module: 'pages/dashboards/admin/AdminDocumentsManagementPage.jsx',
+        relativePath: 'governance/documents',
+      },
+      {
         path: 'dashboard/admin/documents',
         module: 'pages/dashboards/admin/AdminDocumentsManagementPage.jsx',
         relativePath: 'documents',
@@ -539,6 +554,24 @@ const ROUTE_COLLECTION_DEFINITIONS = {
         path: 'dashboard/admin/security/two-factor',
         module: 'pages/dashboards/admin/AdminTwoFactorManagementPage.jsx',
         relativePath: 'security/two-factor',
+      },
+      {
+        path: 'dashboard/admin/war-room/platform',
+        module: 'pages/dashboards/admin/AdminPlatformWarRoomPage.jsx',
+        relativePath: 'war-room/platform',
+        title: 'Platform war room',
+        icon: 'cpu-chip',
+        featureFlag: 'admin.warRoom',
+        shellTheme: 'midnight',
+      },
+      {
+        path: 'dashboard/admin/war-room/security',
+        module: 'pages/dashboards/admin/AdminSecurityFabricPage.jsx',
+        relativePath: 'war-room/security',
+        title: 'Security fabric',
+        icon: 'shield-check',
+        featureFlag: 'admin.warRoom',
+        shellTheme: 'midnight',
       },
       {
         path: 'dashboard/admin/seo',

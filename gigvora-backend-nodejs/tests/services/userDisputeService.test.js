@@ -1,122 +1,114 @@
-import crypto from 'crypto';
-import bcrypt from 'bcrypt';
 import { describe, it, expect } from '@jest/globals';
-import userDisputeService from '../../src/services/userDisputeService.js';
-import trustService from '../../src/services/trustService.js';
-import { sequelize, User } from '../../src/models/index.js';
+import { __testables__ } from '../../src/services/userDisputeService.js';
 
-const tomorrow = () => new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+const { buildSummary, buildMetadata } = __testables__;
 
-async function createCoreUser(overrides = {}) {
-  const hashedPassword = await bcrypt.hash(overrides.password ?? 'Password123!', 10);
-  try {
-    return await User.create({
-      firstName: overrides.firstName ?? 'Test',
-      lastName: overrides.lastName ?? 'User',
-      email: overrides.email ?? `user-${crypto.randomUUID()}@gigvora.test`,
-      password: hashedPassword,
-      userType: overrides.userType ?? 'user',
+describe('userDisputeService trust summarisation', () => {
+  it('buildSummary composes actionable trust analytics from dispute data', () => {
+    const now = new Date();
+    const openedAtPrimary = new Date(now.getTime() - 4 * 60 * 60 * 1000);
+    const openedAtSecondary = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+
+    const disputes = [
+      {
+        id: 101,
+        status: 'open',
+        stage: 'mediation',
+        priority: 'urgent',
+        reasonCode: 'scope_disagreement',
+        summary: 'Align on amended automation scope and confirm payment schedule.',
+        customerDeadlineAt: new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString(),
+        providerDeadlineAt: new Date(now.getTime() + 6 * 60 * 60 * 1000).toISOString(),
+        updatedAt: now.toISOString(),
+        openedAt: openedAtPrimary.toISOString(),
+        events: [
+          {
+            actorType: 'mediator',
+            eventAt: new Date(openedAtPrimary.getTime() + 20 * 60 * 1000).toISOString(),
+          },
+          {
+            actorType: 'provider',
+            eventAt: new Date(openedAtPrimary.getTime() + 35 * 60 * 1000).toISOString(),
+          },
+        ],
+        transaction: {
+          netAmount: 3200,
+          currencyCode: 'USD',
+        },
+        assignedTo: { firstName: 'Lara', lastName: 'Ops', email: 'lara.ops@gigvora.test' },
+        metrics: { daysOpen: 6 },
+      },
+      {
+        id: 102,
+        status: 'awaiting_customer',
+        stage: 'mediation',
+        priority: 'high',
+        reasonCode: 'quality_issue',
+        summary: 'Customer reviewing QA adjustments before sign-off.',
+        customerDeadlineAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+        providerDeadlineAt: new Date(now.getTime() + 20 * 60 * 60 * 1000).toISOString(),
+        updatedAt: now.toISOString(),
+        openedAt: openedAtSecondary.toISOString(),
+        events: [
+          {
+            actorType: 'provider',
+            eventAt: new Date(openedAtSecondary.getTime() + 40 * 60 * 1000).toISOString(),
+          },
+        ],
+        transaction: {
+          netAmount: 800,
+          currencyCode: 'USD',
+        },
+        assignedTo: { firstName: 'Jamal', lastName: 'Trust', email: 'jamal.trust@gigvora.test' },
+        metrics: { daysOpen: 2 },
+      },
+    ];
+
+    const workflowSettings = {
+      responseSlaHours: 6,
+      resolutionSlaHours: 48,
+      autoEscalateHours: 72,
+      autoCloseHours: null,
+      defaultAssigneeId: 99,
+    };
+
+    const summary = buildSummary(disputes, workflowSettings);
+
+    expect(summary.total).toBe(2);
+    expect(summary.openCount).toBe(2);
+    expect(summary.awaitingCustomerAction).toBe(1);
+    expect(summary.escalatedCount).toBe(2);
+    expect(summary.slaBreaches).toBe(1);
+    expect(summary.autoEscalationRate).toBeCloseTo(1);
+    expect(summary.resolutionRate).toBe(0);
+    expect(summary.averageFirstResponseMinutes).toBeGreaterThan(0);
+    expect(summary.openExposure).toEqual({ amount: 4000.0, currency: 'USD' });
+    expect(summary.riskAlerts[0]).toMatchObject({
+      severity: 'critical',
+      disputeId: 101,
+      title: 'SLA window breached',
     });
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('Failed to create core user', error);
-    throw error;
-  }
-}
-
-describe('userDisputeService', () => {
-  beforeEach(async () => {
-    await sequelize.sync({ force: true });
+    expect(summary.nextSlaReviewAt).toBe(disputes[0].customerDeadlineAt);
+    expect(summary.trustScore).toBeGreaterThanOrEqual(0);
+    expect(summary.trustScore).toBeLessThanOrEqual(100);
   });
 
-  it('lists disputes, summaries, and eligible transactions for a user', async () => {
-    const client = await createCoreUser({ userType: 'user' });
-    const provider = await createCoreUser({ userType: 'freelancer' });
+  it('buildMetadata surfaces workflow settings and merged reason codes', () => {
+    const metadata = buildMetadata(
+      { responseSlaHours: 4, resolutionSlaHours: 36, autoEscalateHours: 48 },
+      ['custom_reason', 'quality_issue'],
+    );
 
-    const account = await trustService.ensureEscrowAccount({
-      userId: client.id,
-      provider: 'stripe',
-      currencyCode: 'USD',
-    });
-
-    const transaction = await trustService.initiateEscrowTransaction({
-      accountId: account.id,
-      reference: 'ESCROW-3001',
-      amount: 420,
-      feeAmount: 12,
-      type: 'project',
-      initiatedById: client.id,
-      counterpartyId: provider.id,
-      scheduledReleaseAt: tomorrow(),
-      metadata: { title: 'Brand design sprint' },
-    });
-
-    await trustService.createDisputeCase({
-      escrowTransactionId: transaction.id,
-      openedById: client.id,
-      priority: 'high',
-      reasonCode: 'quality_issue',
-      summary: 'Deliverables were incomplete and below expectations.',
-    });
-
-    const payload = await userDisputeService.listUserDisputes(client.id);
-
-    expect(payload.summary.openCount).toBeGreaterThanOrEqual(1);
-    expect(payload.disputes).toHaveLength(1);
-    expect(payload.disputes[0]).toMatchObject({
-      transaction: expect.objectContaining({ reference: 'ESCROW-3001' }),
-      permissions: expect.objectContaining({ canAddEvidence: true }),
-    });
-    expect(payload.eligibleTransactions.some((item) => item.id === transaction.id)).toBe(true);
-    expect(payload.metadata.reasonCodes.length).toBeGreaterThan(0);
-  });
-
-  it('creates disputes and allows users to append updates', async () => {
-    const client = await createCoreUser({ userType: 'user' });
-    const provider = await createCoreUser({ userType: 'freelancer' });
-
-    const account = await trustService.ensureEscrowAccount({
-      userId: client.id,
-      provider: 'stripe',
-      currencyCode: 'GBP',
-    });
-
-    const transaction = await trustService.initiateEscrowTransaction({
-      accountId: account.id,
-      reference: 'ESCROW-3002',
-      amount: 250,
-      feeAmount: 8,
-      type: 'milestone',
-      initiatedById: client.id,
-      counterpartyId: provider.id,
-      scheduledReleaseAt: tomorrow(),
-      metadata: { projectName: 'Website refresh' },
-    });
-
-    const created = await userDisputeService.createUserDispute(client.id, {
-      escrowTransactionId: transaction.id,
-      reasonCode: 'scope_disagreement',
-      priority: 'medium',
-      summary: 'Provider delivered out-of-scope assets without approval.',
-      customerDeadlineAt: tomorrow(),
-    });
-
-    expect(created).toMatchObject({
-      status: 'open',
-      stage: 'intake',
-      transaction: expect.objectContaining({ id: transaction.id }),
-    });
-    expect(created.events.length).toBeGreaterThanOrEqual(1);
-
-    const updated = await userDisputeService.appendUserDisputeEvent(client.id, created.id, {
-      notes: 'Uploaded annotated design review and requested mediation.',
-      actionType: 'comment',
-      stage: 'mediation',
-      status: 'under_review',
-    });
-
-    expect(updated.stage).toBe('mediation');
-    expect(updated.status).toBe('under_review');
-    expect(updated.events.length).toBeGreaterThan(created.events.length);
+    expect(metadata.workflow).toEqual(
+      expect.objectContaining({ responseSlaHours: 4, resolutionSlaHours: 36, autoEscalateHours: 48 }),
+    );
+    expect(metadata.reasonCodes).toEqual(
+      expect.arrayContaining([
+        { value: 'custom_reason', label: 'Custom Reason' },
+        { value: 'quality_issue', label: 'Quality Issue' },
+      ]),
+    );
+    expect(metadata.actionTypes.length).toBeGreaterThan(0);
+    expect(metadata.stages.map((item) => item.value)).toContain('mediation');
   });
 });

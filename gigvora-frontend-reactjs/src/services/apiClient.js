@@ -142,6 +142,17 @@ function getAuthHeaders() {
     headers['x-user-type'] = normaliseRole(session.userType);
   }
 
+  if (Array.isArray(session?.enabledFeatureFlagKeys) && session.enabledFeatureFlagKeys.length > 0) {
+    headers['x-feature-flags'] = session.enabledFeatureFlagKeys.join(',');
+  } else if (session?.featureFlags && typeof session.featureFlags === 'object') {
+    const enabledFlags = Object.entries(session.featureFlags)
+      .filter(([, config]) => config && typeof config === 'object' && config.enabled)
+      .map(([key]) => key);
+    if (enabledFlags.length > 0) {
+      headers['x-feature-flags'] = enabledFlags.join(',');
+    }
+  }
+
   return headers;
 }
 

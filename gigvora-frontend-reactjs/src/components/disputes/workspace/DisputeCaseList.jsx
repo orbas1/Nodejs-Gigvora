@@ -6,6 +6,7 @@ import {
   DocumentArrowDownIcon,
   ExclamationTriangleIcon,
   PaperAirplaneIcon,
+  ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
 import classNames from '../../../utils/classNames.js';
 import { formatAbsolute, formatRelativeTime } from '../../../utils/date.js';
@@ -26,6 +27,20 @@ const priorityTone = {
   urgent: 'bg-rose-100 text-rose-700',
 };
 
+function trustScoreTone(score) {
+  if (typeof score !== 'number' || Number.isNaN(score)) return 'bg-slate-100 text-slate-600';
+  if (score >= 85) return 'bg-emerald-100 text-emerald-700';
+  if (score >= 70) return 'bg-amber-100 text-amber-700';
+  return 'bg-rose-100 text-rose-700';
+}
+
+const riskTone = {
+  low: 'bg-emerald-50 text-emerald-700',
+  medium: 'bg-amber-50 text-amber-700',
+  high: 'bg-rose-100 text-rose-700',
+  critical: 'bg-rose-200 text-rose-900',
+};
+
 export default function DisputeCaseList({ disputes, onSelect, selectedId }) {
   if (!Array.isArray(disputes) || disputes.length === 0) {
     return (
@@ -40,6 +55,9 @@ export default function DisputeCaseList({ disputes, onSelect, selectedId }) {
       {disputes.map((dispute) => {
         const isActive = selectedId === dispute.id;
         const deadlineLabel = dispute.customerDeadlineAt || dispute.providerDeadlineAt;
+        const trust = dispute.trust ?? {};
+        const trustScore = typeof trust.score === 'number' ? Math.round(trust.score) : null;
+        const riskLevel = trust.riskLevel;
         return (
           <li key={dispute.id}>
             <Disclosure defaultOpen={isActive}>
@@ -69,6 +87,23 @@ export default function DisputeCaseList({ disputes, onSelect, selectedId }) {
                         </span>
                         <span className="text-xs text-slate-500">{humanize(dispute.stage)}</span>
                         <span className="text-xs text-slate-400">{humanize(dispute.status)}</span>
+                        {trustScore != null ? (
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${trustScoreTone(trustScore)}`}
+                          >
+                            <ShieldCheckIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                            {trustScore}
+                          </span>
+                        ) : null}
+                        {riskLevel ? (
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                              riskTone[riskLevel] ?? 'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            {humanize(riskLevel)}
+                          </span>
+                        ) : null}
                       </div>
                       <p className="text-xs text-slate-500">
                         Updated {formatRelativeTime(dispute.updatedAt)} · Opened {formatAbsolute(dispute.openedAt)}
@@ -105,8 +140,23 @@ export default function DisputeCaseList({ disputes, onSelect, selectedId }) {
                           <DocumentArrowDownIcon className="h-4 w-4" aria-hidden="true" />
                           Files {dispute.metrics?.attachmentCount ?? 0}
                         </span>
+                        {trustScore != null ? (
+                          <span className="inline-flex items-center gap-1 text-slate-500">
+                            <ShieldCheckIcon className="h-4 w-4" aria-hidden="true" />
+                            Confidence {trustScore}/100
+                          </span>
+                        ) : null}
+                        {trust.lastInteractionAt ? (
+                          <span className="inline-flex items-center gap-1 text-slate-500">
+                            <ClockIcon className="h-4 w-4" aria-hidden="true" />
+                            Touched {formatRelativeTime(trust.lastInteractionAt)}
+                          </span>
+                        ) : null}
                         {dispute.summary ? (
                           <span className="inline-flex items-center gap-1 text-slate-500">{dispute.summary}</span>
+                        ) : null}
+                        {trust.note ? (
+                          <span className="inline-flex items-center gap-1 text-slate-500">{trust.note}</span>
                         ) : null}
                         {dispute.alert?.type === 'deadline' && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-rose-700">

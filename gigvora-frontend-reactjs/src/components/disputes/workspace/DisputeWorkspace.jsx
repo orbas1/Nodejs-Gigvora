@@ -8,12 +8,21 @@ import DisputeFilters from './DisputeFilters.jsx';
 import DisputeCaseList from './DisputeCaseList.jsx';
 import DisputeComposerWizard from './DisputeComposerWizard.jsx';
 import DisputeDetailDrawer from '../DisputeDetailDrawer.jsx';
+import DisputeTrustInsights from './DisputeTrustInsights.jsx';
 
 const DEFAULT_SUMMARY = {
   total: 0,
   openCount: 0,
   awaitingCustomerAction: 0,
   escalatedCount: 0,
+  trustScore: null,
+  resolutionRate: null,
+  averageFirstResponseMinutes: null,
+  autoEscalationRate: null,
+  slaBreaches: 0,
+  nextSlaReviewAt: null,
+  openExposure: null,
+  riskAlerts: [],
   lastUpdatedAt: null,
   upcomingDeadlines: [],
 };
@@ -128,7 +137,12 @@ export default function DisputeWorkspace({ userId, overview }) {
         </div>
       </div>
 
-      <DisputeMetrics summary={summary} />
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+        <DisputeTrustInsights summary={summary} />
+        <div className="grid gap-4">
+          <DisputeMetrics summary={summary} />
+        </div>
+      </div>
 
       {alert ? (
         <p

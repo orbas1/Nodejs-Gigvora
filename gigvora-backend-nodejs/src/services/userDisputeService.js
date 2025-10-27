@@ -2,22 +2,48 @@ import { Op } from 'sequelize';
 import {
   DisputeCase,
   DisputeEvent,
+  DisputeWorkflowSetting,
   EscrowTransaction,
   User,
 } from '../models/index.js';
-import {
-  DISPUTE_STATUSES,
-  DISPUTE_STAGES,
-  DISPUTE_PRIORITIES,
-  DISPUTE_ACTION_TYPES,
-  DISPUTE_ACTOR_TYPES,
-  DISPUTE_REASON_CODES,
-} from '../models/constants/index.js';
 import trustService from './trustService.js';
 import { ValidationError, NotFoundError, AuthorizationError } from '../utils/errors.js';
 
 const CUSTOMER_STATUSES = new Set(['open', 'awaiting_customer', 'under_review']);
 const ACTIVE_TRANSACTION_STATUSES = new Set(['funded', 'in_escrow', 'disputed']);
+const RESOLVED_STATUSES = new Set(['settled', 'closed']);
+const ESCALATED_STAGES = new Set(['mediation', 'arbitration', 'resolved']);
+const RESPONDER_ACTORS = new Set(['mediator', 'admin', 'provider']);
+const ALERT_SEVERITY_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
+const REASON_CODE_FALLBACK = [
+  'quality_issue',
+  'scope_disagreement',
+  'missed_deadline',
+  'communication_breakdown',
+  'fraud_concern',
+  'payment_issue',
+];
+
+function deriveEnumValues(model, attribute, fallback) {
+  const values = model.rawAttributes?.[attribute]?.values;
+  if (Array.isArray(values) && values.length) {
+    return [...values];
+  }
+  return [...fallback];
+}
+
+const STAGE_VALUES = deriveEnumValues(DisputeCase, 'stage', ['intake', 'mediation', 'arbitration', 'resolved']);
+const STATUS_VALUES = deriveEnumValues(DisputeCase, 'status', ['open', 'awaiting_customer', 'under_review', 'settled', 'closed']);
+const PRIORITY_VALUES = deriveEnumValues(DisputeCase, 'priority', ['low', 'medium', 'high', 'urgent']);
+const ACTOR_TYPE_VALUES = deriveEnumValues(DisputeEvent, 'actorType', ['customer', 'provider', 'mediator', 'admin', 'system']);
+const ACTION_TYPE_VALUES = deriveEnumValues(DisputeEvent, 'actionType', [
+  'comment',
+  'evidence_upload',
+  'deadline_adjusted',
+  'stage_advanced',
+  'status_change',
+  'system_notice',
+]);
 
 function toPlainUser(instance) {
   if (!instance) {
@@ -94,19 +120,196 @@ function humanize(value) {
     .trim();
 }
 
-function buildMetadata() {
+function buildMetadata(workflow, reasonCodes = REASON_CODE_FALLBACK) {
   const addLabel = (value) => ({ value, label: humanize(value) });
   return {
-    stages: DISPUTE_STAGES.map(addLabel),
-    statuses: DISPUTE_STATUSES.map(addLabel),
-    priorities: DISPUTE_PRIORITIES.map(addLabel),
-    reasonCodes: DISPUTE_REASON_CODES.map(addLabel),
-    actionTypes: DISPUTE_ACTION_TYPES.map(addLabel),
-    actorTypes: DISPUTE_ACTOR_TYPES.map(addLabel),
+    stages: STAGE_VALUES.map(addLabel),
+    statuses: STATUS_VALUES.map(addLabel),
+    priorities: PRIORITY_VALUES.map(addLabel),
+    reasonCodes: Array.from(new Set(reasonCodes)).map(addLabel),
+    actionTypes: ACTION_TYPE_VALUES.map(addLabel),
+    actorTypes: ACTOR_TYPE_VALUES.map(addLabel),
+    workflow,
   };
 }
 
-function buildSummary(disputes) {
+function parseDateTime(value) {
+  if (!value) {
+    return null;
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatOwner(user) {
+  if (!user) {
+    return null;
+  }
+  const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+  if (fullName) {
+    return fullName;
+  }
+  return user.email ?? null;
+}
+
+function computeFirstResponseMinutes(dispute) {
+  if (!Array.isArray(dispute.events) || dispute.events.length === 0) {
+    return null;
+  }
+  const openedAt = parseDateTime(dispute.openedAt);
+  if (!openedAt) {
+    return null;
+  }
+  const responderEvent = dispute.events.find((event) => RESPONDER_ACTORS.has(event.actorType));
+  if (!responderEvent) {
+    return null;
+  }
+  const eventAt = parseDateTime(responderEvent.eventAt ?? responderEvent.createdAt);
+  if (!eventAt) {
+    return null;
+  }
+  const diff = (eventAt.getTime() - openedAt.getTime()) / (1000 * 60);
+  if (!Number.isFinite(diff) || diff < 0) {
+    return null;
+  }
+  return Number(diff.toFixed(1));
+}
+
+function computeTrustScore({
+  total,
+  resolutionRate,
+  autoEscalationRate,
+  averageFirstResponseMinutes,
+  slaBreaches,
+  responseTargetMinutes,
+}) {
+  if (!total) {
+    return null;
+  }
+
+  let score = 60;
+
+  if (typeof resolutionRate === 'number') {
+    score += Math.round(resolutionRate * 24);
+  }
+
+  if (typeof autoEscalationRate === 'number') {
+    score += Math.round(autoEscalationRate * 8);
+  }
+
+  if (typeof averageFirstResponseMinutes === 'number' && averageFirstResponseMinutes >= 0) {
+    const target = responseTargetMinutes || 1440;
+    const ratio = averageFirstResponseMinutes / target;
+    const responseContribution = ratio <= 1 ? 12 : Math.max(0, 12 - (ratio - 1) * 18);
+    score += Math.round(responseContribution);
+  }
+
+  if (slaBreaches > 0) {
+    score -= Math.min(30, slaBreaches * 6);
+  }
+
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+function buildRiskAlertsForDispute(dispute, { now, resolutionTargetHours, responseTargetMinutes }) {
+  const alerts = [];
+  const owner = formatOwner(dispute.assignedTo);
+  const truncatedSummary = dispute.summary?.length > 140 ? `${dispute.summary.slice(0, 137)}…` : dispute.summary;
+
+  const addAlert = (suffix, severity, title, summary) => {
+    alerts.push({
+      id: `dispute-${dispute.id}-${suffix}`,
+      disputeId: dispute.id,
+      severity,
+      title,
+      summary,
+      owner,
+    });
+  };
+
+  const customerDeadline = parseDateTime(dispute.customerDeadlineAt);
+  const providerDeadline = parseDateTime(dispute.providerDeadlineAt);
+  const overdueDeadline = [customerDeadline, providerDeadline]
+    .filter(Boolean)
+    .find((deadline) => deadline.getTime() < now.getTime());
+
+  if (overdueDeadline) {
+    addAlert(
+      'sla',
+      'critical',
+      'SLA window breached',
+      truncatedSummary ?? 'Response window has elapsed without resolution.',
+    );
+    return alerts;
+  }
+
+  if (dispute.priority === 'urgent') {
+    addAlert(
+      'priority',
+      'critical',
+      'Urgent dispute needs action',
+      truncatedSummary ?? 'Escalate with stakeholders to prevent trust impact.',
+    );
+  } else if (dispute.priority === 'high') {
+    addAlert(
+      'priority',
+      'high',
+      'High-priority case under review',
+      truncatedSummary ?? 'Coordinate updates with the assigned specialist.',
+    );
+  }
+
+  if (dispute.status === 'awaiting_customer') {
+    addAlert(
+      'awaiting',
+      'high',
+      'Awaiting customer response',
+      truncatedSummary ?? 'Follow up with the customer to keep momentum.',
+    );
+  }
+
+  const daysOpen = dispute.metrics?.daysOpen ?? 0;
+  const agingThreshold = Math.max(2, Math.ceil((resolutionTargetHours || 120) / 24));
+  if (daysOpen > agingThreshold) {
+    addAlert(
+      'aging',
+      'medium',
+      'Case aging beyond target',
+      truncatedSummary ?? 'Resolution cadence has slowed below trust targets.',
+    );
+  }
+
+  const firstResponseMinutes = computeFirstResponseMinutes(dispute);
+  if (typeof firstResponseMinutes === 'number' && firstResponseMinutes > responseTargetMinutes) {
+    addAlert(
+      'response',
+      'medium',
+      'Slow first response detected',
+      truncatedSummary ?? 'Ensure future responses land within SLA expectations.',
+    );
+  }
+
+  if (ESCALATED_STAGES.has(dispute.stage)) {
+    const exposureAmount = Number.parseFloat(
+      dispute.transaction?.netAmount ?? dispute.transaction?.amount ?? 0,
+    );
+    if (Number.isFinite(exposureAmount) && exposureAmount >= 1500) {
+      const exposureCurrency = dispute.transaction?.currencyCode || 'USD';
+      addAlert(
+        'exposure',
+        'medium',
+        'High-value dispute escalated',
+        `Escrow exposure ${exposureAmount.toLocaleString('en-GB', { maximumFractionDigits: 0 })} ${
+          exposureCurrency
+        } requires close monitoring.`,
+      );
+    }
+  }
+
+  return alerts;
+}
+
+function buildSummary(disputes, workflowSettings) {
   if (!Array.isArray(disputes) || disputes.length === 0) {
     return {
       total: 0,
@@ -115,14 +318,31 @@ function buildSummary(disputes) {
       escalatedCount: 0,
       lastUpdatedAt: null,
       upcomingDeadlines: [],
+      resolutionRate: null,
+      averageFirstResponseMinutes: null,
+      autoEscalationRate: null,
+      slaBreaches: 0,
+      trustScore: null,
+      openExposure: null,
+      riskAlerts: [],
+      nextSlaReviewAt: null,
     };
   }
 
   const upcomingDeadlines = [];
+  const riskAlerts = [];
+  const firstResponseSamples = [];
+  const exposures = new Map();
   let openCount = 0;
   let awaitingCustomerAction = 0;
   let escalatedCount = 0;
+  let resolvedCount = 0;
   let lastUpdatedAt = null;
+  let slaBreaches = 0;
+
+  const now = new Date();
+  const responseTargetMinutes = (workflowSettings?.responseSlaHours ?? 24) * 60;
+  const resolutionTargetHours = workflowSettings?.resolutionSlaHours ?? 120;
 
   disputes.forEach((dispute) => {
     if (CUSTOMER_STATUSES.has(dispute.status)) {
@@ -133,6 +353,9 @@ function buildSummary(disputes) {
     }
     if (dispute.stage && dispute.stage !== 'intake') {
       escalatedCount += 1;
+    }
+    if (RESOLVED_STATUSES.has(dispute.status)) {
+      resolvedCount += 1;
     }
     const updatedAt = new Date(dispute.updatedAt ?? dispute.createdAt ?? Date.now());
     if (!lastUpdatedAt || updatedAt > lastUpdatedAt) {
@@ -146,6 +369,7 @@ function buildSummary(disputes) {
         dueAt: dispute.customerDeadlineAt,
         label: 'Customer response',
         status: dispute.status,
+        summary: dispute.summary,
       });
     }
     if (dispute.providerDeadlineAt) {
@@ -156,11 +380,78 @@ function buildSummary(disputes) {
         dueAt: dispute.providerDeadlineAt,
         label: 'Provider response',
         status: dispute.status,
+        summary: dispute.summary,
       });
+    }
+
+    const deadlines = [dispute.customerDeadlineAt, dispute.providerDeadlineAt]
+      .map((deadline) => parseDateTime(deadline))
+      .filter(Boolean);
+    if (deadlines.some((deadline) => deadline.getTime() < now.getTime() && CUSTOMER_STATUSES.has(dispute.status))) {
+      slaBreaches += 1;
+    }
+
+    const firstResponse = computeFirstResponseMinutes(dispute);
+    if (typeof firstResponse === 'number') {
+      firstResponseSamples.push(firstResponse);
+    }
+
+    const alertCandidates = buildRiskAlertsForDispute(dispute, {
+      now,
+      resolutionTargetHours,
+      responseTargetMinutes,
+    });
+    alertCandidates.forEach((alert) => riskAlerts.push(alert));
+
+    if (!RESOLVED_STATUSES.has(dispute.status)) {
+      const currency = dispute.transaction?.currencyCode ?? 'USD';
+      const amount = Number.parseFloat(dispute.transaction?.netAmount ?? dispute.transaction?.amount ?? 0) || 0;
+      if (amount > 0) {
+        exposures.set(currency, (exposures.get(currency) ?? 0) + amount);
+      }
     }
   });
 
   upcomingDeadlines.sort((a, b) => new Date(a.dueAt) - new Date(b.dueAt));
+
+  riskAlerts.sort((a, b) => {
+    const orderA = ALERT_SEVERITY_ORDER[a.severity] ?? 99;
+    const orderB = ALERT_SEVERITY_ORDER[b.severity] ?? 99;
+    if (orderA !== orderB) {
+      return orderA - orderB;
+    }
+    return a.id.localeCompare(b.id);
+  });
+
+  const firstResponseAverage =
+    firstResponseSamples.length === 0
+      ? null
+      : Number((firstResponseSamples.reduce((total, value) => total + value, 0) / firstResponseSamples.length).toFixed(1));
+
+  const resolutionRate = disputes.length ? resolvedCount / disputes.length : null;
+  const autoEscalationRate = disputes.length ? escalatedCount / disputes.length : null;
+
+  let openExposure = null;
+  if (exposures.size === 1) {
+    const [[currency, total]] = Array.from(exposures.entries());
+    openExposure = { amount: Number(total.toFixed(2)), currency };
+  } else if (exposures.size > 1) {
+    const total = Array.from(exposures.values()).reduce((sum, value) => sum + value, 0);
+    openExposure = { amount: Number(total.toFixed(2)), currency: 'USD' };
+  }
+
+  const nextSlaReviewAt = upcomingDeadlines.length
+    ? upcomingDeadlines[0].dueAt
+    : new Date(now.getTime() + (workflowSettings?.responseSlaHours ?? 24) * 60 * 60 * 1000).toISOString();
+
+  const trustScore = computeTrustScore({
+    total: disputes.length,
+    resolutionRate,
+    autoEscalationRate,
+    averageFirstResponseMinutes: firstResponseAverage,
+    slaBreaches,
+    responseTargetMinutes,
+  });
 
   return {
     total: disputes.length,
@@ -169,6 +460,14 @@ function buildSummary(disputes) {
     escalatedCount,
     lastUpdatedAt: lastUpdatedAt ? lastUpdatedAt.toISOString() : null,
     upcomingDeadlines: upcomingDeadlines.slice(0, 5),
+    resolutionRate,
+    averageFirstResponseMinutes: firstResponseAverage,
+    autoEscalationRate,
+    slaBreaches,
+    trustScore,
+    openExposure,
+    riskAlerts: riskAlerts.slice(0, 5),
+    nextSlaReviewAt,
   };
 }
 
@@ -262,10 +561,10 @@ export async function listUserDisputes(userId, { stage, status } = {}) {
     throw new ValidationError('userId is required');
   }
   const filters = {};
-  if (stage && DISPUTE_STAGES.includes(stage)) {
+  if (stage && STAGE_VALUES.includes(stage)) {
     filters.stage = stage;
   }
-  if (status && DISPUTE_STATUSES.includes(status)) {
+  if (status && STATUS_VALUES.includes(status)) {
     filters.status = status;
   }
 
@@ -307,6 +606,35 @@ export async function listUserDisputes(userId, { stage, status } = {}) {
 
   const decorated = disputes.map(decorateDispute);
 
+  const workspaceIds = new Set(
+    decorated
+      .map((dispute) => {
+        const fromMetadata = dispute.metadata?.workspaceId ?? dispute.metadata?.workspace?.id;
+        const fromTransaction = dispute.transaction?.metadata?.workspaceId ?? dispute.transaction?.metadata?.workspace?.id;
+        return fromMetadata ?? fromTransaction ?? null;
+      })
+      .filter((value) => value != null)
+      .map((value) => Number.parseInt(value, 10))
+      .filter((value) => Number.isInteger(value)),
+  );
+
+  let workflowSettings = null;
+  if (workspaceIds.size === 1) {
+    const [workspaceId] = Array.from(workspaceIds);
+    const { settings } = await trustService.getDisputeWorkflowSettings({ workspaceId });
+    workflowSettings = settings;
+  } else {
+    const workflowSettingRecord = await DisputeWorkflowSetting.findOne({ order: [['updatedAt', 'DESC']] });
+    if (workflowSettingRecord) {
+      workflowSettings = workflowSettingRecord.toPublicObject();
+    } else {
+      const { settings } = await trustService.getDisputeWorkflowSettings();
+      workflowSettings = settings;
+    }
+  }
+
+  const summary = buildSummary(decorated, workflowSettings);
+
   const eligibleTransactions = await EscrowTransaction.findAll({
     where: {
       [Op.or]: [
@@ -319,8 +647,15 @@ export async function listUserDisputes(userId, { stage, status } = {}) {
     limit: 50,
   });
 
+  const reasonCodes = Array.from(
+    new Set([
+      ...REASON_CODE_FALLBACK,
+      ...decorated.map((dispute) => dispute.reasonCode).filter(Boolean),
+    ]),
+  );
+
   return {
-    summary: buildSummary(decorated),
+    summary,
     disputes: decorated,
     eligibleTransactions: eligibleTransactions.map((transaction) => {
       const plain = toPlainTransaction(transaction);
@@ -331,7 +666,7 @@ export async function listUserDisputes(userId, { stage, status } = {}) {
         eligibleForDispute: ACTIVE_TRANSACTION_STATUSES.has(transaction.status),
       };
     }),
-    metadata: buildMetadata(),
+    metadata: buildMetadata(workflowSettings, reasonCodes),
     permissions: {
       canCreate: eligibleTransactions.length > 0,
     },
@@ -434,22 +769,22 @@ export async function appendUserDisputeEvent(userId, disputeId, payload) {
     throw new ValidationError('A note or evidence upload is required to update the dispute');
   }
 
-  if (stage && !DISPUTE_STAGES.includes(stage)) {
+  if (stage && !STAGE_VALUES.includes(stage)) {
     throw new ValidationError('Invalid dispute stage supplied');
   }
 
-  if (status && !DISPUTE_STATUSES.includes(status)) {
+  if (status && !STATUS_VALUES.includes(status)) {
     throw new ValidationError('Invalid dispute status supplied');
   }
 
   const allowedStatusChanges = ['open', 'awaiting_customer', 'under_review', 'settled'];
   const nextStatus = status && allowedStatusChanges.includes(status) ? status : undefined;
-  const nextStage = stage && DISPUTE_STAGES.includes(stage) ? stage : undefined;
+  const nextStage = stage && STAGE_VALUES.includes(stage) ? stage : undefined;
 
   const eventPayload = {
     actorId: userId,
     actorType,
-    actionType: DISPUTE_ACTION_TYPES.includes(actionType) ? actionType : 'comment',
+    actionType: ACTION_TYPE_VALUES.includes(actionType) ? actionType : 'comment',
     notes: notes ?? null,
     stage: nextStage,
     status: nextStatus,
@@ -478,4 +813,17 @@ export default {
   createUserDispute,
   appendUserDisputeEvent,
   getUserDisputeOverview,
+};
+
+export const __testables__ = {
+  buildSummary,
+  buildMetadata,
+  computeFirstResponseMinutes,
+  formatOwner,
+  STAGE_VALUES,
+  STATUS_VALUES,
+  PRIORITY_VALUES,
+  ACTOR_TYPE_VALUES,
+  ACTION_TYPE_VALUES,
+  REASON_CODE_FALLBACK,
 };

@@ -45,11 +45,14 @@ import adminMentoringRoutes from './adminMentoringRoutes.js';
 import adminMessagingRoutes from './adminMessagingRoutes.js';
 import adminPageSettingsRoutes from './adminPageSettingsRoutes.js';
 import adminPolicyRoutes from './adminPolicyRoutes.js';
+import adminGovernanceController from '../controllers/adminGovernanceController.js';
+import { governanceOverviewQuerySchema } from '../validation/schemas/adminGovernanceSchemas.js';
 import adminProfileRoutes from './adminProfileRoutes.js';
 import adminProjectManagementRoutes from './adminProjectManagementRoutes.js';
 import adminMonitoringRoutes from './adminMonitoringRoutes.js';
 import adminRbacRoutes from './adminRbacRoutes.js';
 import adminRuntimeRoutes from './adminRuntimeRoutes.js';
+import adminWarRoomRoutes from './adminWarRoomRoutes.js';
 import adminSiteManagementRoutes from './adminSiteManagementRoutes.js';
 import adminSpeedNetworkingRoutes from './adminSpeedNetworkingRoutes.js';
 import adminStorageRoutes from './adminStorageRoutes.js';
@@ -170,6 +173,11 @@ adminRoutes.get('/seo/console/meta-templates', asyncHandler(adminController.list
 adminRoutes.use('/ads/coupons', adminAdRoutes);
 adminRoutes.use('/ads/settings', adminAdSettingsRoutes);
 adminRoutes.use('/runtime', adminRuntimeRoutes);
+adminRoutes.get(
+  '/governance/overview',
+  validateRequest({ query: governanceOverviewQuerySchema }),
+  asyncHandler(adminGovernanceController.overview),
+);
 adminRoutes.use('/governance/consents', adminConsentRoutes);
 adminRoutes.use('/governance/content', adminContentGovernanceRoutes);
 adminRoutes.use('/governance/rbac', adminRbacRoutes);
@@ -180,6 +188,7 @@ adminRoutes.use('/speed-networking', adminSpeedNetworkingRoutes);
 adminRoutes.use('/project-management', adminProjectManagementRoutes);
 adminRoutes.use('/messaging', adminMessagingRoutes);
 adminRoutes.use('/monitoring', adminMonitoringRoutes);
+adminRoutes.use('/war-room', adminWarRoomRoutes);
 adminRoutes.use('/jobs', adminJobPostRoutes);
 adminRoutes.use('/job-applications', adminJobApplicationRoutes);
 adminRoutes.use('/calendar', adminCalendarRoutes);
