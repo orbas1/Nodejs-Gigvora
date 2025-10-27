@@ -15,6 +15,7 @@ import MessagingDock from '../components/messaging/MessagingDock.jsx';
 import AdPlacementRail from '../components/ads/AdPlacementRail.jsx';
 import DashboardAccessGuard from '../components/security/DashboardAccessGuard.jsx';
 import DashboardQuickNav from '../components/dashboard/shared/DashboardQuickNav.jsx';
+import ScrollProgressBar from '../components/navigation/ScrollProgressBar.jsx';
 
 function slugify(value) {
   if (!value) {
@@ -498,6 +499,25 @@ export default function DashboardLayout({
     [customizedSections],
   );
 
+  const quickNavChips = useMemo(() => {
+    const chips = [];
+    const seen = new Set();
+
+    quickNavSections.forEach((section) => {
+      section.items.forEach((item) => {
+        if (chips.length >= 6) {
+          return;
+        }
+        if (!seen.has(item.id)) {
+          seen.add(item.id);
+          chips.push(item);
+        }
+      });
+    });
+
+    return chips;
+  }, [quickNavSections]);
+
   const sectionItemMap = useMemo(() => {
     const map = new Map();
     quickNavSections.forEach((section) => {
@@ -752,22 +772,50 @@ export default function DashboardLayout({
       </div>
 
       <div className="flex w-full flex-col lg:ml-80">
-        <header className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white/80 px-6 py-4 backdrop-blur">
-          <div>
-            <h1 className="text-xl font-semibold text-slate-900">{title}</h1>
-            {subtitle ? <p className="text-sm font-medium text-accent">{subtitle}</p> : null}
-            {description ? <p className="text-sm text-slate-500">{description}</p> : null}
+        <header className="gv-dashboard-top-rail">
+          <ScrollProgressBar className="hidden lg:block" trackDocument={false} />
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <h1 className="truncate text-xl font-semibold text-slate-900">{title}</h1>
+              {subtitle ? <p className="mt-1 text-sm font-medium text-accent">{subtitle}</p> : null}
+              {description ? <p className="mt-1 text-sm text-slate-500">{description}</p> : null}
+            </div>
+            <div className="flex flex-shrink-0 items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setMobileOpen(true)}
+                className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900 lg:hidden"
+              >
+                <Bars3Icon className="h-5 w-5" /> Menu
+              </button>
+              <DashboardSwitcher dashboards={dashboards} currentId={activeDashboardId} onNavigate={navigate} />
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setMobileOpen(true)}
-              className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900 lg:hidden"
+          {quickNavChips.length ? (
+            <nav
+              className="mt-3 hidden items-center gap-2 overflow-x-auto pb-1 text-sm lg:flex"
+              aria-label="Dashboard shortcuts"
             >
-              <Bars3Icon className="h-5 w-5" /> Menu
-            </button>
-            <DashboardSwitcher dashboards={dashboards} currentId={activeDashboardId} onNavigate={navigate} />
-          </div>
+              {quickNavChips.map((item) => {
+                const isActive = highlightedMenuItemId === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => handleMenuItemClick(item)}
+                    className={`rounded-full border px-3 py-1 transition ${
+                      isActive
+                        ? 'border-accent bg-accent text-white shadow-sm'
+                        : 'border-slate-200 bg-white/70 text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                    }`}
+                    aria-pressed={isActive}
+                  >
+                    <span className="line-clamp-1">{item.name}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          ) : null}
         </header>
 
         <main className="flex-1 bg-slate-50/60">

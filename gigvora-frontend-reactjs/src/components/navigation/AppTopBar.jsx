@@ -23,6 +23,7 @@ import { resolveInitials } from '../../utils/user.js';
 import { formatRelativeTime } from '../../utils/date.js';
 import { deriveNavigationPulse, deriveNavigationTrending } from '../../utils/navigationPulse.js';
 import analytics from '../../services/analytics.js';
+import ScrollProgressBar from './ScrollProgressBar.jsx';
 
 function UserMenu({ session, onLogout }) {
   const initials = resolveInitials(session?.name ?? session?.email ?? 'GV');
@@ -525,7 +526,8 @@ export default function AppTopBar({
   };
 
   return (
-    <header className="relative sticky top-0 z-40 border-b border-transparent bg-white/80 backdrop-blur">
+    <header className="gv-app-top-bar">
+      <ScrollProgressBar />
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute left-1/2 top-[-35%] h-40 w-[70%] -translate-x-1/2 rounded-[50%] bg-accent/10 blur-3xl" />
         <div className="absolute right-0 top-0 h-full w-24 bg-gradient-to-b from-white/40 via-white/5 to-transparent" />
