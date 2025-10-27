@@ -1,28 +1,28 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
-import { Dialog, Menu, Popover, Transition } from '@headlessui/react';
+import { Dialog, Menu, Transition } from '@headlessui/react';
 import {
   ArrowTrendingUpIcon,
   ArrowUpRightIcon,
   Bars3Icon,
+  BellIcon,
   ChatBubbleLeftRightIcon,
   ClockIcon,
   MagnifyingGlassIcon,
-  SignalIcon,
   SparklesIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 
 import MobileNavigation from './MobileNavigation.jsx';
-import RoleSwitcher from './RoleSwitcher.jsx';
 import LanguageSelector from '../LanguageSelector.jsx';
 import HeaderMegaMenu from './HeaderMegaMenu.jsx';
+import MegaMenu from './MegaMenu.jsx';
 import PrimaryNavItem from './PrimaryNavItem.jsx';
 import NotificationBell from '../notifications/NotificationBell.jsx';
+import UserAvatar from '../UserAvatar.jsx';
 import { LOGO_SRCSET, LOGO_URL } from '../../constants/branding.js';
 import { classNames } from '../../utils/classNames.js';
-import { resolveInitials } from '../../utils/user.js';
 import { formatRelativeTime } from '../../utils/date.js';
 import {
   deriveNavigationPulse,
@@ -31,20 +31,29 @@ import {
 } from '../../utils/navigationPulse.js';
 import analytics from '../../services/analytics.js';
 
-function UserMenu({ session, onLogout }) {
-  const initials = resolveInitials(session?.name ?? session?.email ?? 'GV');
+function UserMenu({ session, onLogout, roleOptions, currentRoleKey, onRoleSelect }) {
   const memberships = Array.isArray(session?.memberships) ? session.memberships : [];
+  const personaOptions = Array.isArray(roleOptions) ? roleOptions : [];
+  const activePersonaKey = currentRoleKey ?? personaOptions[0]?.key ?? null;
+
+  const handlePersonaSelect = useCallback(
+    (option) => () => {
+      onRoleSelect?.(option);
+    },
+    [onRoleSelect],
+  );
 
   return (
     <Menu as="div" className="relative">
-      <Menu.Button className="flex items-center gap-3 rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-left text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-400/80 hover:text-slate-900">
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold uppercase text-white">
-          {initials}
-        </span>
-        <span className="hidden text-left lg:block">
-          <span className="block text-sm font-semibold text-slate-900">{session?.name ?? 'Member'}</span>
-          <span className="block text-xs text-slate-500">{memberships.join(' • ') || 'Gigvora network'}</span>
-        </span>
+      <Menu.Button className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-slate-400/80 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white">
+        <UserAvatar
+          name={session?.name ?? session?.email ?? 'Member'}
+          imageUrl={session?.avatarUrl ?? session?.profile?.avatarUrl ?? null}
+          seed={session?.id ? String(session.id) : session?.email}
+          size="sm"
+          showGlow={false}
+          className="!border-transparent !shadow-none"
+        />
       </Menu.Button>
       <Transition
         as={Fragment}
@@ -55,44 +64,90 @@ function UserMenu({ session, onLogout }) {
         leaveFrom="transform opacity-100 scale-100"
         leaveTo="transform opacity-0 scale-95"
       >
-        <Menu.Items className="absolute right-0 z-50 mt-3 w-56 origin-top-right rounded-3xl border border-slate-200/70 bg-white p-2 text-sm shadow-xl focus:outline-none">
-          <Menu.Item>
-            {({ active }) => (
-              <Link
-                to="/settings"
-                className={`${
-                  active ? 'bg-slate-100 text-slate-900' : 'text-slate-700'
-                } flex items-center gap-2 rounded-2xl px-3 py-2 transition`}
-              >
-                Account settings
-              </Link>
-            )}
-          </Menu.Item>
-          <Menu.Item>
-            {({ active }) => (
-              <Link
-                to="/notifications"
-                className={`${
-                  active ? 'bg-slate-100 text-slate-900' : 'text-slate-700'
-                } flex items-center gap-2 rounded-2xl px-3 py-2 transition`}
-              >
-                Notifications
-              </Link>
-            )}
-          </Menu.Item>
-          <Menu.Item>
-            {({ active }) => (
-              <button
-                type="button"
-                onClick={onLogout}
-                className={`${
-                  active ? 'bg-rose-50 text-rose-600' : 'text-rose-600'
-                } flex w-full items-center gap-2 rounded-2xl px-3 py-2 transition`}
-              >
-                Log out
-              </button>
-            )}
-          </Menu.Item>
+        <Menu.Items className="absolute right-0 z-50 mt-3 w-64 origin-top-right space-y-3 rounded-3xl border border-slate-200/70 bg-white p-4 text-sm shadow-xl focus:outline-none">
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-slate-900">{session?.name ?? 'Member'}</p>
+            <p className="text-xs text-slate-500">{memberships.join(' • ') || session?.email || 'Gigvora network'}</p>
+          </div>
+
+          {personaOptions.length ? (
+            <div className="space-y-2">
+              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-slate-400">Workspaces</p>
+              <div className="space-y-1">
+                {personaOptions.map((option) => (
+                  <Menu.Item key={option.key}>
+                    {({ active }) => (
+                      <Link
+                        to={option.to}
+                        onClick={handlePersonaSelect(option)}
+                        className={classNames(
+                          'flex items-center justify-between rounded-2xl px-3 py-2 transition',
+                          option.key === activePersonaKey
+                            ? 'bg-slate-900 text-white shadow-sm'
+                            : active
+                              ? 'bg-slate-100 text-slate-900'
+                              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+                        )}
+                      >
+                        <span className="text-sm font-semibold">{option.label}</span>
+                        <span
+                          className={classNames(
+                            'text-[0.6rem] font-semibold uppercase tracking-[0.3em]',
+                            option.key === activePersonaKey ? 'text-white/80' : 'text-slate-400',
+                          )}
+                        >
+                          {option.key === activePersonaKey ? 'Active' : option.timelineEnabled ? 'Timeline' : ''}
+                        </span>
+                      </Link>
+                    )}
+                  </Menu.Item>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="space-y-1">
+            <Menu.Item>
+              {({ active }) => (
+                <Link
+                  to="/settings"
+                  className={classNames(
+                    'flex items-center gap-2 rounded-2xl px-3 py-2 transition',
+                    active ? 'bg-slate-100 text-slate-900' : 'text-slate-700',
+                  )}
+                >
+                  Account settings
+                </Link>
+              )}
+            </Menu.Item>
+            <Menu.Item>
+              {({ active }) => (
+                <Link
+                  to="/notifications"
+                  className={classNames(
+                    'flex items-center gap-2 rounded-2xl px-3 py-2 transition',
+                    active ? 'bg-slate-100 text-slate-900' : 'text-slate-700',
+                  )}
+                >
+                  Notifications
+                </Link>
+              )}
+            </Menu.Item>
+            <Menu.Item>
+              {({ active }) => (
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  className={classNames(
+                    'flex w-full items-center gap-2 rounded-2xl px-3 py-2 transition',
+                    active ? 'bg-rose-50 text-rose-600' : 'text-rose-600 hover:bg-rose-50',
+                  )}
+                >
+                  Log out
+                </button>
+              )}
+            </Menu.Item>
+          </div>
         </Menu.Items>
       </Transition>
     </Menu>
@@ -104,12 +159,30 @@ UserMenu.propTypes = {
     name: PropTypes.string,
     email: PropTypes.string,
     memberships: PropTypes.arrayOf(PropTypes.string),
+    avatarUrl: PropTypes.string,
+    profile: PropTypes.shape({
+      avatarUrl: PropTypes.string,
+    }),
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   }),
   onLogout: PropTypes.func.isRequired,
+  roleOptions: PropTypes.arrayOf(
+    PropTypes.shape({
+      key: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      to: PropTypes.string.isRequired,
+      timelineEnabled: PropTypes.bool,
+    }),
+  ),
+  currentRoleKey: PropTypes.string,
+  onRoleSelect: PropTypes.func,
 };
 
 UserMenu.defaultProps = {
   session: null,
+  roleOptions: [],
+  currentRoleKey: null,
+  onRoleSelect: undefined,
 };
 
 function InboxPreview({
@@ -121,6 +194,7 @@ function InboxPreview({
   onOpen,
   onThreadClick,
   status = 'idle',
+  variant = 'menu',
 }) {
   const handleAfterEnter = () => {
     onOpen?.();
@@ -132,6 +206,8 @@ function InboxPreview({
   };
 
   const hasThreads = threads.length > 0;
+  const isDock = variant === 'dock';
+  const isIcon = variant === 'icon';
   const skeletonItems = useMemo(() => Array.from({ length: 3 }), []);
   const lastUpdatedCopy = lastFetchedAt ? formatRelativeTime(lastFetchedAt) : null;
   const statusLabelMap = useMemo(
@@ -147,7 +223,7 @@ function InboxPreview({
   const statusToneMap = useMemo(
     () => ({
       connected: 'bg-emerald-500',
-      loading: 'bg-amber-400',
+      loading: 'bg-slate-300',
       offline: 'bg-slate-400',
       error: 'bg-rose-500',
       idle: 'bg-slate-300',
@@ -156,7 +232,9 @@ function InboxPreview({
   );
   const resolvedStatus = statusLabelMap[status] ? status : 'idle';
   const indicatorClass = classNames(
-    'h-2.5 w-2.5 rounded-full transition-all duration-150',
+    isDock
+      ? 'absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full border-2 border-white transition'
+      : 'h-2.5 w-2.5 rounded-full transition-all duration-150',
     statusToneMap[resolvedStatus],
     resolvedStatus === 'loading' ? 'animate-pulse' : '',
   );
@@ -165,20 +243,42 @@ function InboxPreview({
   return (
     <Menu as="div" className="relative hidden lg:block">
       <Menu.Button
-        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-accent hover:bg-accent/10 hover:text-accent"
+        className={
+          isDock
+            ? classNames(
+                'group flex h-[4.5rem] w-20 flex-col items-center justify-center gap-1 rounded-none border-b-2 border-transparent px-2 text-[0.7rem] font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-900',
+                loading ? 'pointer-events-none opacity-70' : null,
+              )
+            : classNames(
+                'inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
+                isIcon ? 'h-11 w-11 justify-center px-0 py-0 hover:border-slate-400/80 hover:text-slate-900' : 'px-3 py-2 text-sm font-semibold hover:border-accent hover:bg-accent/10 hover:text-accent',
+                loading ? 'pointer-events-none opacity-70' : null,
+              )
+        }
         onClick={onRefresh}
         aria-label={ariaLabel}
       >
-        <ChatBubbleLeftRightIcon className="h-4 w-4" />
-        <span className="inline-flex items-center gap-1">
-          <span className="relative inline-flex items-center gap-1" role="status" aria-live="polite">
-            <span className={indicatorClass} aria-hidden="true" />
-            <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-              {statusLabelMap[resolvedStatus]}
+        {isDock ? (
+          <>
+            <span className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition group-hover:border-slate-300 group-hover:shadow">
+              <ChatBubbleLeftRightIcon className="h-5 w-5 text-slate-500 transition group-hover:text-slate-900" />
+              <span className={indicatorClass} aria-hidden="true" />
             </span>
+            <span className="leading-tight">Messaging</span>
+          </>
+        ) : (
+          <span className="inline-flex items-center gap-1">
+            <span className="relative inline-flex items-center gap-1" role="status" aria-live="polite">
+              <span className={indicatorClass} aria-hidden="true" />
+              {isIcon ? null : (
+                <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+                  {statusLabelMap[resolvedStatus]}
+                </span>
+              )}
+            </span>
+            {isIcon ? null : <span className="font-semibold text-slate-600">Inbox</span>}
           </span>
-          <span className="font-semibold text-slate-600">Inbox</span>
-        </span>
+        )}
       </Menu.Button>
       <Transition
         as={Fragment}
@@ -287,6 +387,7 @@ InboxPreview.propTypes = {
   onOpen: PropTypes.func,
   onThreadClick: PropTypes.func,
   status: PropTypes.string,
+  variant: PropTypes.oneOf(['menu', 'dock', 'icon']),
 };
 
 InboxPreview.defaultProps = {
@@ -297,143 +398,7 @@ InboxPreview.defaultProps = {
   onOpen: undefined,
   onThreadClick: undefined,
   status: 'idle',
-};
-
-function InsightsFlyout({ pulse, trending, onTrendingNavigate }) {
-  const highlightedPulse = useMemo(() => {
-    if (!Array.isArray(pulse) || pulse.length === 0) {
-      return [];
-    }
-    return pulse.slice(0, 3);
-  }, [pulse]);
-
-  const highlightedTrending = useMemo(() => {
-    if (!Array.isArray(trending) || trending.length === 0) {
-      return [];
-    }
-    return trending.slice(0, 4);
-  }, [trending]);
-
-  const hasPulse = highlightedPulse.length > 0;
-  const hasTrending = highlightedTrending.length > 0;
-
-  if (!hasPulse && !hasTrending) {
-    return null;
-  }
-
-  return (
-    <Popover className="relative hidden md:block">
-      {({ open }) => (
-        <>
-          <Popover.Button
-            type="button"
-            className={classNames(
-              'inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
-              open
-                ? 'border-accent/60 bg-white text-accent-strong shadow-sm'
-                : 'border-slate-200 bg-white/90 text-slate-600 hover:border-slate-400/80 hover:text-slate-900',
-            )}
-          >
-            <SparklesIcon className="h-5 w-5 text-accent" aria-hidden="true" />
-            <span>Insights</span>
-          </Popover.Button>
-          <Transition
-            as={Fragment}
-            enter="transition ease-out duration-150"
-            enterFrom="transform opacity-0 scale-95"
-            enterTo="transform opacity-100 scale-100"
-            leave="transition ease-in duration-100"
-            leaveFrom="transform opacity-100 scale-100"
-            leaveTo="transform opacity-0 scale-95"
-          >
-            <Popover.Panel className="absolute right-0 z-50 mt-3 w-[22rem] origin-top-right rounded-3xl border border-slate-200/70 bg-white/95 p-4 text-sm shadow-xl backdrop-blur focus:outline-none">
-              <div className="space-y-4">
-                {hasTrending ? (
-                  <section aria-label="Trending destinations" className="space-y-2">
-                    <header className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-                      <span className="inline-flex items-center gap-2 text-slate-500">
-                        <ArrowTrendingUpIcon className="h-4 w-4 text-accent" aria-hidden="true" />
-                        Trending now
-                      </span>
-                    </header>
-                    <div className="space-y-2">
-                      {highlightedTrending.map((entry) => (
-                        <Link
-                          key={entry.id}
-                          to={entry.to ?? '#'}
-                          onClick={() => onTrendingNavigate?.(entry)}
-                          className="group flex items-center justify-between rounded-2xl border border-slate-200/80 bg-white px-3 py-2 font-semibold text-slate-700 transition hover:border-accent/60 hover:text-accent-strong"
-                        >
-                          <span className="line-clamp-2 text-left leading-snug">{entry.label}</span>
-                          <ArrowTrendingUpIcon className="h-4 w-4 text-slate-300 group-hover:text-accent" aria-hidden="true" />
-                        </Link>
-                      ))}
-                    </div>
-                  </section>
-                ) : null}
-                {hasPulse ? (
-                  <section aria-label="Live pulse" className="space-y-2">
-                    <header className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-                      <span className="inline-flex items-center gap-2 text-slate-500">
-                        <SignalIcon className="h-4 w-4 text-emerald-500" aria-hidden="true" />
-                        Live pulse
-                      </span>
-                    </header>
-                    <dl className="grid grid-cols-1 gap-2">
-                      {highlightedPulse.map((metric) => (
-                        <div
-                          key={metric.id}
-                          className="rounded-2xl border border-slate-200/80 bg-white px-3 py-2 shadow-sm transition hover:border-accent/50"
-                        >
-                          <dt className="text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-slate-400">
-                            {metric.label}
-                          </dt>
-                          <dd className="mt-1 text-lg font-semibold text-slate-900">{metric.value}</dd>
-                          {metric.delta ? (
-                            <p className="mt-1 text-xs font-medium text-emerald-600">{metric.delta}</p>
-                          ) : null}
-                          {metric.hint ? (
-                            <p className="mt-1 text-[0.65rem] text-slate-400">{metric.hint}</p>
-                          ) : null}
-                        </div>
-                      ))}
-                    </dl>
-                  </section>
-                ) : null}
-              </div>
-            </Popover.Panel>
-          </Transition>
-        </>
-      )}
-    </Popover>
-  );
-}
-
-InsightsFlyout.propTypes = {
-  pulse: PropTypes.arrayOf(
-    PropTypes.shape({
-      id: PropTypes.string.isRequired,
-      label: PropTypes.string.isRequired,
-      value: PropTypes.string.isRequired,
-      delta: PropTypes.string,
-      hint: PropTypes.string,
-    }),
-  ),
-  trending: PropTypes.arrayOf(
-    PropTypes.shape({
-      id: PropTypes.string.isRequired,
-      label: PropTypes.string.isRequired,
-      description: PropTypes.string,
-      to: PropTypes.string,
-    }),
-  ),
-  onTrendingNavigate: PropTypes.func,
-};
-
-InsightsFlyout.defaultProps = {
-  pulse: [],
-  trending: [],
-  onTrendingNavigate: undefined,
+  variant: 'menu',
 };
 
 function QuickSearchDialog({
@@ -796,12 +761,52 @@ export default function AppTopBar({
   const searchBlurTimeoutRef = useRef(null);
   const sessionId = session?.id ?? null;
   const resolvedMarketingMenus = marketingNavigation ?? [];
+  const resolvedPrimaryNavigation = useMemo(
+    () => (Array.isArray(primaryNavigation) ? primaryNavigation : []),
+    [primaryNavigation],
+  );
+  const mainNavigation = useMemo(
+    () => resolvedPrimaryNavigation.filter((item) => item?.placement !== 'quick-action'),
+    [resolvedPrimaryNavigation],
+  );
+  const quickNavigation = useMemo(
+    () => resolvedPrimaryNavigation.filter((item) => item?.placement === 'quick-action'),
+    [resolvedPrimaryNavigation],
+  );
+  const dockNavigation = useMemo(
+    () => mainNavigation.filter((item) => item?.placement === 'dock'),
+    [mainNavigation],
+  );
+  const toolbarNavigation = useMemo(
+    () => mainNavigation.filter((item) => item?.placement !== 'dock'),
+    [mainNavigation],
+  );
+  const personaNavigation = useMemo(
+    () => toolbarNavigation.filter((item) => item?.context === 'persona'),
+    [toolbarNavigation],
+  );
+  const workspaceNavigation = useMemo(
+    () => toolbarNavigation.filter((item) => item?.context !== 'persona'),
+    [toolbarNavigation],
+  );
+  const primaryRailNavigation = useMemo(
+    () => workspaceNavigation.slice(0, 2),
+    [workspaceNavigation],
+  );
+  const workspaceOverflowNavigation = useMemo(
+    () => workspaceNavigation.slice(2),
+    [workspaceNavigation],
+  );
+  const creationStudioNav = useMemo(
+    () => quickNavigation.find((item) => item.id === 'studio'),
+    [quickNavigation],
+  );
   const pulseInsights = useMemo(() => {
     if (Array.isArray(navigationPulse) && navigationPulse.length > 0) {
       return navigationPulse;
     }
-    return deriveNavigationPulse(session, resolvedMarketingMenus, primaryNavigation);
-  }, [navigationPulse, primaryNavigation, resolvedMarketingMenus, session]);
+    return deriveNavigationPulse(session, resolvedMarketingMenus, mainNavigation);
+  }, [mainNavigation, navigationPulse, resolvedMarketingMenus, session]);
 
   const trendingEntries = useMemo(() => {
     if (Array.isArray(navigationTrending) && navigationTrending.length > 0) {
@@ -820,6 +825,81 @@ export default function AppTopBar({
     }
     return trendingEntries.slice(0, 6);
   }, [marketingSearch, trendingEntries]);
+
+  const navMegaMenus = useMemo(() => {
+    if (!isAuthenticated) {
+      return [];
+    }
+
+    const quickHighlights = quickNavigation
+      .filter((item) => item.id !== 'notifications')
+      .map((item) => ({
+        id: `quick-${item.id}`,
+        label: item.label,
+        description: item.description ?? item.ariaLabel ?? 'Open quick action',
+        to: item.to,
+        badge: 'Quick action',
+      }));
+
+    const menus = [];
+
+    if (workspaceOverflowNavigation.length) {
+      menus.push({
+        id: 'workspace-apps',
+        label: 'Workspace apps',
+        description: 'Jump into explorer, analytics, and supporting surfaces tuned to your role.',
+        theme: {
+          button: 'border border-transparent bg-slate-100/80 text-slate-600 hover:bg-white hover:text-slate-900',
+          panel: 'bg-white/95',
+          header: 'bg-gradient-to-br from-slate-50 via-white to-white',
+          grid: 'md:grid-cols-2',
+          item: 'hover:border-accent/50 hover:bg-accent/5',
+          icon: 'text-slate-500 group-hover:text-accent',
+        },
+        highlights: quickHighlights,
+        sections: [
+          {
+            title: 'Workspace destinations',
+            items: workspaceOverflowNavigation.map((entry) => ({
+              name: entry.label,
+              description: entry.description ?? entry.ariaLabel ?? 'Open workspace surface',
+              to: entry.to,
+              icon: entry.icon,
+            })),
+          },
+        ],
+      });
+    }
+
+    if (personaNavigation.length) {
+      menus.push({
+        id: 'persona-hubs',
+        label: 'Persona hubs',
+        description: 'Switch between specialised dashboards tailored to your memberships.',
+        theme: {
+          button: 'border border-transparent bg-indigo-50/70 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700',
+          panel: 'bg-white/95',
+          header: 'bg-gradient-to-br from-indigo-50 via-white to-white',
+          grid: 'md:grid-cols-2',
+          item: 'hover:border-indigo-200 hover:bg-indigo-50',
+          icon: 'text-indigo-500 group-hover:text-indigo-600',
+        },
+        sections: [
+          {
+            title: 'Role workspaces',
+            items: personaNavigation.map((entry) => ({
+              name: entry.label,
+              description: entry.description ?? entry.ariaLabel ?? 'Open workspace surface',
+              to: entry.to,
+              icon: entry.icon,
+            })),
+          },
+        ],
+      });
+    }
+
+    return menus;
+  }, [isAuthenticated, personaNavigation, quickNavigation, workspaceOverflowNavigation]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -1056,18 +1136,107 @@ export default function AppTopBar({
       (isSearchFocused || isSearchPopoverHover) &&
       (searchHistory.length > 0 || searchTrendingEntries.length > 0),
   );
+  const shouldShowMarketingMenus = !isAuthenticated && resolvedMarketingMenus.length > 0;
+  const messagingNav = useMemo(
+    () => dockNavigation.find((item) => item.id === 'messaging'),
+    [dockNavigation],
+  );
+  const alertsNav = useMemo(
+    () => dockNavigation.find((item) => item.id === 'alerts'),
+    [dockNavigation],
+  );
+
+  const syncPersonaMetadata = useCallback((option) => {
+    if (typeof document === 'undefined') {
+      return;
+    }
+    const root = document.documentElement;
+    if (!root) {
+      return;
+    }
+    if (option?.key) {
+      root.dataset.personaKey = option.key;
+    } else {
+      delete root.dataset.personaKey;
+    }
+    if (typeof option?.timelineEnabled === 'boolean') {
+      root.dataset.personaTimeline = option.timelineEnabled ? 'live' : 'pending';
+    } else {
+      delete root.dataset.personaTimeline;
+    }
+  }, []);
+
+  const handleRoleSelect = useCallback(
+    (option) => {
+      if (!option) {
+        return;
+      }
+      syncPersonaMetadata(option);
+
+      if (typeof analytics?.track === 'function') {
+        analytics.track(
+          'persona_switched',
+          {
+            persona: option.key,
+            destination: option.to,
+            timelineEnabled: option.timelineEnabled ?? false,
+          },
+          { userId: session?.id },
+        );
+      }
+
+      if (typeof window !== 'undefined') {
+        try {
+          if (typeof window.dispatchEvent === 'function') {
+            window.dispatchEvent(
+              new CustomEvent('gigvora:persona-switch', {
+                detail: {
+                  key: option.key,
+                  label: option.label,
+                  destination: option.to,
+                  timelineEnabled: option.timelineEnabled ?? false,
+                },
+              }),
+            );
+          }
+        } catch (error) {
+          console.warn('Unable to dispatch persona switch event', error);
+        }
+
+        const payload = {
+          event: 'gigvora_persona_switch',
+          persona: option.key,
+          destination: option.to,
+          timelineEnabled: option.timelineEnabled ?? false,
+        };
+
+        if (Array.isArray(window.dataLayer)) {
+          window.dataLayer.push(payload);
+        }
+
+        if (window.sessionStorage) {
+          try {
+            window.sessionStorage.setItem(
+              'gigvora:last-persona-switch',
+              JSON.stringify({ ...payload, occurredAt: new Date().toISOString() }),
+            );
+          } catch (error) {
+            console.warn('Unable to persist persona switch payload', error);
+          }
+        }
+      }
+    },
+    [session?.id, syncPersonaMetadata],
+  );
 
   return (
-    <header className="relative sticky top-0 z-40 border-b border-transparent bg-white/85 backdrop-blur">
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute left-1/2 top-[-35%] h-40 w-[70%] -translate-x-1/2 rounded-[50%] bg-accent/10 blur-3xl" />
-        <div className="absolute right-0 top-0 h-full w-24 bg-gradient-to-b from-white/40 via-white/5 to-transparent" />
-      </div>
+    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
       <MobileNavigation
         open={navOpen}
         onClose={onCloseNav}
         isAuthenticated={isAuthenticated}
-        primaryNavigation={primaryNavigation}
+        primaryNavigation={mainNavigation}
+        quickNavigation={quickNavigation}
         marketingNavigation={resolvedMarketingMenus}
         marketingSearch={marketingSearch}
         onLogout={onLogout}
@@ -1078,133 +1247,197 @@ export default function AppTopBar({
         navigationPulse={pulseInsights}
         trendingEntries={trendingEntries}
       />
-      <div className="relative mx-auto flex h-16 w-full flex-wrap items-center gap-3 px-4 sm:h-[4.75rem] sm:flex-nowrap sm:gap-4 sm:px-6 2xl:px-10">
-        <div className="flex min-w-0 flex-1 items-center gap-3 lg:gap-5">
-          <button
-            type="button"
-            onClick={onOpenNav}
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-600 shadow-sm transition hover:border-slate-400/80 hover:text-slate-900 lg:hidden"
-          >
-            <span className="sr-only">Open navigation</span>
-            <Bars3Icon className="h-5 w-5" />
-          </button>
-          <Link to="/" className="inline-flex shrink-0 items-center gap-2">
-            <img
-              src={LOGO_URL}
-              srcSet={LOGO_SRCSET}
-              alt="Gigvora"
-              className="h-10 w-auto shrink-0 sm:h-12"
-            />
-          </Link>
-          {marketingSearch ? (
+      <div className="mx-auto w-full max-w-screen-2xl px-4 sm:px-6 2xl:px-10">
+        <div className="grid grid-cols-[auto,minmax(0,1fr),auto] items-center gap-3 py-3 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
               type="button"
-              onClick={openQuickSearch}
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-600 shadow-sm transition hover:border-slate-400/80 hover:text-slate-900 md:hidden"
+              onClick={onOpenNav}
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-slate-400/80 hover:text-slate-900 lg:hidden"
             >
-              <span className="sr-only">Open quick search</span>
-              <MagnifyingGlassIcon className="h-5 w-5" aria-hidden="true" />
+              <span className="sr-only">Open navigation</span>
+              <Bars3Icon className="h-5 w-5" />
             </button>
-          ) : null}
-          {resolvedMarketingMenus.length ? (
-            <div className="hidden flex-1 items-center gap-2 lg:flex xl:gap-3">
+            <Link to="/" className="inline-flex shrink-0 items-center">
+              <img src={LOGO_URL} srcSet={LOGO_SRCSET} alt="Gigvora" className="h-10 w-auto sm:h-12" />
+            </Link>
+            {marketingSearch ? (
+              <>
+                <button
+                  type="button"
+                  onClick={openQuickSearch}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-slate-400/80 hover:text-slate-900 md:hidden"
+                >
+                  <span className="sr-only">Open quick search</span>
+                  <MagnifyingGlassIcon className="h-5 w-5" aria-hidden="true" />
+                </button>
+                <div className="relative hidden md:block md:w-64 lg:w-72 xl:w-80">
+                  <form
+                    className="flex w-full items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-sm shadow-inner ring-1 ring-transparent transition focus-within:bg-white focus-within:ring-2 focus-within:ring-accent/20"
+                    onSubmit={handleSearchSubmit}
+                    role="search"
+                    aria-label={marketingSearch.ariaLabel ?? marketingSearch.placeholder}
+                  >
+                    <MagnifyingGlassIcon className="h-5 w-5 text-slate-400" aria-hidden="true" />
+                    <input
+                      type="search"
+                      value={searchQuery}
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      onFocus={handleSearchFocus}
+                      onBlur={handleSearchBlur}
+                      onKeyDown={handleSearchKeyDown}
+                      placeholder={marketingSearch.placeholder}
+                      aria-label={marketingSearch.ariaLabel ?? marketingSearch.placeholder}
+                      className="flex-1 border-0 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:ring-0"
+                    />
+                    <span className="hidden items-center gap-1 rounded-full border border-slate-200/70 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-slate-400 lg:inline-flex">
+                      ⌘K
+                    </span>
+                  </form>
+                  <SearchSpotlight
+                    open={shouldShowSearchSpotlight}
+                    trending={searchTrendingEntries}
+                    recentSearches={searchHistory}
+                    onHistorySelect={handleHistorySelect}
+                    onTrendingSelect={handleSpotlightTrendingSelect}
+                    onClearHistory={clearSearchHistory}
+                    onPointerEnter={handleSpotlightPointerEnter}
+                    onPointerLeave={handleSpotlightPointerLeave}
+                  />
+                </div>
+              </>
+            ) : null}
+          </div>
+
+          <div className="hidden items-stretch justify-center gap-1 lg:flex">
+            {isAuthenticated
+              ? dockNavigation.map((item) => {
+                  if (item.type === 'inbox') {
+                    return (
+                      <InboxPreview
+                        key={item.id}
+                        threads={inboxPreview.threads}
+                        loading={inboxPreview.loading}
+                        error={inboxPreview.error}
+                        lastFetchedAt={inboxPreview.lastFetchedAt}
+                        onRefresh={onRefreshInbox}
+                        onOpen={onInboxMenuOpen}
+                        onThreadClick={onInboxThreadClick}
+                        status={connectionState}
+                        variant="dock"
+                      />
+                    );
+                  }
+                  if (item.type === 'notifications') {
+                    return <NotificationBell key={item.id} session={session} variant="dock" />;
+                  }
+                  return <PrimaryNavItem key={item.id} item={item} />;
+                })
+              : null}
+          </div>
+
+          <div className="flex items-center justify-end gap-2 sm:gap-3">
+            {isAuthenticated ? (
+              <>
+                <div className="flex items-center gap-2 lg:hidden">
+                  {messagingNav ? (
+                    <Link
+                      to={messagingNav.to}
+                      aria-label={messagingNav.ariaLabel ?? messagingNav.label}
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-slate-400/80 hover:text-slate-900"
+                    >
+                      <ChatBubbleLeftRightIcon className="h-5 w-5" aria-hidden="true" />
+                    </Link>
+                  ) : null}
+                  {alertsNav ? (
+                    <Link
+                      to={alertsNav.to}
+                      aria-label={alertsNav.ariaLabel ?? alertsNav.label}
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-slate-400/80 hover:text-slate-900"
+                    >
+                      <BellIcon className="h-5 w-5" aria-hidden="true" />
+                    </Link>
+                  ) : null}
+                </div>
+                <LanguageSelector className="hidden sm:inline-flex" />
+                <div className="hidden items-center gap-2 lg:flex">
+                  <InboxPreview
+                    threads={inboxPreview.threads}
+                    loading={inboxPreview.loading}
+                    error={inboxPreview.error}
+                    lastFetchedAt={inboxPreview.lastFetchedAt}
+                    onRefresh={onRefreshInbox}
+                    onOpen={onInboxMenuOpen}
+                    onThreadClick={onInboxThreadClick}
+                    status={connectionState}
+                    variant="icon"
+                  />
+                  <NotificationBell session={session} variant="compact" />
+                </div>
+                <div className="flex items-center gap-2">
+                  {creationStudioNav ? (
+                    <Link
+                      to={creationStudioNav.to}
+                      className="hidden items-center gap-2 rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition hover:bg-accentDark lg:inline-flex"
+                    >
+                      <SparklesIcon className="h-4 w-4" />
+                      {creationStudioNav.label}
+                    </Link>
+                  ) : null}
+                  <UserMenu
+                    session={session}
+                    onLogout={onLogout}
+                    roleOptions={roleOptions}
+                    currentRoleKey={currentRoleKey}
+                    onRoleSelect={handleRoleSelect}
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center gap-2 sm:gap-3">
+                <LanguageSelector className="hidden sm:inline-flex" />
+                <Link
+                  to="/login"
+                  className="rounded-full border border-slate-200/80 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400/80 hover:text-slate-900"
+                >
+                  {t('header.login', 'Log in')}
+                </Link>
+                <Link
+                  to="/register"
+                  className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700"
+                >
+                  {t('header.join', 'Join')}
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 py-3">
+          {isAuthenticated ? (
+            <div className="flex w-full flex-wrap items-center gap-2 text-sm font-semibold text-slate-600 sm:gap-3">
+              {primaryRailNavigation.length ? (
+                <nav className="flex flex-wrap items-center gap-2">
+                  {primaryRailNavigation.map((item) => (
+                    <PrimaryNavItem key={item.id} item={item} variant="toolbar" />
+                  ))}
+                </nav>
+              ) : null}
+              {navMegaMenus.length ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  {navMegaMenus.map((menu) => (
+                    <MegaMenu key={menu.id} item={menu} />
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : shouldShowMarketingMenus ? (
+            <div className="flex w-full flex-wrap items-center gap-2">
               {resolvedMarketingMenus.map((menu) => (
                 <HeaderMegaMenu key={menu.id} menu={menu} />
               ))}
             </div>
           ) : null}
-        </div>
-        {isAuthenticated ? (
-          <nav className="hidden flex-none items-stretch gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500 lg:flex">
-            <RoleSwitcher options={roleOptions} currentKey={currentRoleKey} />
-            {primaryNavigation.map((item) => (
-              <PrimaryNavItem key={item.id} item={item} variant="desktop" />
-            ))}
-          </nav>
-        ) : null}
-
-        {marketingSearch ? (
-          <div className="relative hidden min-w-[14rem] flex-[1.2] md:flex lg:min-w-[18rem]">
-            <form
-              className="flex w-full items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-sm shadow-inner ring-1 ring-transparent transition focus-within:bg-white focus-within:ring-2 focus-within:ring-accent/20"
-              onSubmit={handleSearchSubmit}
-              role="search"
-              aria-label={marketingSearch.ariaLabel ?? marketingSearch.placeholder}
-            >
-              <MagnifyingGlassIcon className="h-5 w-5 text-slate-400" aria-hidden="true" />
-              <input
-                type="search"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                onFocus={handleSearchFocus}
-                onBlur={handleSearchBlur}
-                onKeyDown={handleSearchKeyDown}
-                placeholder={marketingSearch.placeholder}
-                aria-label={marketingSearch.ariaLabel ?? marketingSearch.placeholder}
-                className="flex-1 border-0 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:ring-0"
-              />
-              <span className="hidden items-center gap-1 rounded-full border border-slate-200/70 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-slate-400 md:inline-flex">
-                ⌘K
-              </span>
-            </form>
-            <SearchSpotlight
-              open={shouldShowSearchSpotlight}
-              trending={searchTrendingEntries}
-              recentSearches={searchHistory}
-              onHistorySelect={handleHistorySelect}
-              onTrendingSelect={handleSpotlightTrendingSelect}
-              onClearHistory={clearSearchHistory}
-              onPointerEnter={handleSpotlightPointerEnter}
-              onPointerLeave={handleSpotlightPointerLeave}
-            />
-          </div>
-        ) : null}
-
-        <div className="hidden min-w-0 flex-1 items-center justify-end gap-2 sm:flex sm:gap-3 lg:gap-4">
-          <InsightsFlyout pulse={pulseInsights} trending={trendingEntries} onTrendingNavigate={handleTrendingNavigate} />
-          {isAuthenticated ? (
-            <>
-              <InboxPreview
-                threads={inboxPreview.threads}
-                loading={inboxPreview.loading}
-                error={inboxPreview.error}
-                lastFetchedAt={inboxPreview.lastFetchedAt}
-                onRefresh={onRefreshInbox}
-                onOpen={onInboxMenuOpen}
-                onThreadClick={onInboxThreadClick}
-                status={connectionState}
-              />
-              <NotificationBell session={session} />
-            </>
-          ) : null}
-          <LanguageSelector className="hidden flex-none sm:inline-flex" />
-          {isAuthenticated ? (
-            <div className="flex items-center gap-3">
-              <Link
-                to="/dashboard/user/creation-studio"
-                className="hidden items-center gap-2 rounded-full border border-accent/60 bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-strong lg:inline-flex"
-              >
-                <SparklesIcon className="h-4 w-4" />
-                Launch Creation Studio
-              </Link>
-              <UserMenu session={session} onLogout={onLogout} />
-            </div>
-          ) : (
-            <div className="flex items-center gap-3 sm:gap-4">
-              <Link
-                to="/login"
-                className="rounded-full border border-slate-200/80 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400/80 hover:text-slate-900 sm:px-5"
-              >
-                {t('header.login', 'Log in')}
-              </Link>
-              <Link
-                to="/register"
-                className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700 sm:px-5"
-              >
-                {t('header.join', 'Join')}
-              </Link>
-            </div>
-          )}
         </div>
       </div>
       <QuickSearchDialog
@@ -1258,6 +1491,7 @@ AppTopBar.propTypes = {
       label: PropTypes.string.isRequired,
       to: PropTypes.string.isRequired,
       badge: PropTypes.string,
+      placement: PropTypes.string,
     }),
   ).isRequired,
   roleOptions: PropTypes.arrayOf(

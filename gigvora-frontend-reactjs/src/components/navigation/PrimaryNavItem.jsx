@@ -39,7 +39,7 @@ export default function PrimaryNavItem({ item, variant = 'desktop', onNavigate }
 
   const desktopClasses = ({ isActive }) =>
     classNames(
-      'group flex h-[4.75rem] w-20 flex-col items-center justify-center gap-1 rounded-none border-b-2 px-2 text-xs font-semibold uppercase tracking-wide transition',
+      'group flex h-[4.5rem] w-20 flex-col items-center justify-center gap-1 rounded-none border-b-2 px-2 text-[0.7rem] font-semibold transition',
       isActive
         ? 'border-slate-900 text-slate-900'
         : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-900',
@@ -55,7 +55,17 @@ export default function PrimaryNavItem({ item, variant = 'desktop', onNavigate }
       item.disabled ? 'pointer-events-none opacity-40' : null,
     );
 
-  const resolvedClasses = variant === 'mobile' ? mobileClasses : desktopClasses;
+  const toolbarClasses = ({ isActive }) =>
+    classNames(
+      'inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition',
+      isActive
+        ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
+        : 'border-slate-200 bg-white/80 text-slate-600 hover:border-slate-300 hover:bg-white hover:text-slate-900',
+      item.disabled ? 'pointer-events-none opacity-40' : null,
+    );
+
+  const resolvedClasses =
+    variant === 'mobile' ? mobileClasses : variant === 'toolbar' ? toolbarClasses : desktopClasses;
 
   return (
     <NavLink
@@ -67,13 +77,21 @@ export default function PrimaryNavItem({ item, variant = 'desktop', onNavigate }
       <span
         className={classNames(
           'flex items-center',
-          variant === 'desktop' ? 'h-full w-full flex-col justify-center gap-1 text-center' : 'w-full justify-between gap-2',
+          variant === 'desktop'
+            ? 'h-full w-full flex-col justify-center gap-1 text-center'
+            : variant === 'mobile'
+            ? 'w-full justify-between gap-2'
+            : 'flex-row justify-center gap-2',
         )}
       >
         <span
           className={classNames(
             'inline-flex items-center',
-            variant === 'desktop' ? 'flex-col gap-1 text-xs font-semibold' : 'gap-2 text-sm font-medium',
+            variant === 'desktop'
+              ? 'flex-col gap-1 text-xs font-semibold'
+              : variant === 'mobile'
+              ? 'gap-2 text-sm font-medium'
+              : 'gap-2 text-sm font-semibold',
           )}
         >
           {Icon ? (
@@ -87,10 +105,23 @@ export default function PrimaryNavItem({ item, variant = 'desktop', onNavigate }
               aria-hidden="true"
             />
           ) : null}
-          <span className={variant === 'desktop' ? 'leading-none' : 'leading-tight'}>{item.label}</span>
+          <span
+            className={
+              variant === 'desktop'
+                ? 'text-[0.7rem] font-semibold leading-tight'
+                : 'leading-tight'
+            }
+          >
+            {item.label}
+          </span>
         </span>
         {badge ? (
-          <span className="rounded-full bg-slate-900/90 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-white">
+          <span
+            className={classNames(
+              'rounded-full px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.3em]',
+              variant === 'toolbar' ? 'bg-slate-900 text-white' : 'bg-slate-900/90 text-white',
+            )}
+          >
             {badge}
           </span>
         ) : null}
@@ -109,8 +140,9 @@ PrimaryNavItem.propTypes = {
     icon: PropTypes.elementType,
     disabled: PropTypes.bool,
     context: PropTypes.string,
+    placement: PropTypes.string,
   }).isRequired,
-  variant: PropTypes.oneOf(['desktop', 'mobile']),
+  variant: PropTypes.oneOf(['desktop', 'mobile', 'toolbar']),
   onNavigate: PropTypes.func,
 };
 

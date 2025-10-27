@@ -123,6 +123,78 @@ function FeedLoadingSkeletons({ count = 2 }) {
   );
 }
 
+function normaliseOrganisationEntry(entry) {
+  if (!entry) {
+    return null;
+  }
+  if (typeof entry === 'string') {
+    return { name: entry, logo: null };
+  }
+  if (typeof entry === 'object') {
+    const name =
+      entry.name ||
+      entry.title ||
+      entry.label ||
+      entry.company ||
+      entry.companyName ||
+      entry.agency ||
+      entry.agencyName ||
+      entry.displayName ||
+      null;
+    const logo =
+      entry.logo ||
+      entry.logoUrl ||
+      entry.image ||
+      entry.imageUrl ||
+      entry.avatar ||
+      entry.avatarUrl ||
+      entry.thumbnail ||
+      entry.thumbnailUrl ||
+      null;
+    return name ? { name, logo } : null;
+  }
+  return null;
+}
+
+function OrganisationList({ title, items }) {
+  if (!items.length) {
+    return null;
+  }
+
+  return (
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{title}</p>
+      <ul className="mt-3 space-y-2">
+        {items.map((item) => {
+          const initials = item.name
+            .split(' ')
+            .filter(Boolean)
+            .map((part) => part[0])
+            .join('')
+            .slice(0, 2)
+            .toUpperCase();
+
+          return (
+            <li
+              key={item.name}
+              className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white/80 px-3 py-2 shadow-sm"
+            >
+              <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-slate-100 text-xs font-semibold text-slate-500">
+                {item.logo ? (
+                  <img src={item.logo} alt={`${item.name} logo`} className="h-full w-full object-cover" loading="lazy" />
+                ) : (
+                  <span>{initials || '•'}</span>
+                )}
+              </div>
+              <span className="truncate text-sm font-medium text-slate-700">{item.name}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 function VirtualFeedChunk({
   chunk,
   chunkIndex,
@@ -229,65 +301,51 @@ function VirtualFeedChunk({
 function FeedIdentityRail({ session, interests = [] }) {
   const followerTotal = session?.followers ?? '—';
   const connectionTotal = session?.connections ?? '—';
+  const companies = Array.isArray(session?.companies)
+    ? session.companies.map((entry) => normaliseOrganisationEntry(entry)).filter(Boolean)
+    : [];
+  const agencies = Array.isArray(session?.agencies)
+    ? session.agencies.map((entry) => normaliseOrganisationEntry(entry)).filter(Boolean)
+    : [];
 
   return (
-    <aside className="space-y-6">
+    <aside className="space-y-5">
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex items-center gap-4">
-          <UserAvatar name={session?.name ?? 'Member'} seed={session?.avatarSeed ?? session?.name} size="lg" />
-          <div>
-            <p className="text-lg font-semibold text-slate-900">{session?.name ?? 'Gigvora member'}</p>
-            <p className="text-sm text-slate-500">{session?.title ?? 'Marketplace professional'}</p>
+          <UserAvatar name={session?.name ?? 'Member'} seed={session?.avatarSeed ?? session?.name} size="md" />
+          <div className="min-w-0">
+            <p className="text-base font-semibold text-slate-900 leading-tight">
+              {session?.name ?? 'Gigvora member'}
+            </p>
+            <p className="text-sm text-slate-500 line-clamp-2">{session?.title ?? 'Marketplace professional'}</p>
           </div>
         </div>
 
-        <div className="mt-6 rounded-2xl bg-slate-50 px-4 py-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Network reach</p>
-          <dl className="mt-4 grid grid-cols-2 gap-3 text-center">
-            <div className="rounded-xl bg-white px-4 py-3 shadow-sm">
-              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Followers</dt>
-              <dd className="mt-2 text-2xl font-semibold text-slate-900">{followerTotal}</dd>
-            </div>
-            <div className="rounded-xl bg-white px-4 py-3 shadow-sm">
-              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Connections</dt>
-              <dd className="mt-2 text-2xl font-semibold text-slate-900">{connectionTotal}</dd>
-            </div>
-          </dl>
-        </div>
+        <div className="mt-5 space-y-5 text-sm text-slate-600">
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/80 px-4 py-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Network reach</p>
+            <dl className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-600">
+              <div className="flex items-baseline gap-2">
+                <dt className="text-xs uppercase tracking-wide text-slate-400">Followers</dt>
+                <dd className="text-lg font-semibold text-slate-900">{followerTotal}</dd>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <dt className="text-xs uppercase tracking-wide text-slate-400">Connections</dt>
+                <dd className="text-lg font-semibold text-slate-900">{connectionTotal}</dd>
+              </div>
+            </dl>
+          </div>
 
-        <div className="mt-6 space-y-5 text-sm text-slate-600">
-          {Array.isArray(session?.companies) && session.companies.length ? (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Companies</p>
-              <ul className="mt-3 space-y-2">
-                {session.companies.map((company) => (
-                  <li key={company} className="rounded-2xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600">
-                    {company}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-          {Array.isArray(session?.agencies) && session.agencies.length ? (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Agencies & collectives</p>
-              <ul className="mt-3 space-y-2">
-                {session.agencies.map((agency) => (
-                  <li key={agency} className="rounded-2xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600">
-                    {agency}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
+          {companies.length ? <OrganisationList title="Companies" items={companies} /> : null}
+          {agencies.length ? <OrganisationList title="Agencies & collectives" items={agencies} /> : null}
           {Array.isArray(session?.accountTypes) && session.accountTypes.length ? (
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Account types</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Account types</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {session.accountTypes.map((type) => (
                   <span
                     key={type}
-                    className="inline-flex items-center rounded-full border border-accent/40 bg-accentSoft px-3 py-1 text-[11px] font-semibold text-accent"
+                    className="inline-flex items-center rounded-full border border-accent/30 bg-accentSoft px-3 py-1 text-[11px] font-medium text-accent"
                   >
                     {type}
                   </span>
@@ -297,12 +355,12 @@ function FeedIdentityRail({ session, interests = [] }) {
           ) : null}
           {interests.length ? (
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Interest signals</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Interest signals</p>
               <div className="mt-3 flex flex-wrap gap-2">
-                {interests.slice(0, 8).map((interest) => (
+                {interests.slice(0, 10).map((interest) => (
                   <span
                     key={interest}
-                    className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600"
+                    className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-600"
                   >
                     {interest}
                   </span>
@@ -381,7 +439,7 @@ function FeedInsightsRail({
               View all
             </Link>
           </div>
-          <ul className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
+          <ul className="mt-4 space-y-3 text-sm">
             {connectionSuggestions.slice(0, 4).map((connection) => {
               const mutualLabel = connection.mutualConnections === 1
                 ? '1 mutual'
@@ -389,21 +447,15 @@ function FeedInsightsRail({
               return (
                 <li
                   key={connection.id}
-                  className="group flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm transition hover:-translate-y-1 hover:border-accent/30 hover:shadow-lg"
+                  className="group flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-lg"
                 >
                   <div className="flex items-start gap-3">
-                    <div className="relative">
-                      <span
-                        className="pointer-events-none absolute -inset-1 rounded-full bg-gradient-to-br from-accent/30 via-transparent to-violet-400/40 opacity-0 blur-md transition group-hover:opacity-100"
-                        aria-hidden="true"
-                      />
-                      <UserAvatar
-                        name={connection.name}
-                        seed={connection.avatarSeed ?? connection.name}
-                        size="xs"
-                        className="relative ring-2 ring-white"
-                      />
-                    </div>
+                    <UserAvatar
+                      name={connection.name}
+                      seed={connection.avatarSeed ?? connection.name}
+                      size="sm"
+                      className="ring-2 ring-white"
+                    />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-slate-900 line-clamp-1">{connection.name}</p>
                       {connection.headline ? (
@@ -412,15 +464,21 @@ function FeedInsightsRail({
                     </div>
                   </div>
                   {connection.reason ? (
-                    <p className="mt-3 text-xs text-slate-500 line-clamp-2">{connection.reason}</p>
+                    <p className="text-xs text-slate-500 line-clamp-2">{connection.reason}</p>
                   ) : null}
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                    {connection.location ? <span>{connection.location}</span> : null}
-                    <span>{mutualLabel}</span>
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    {connection.location ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-slate-500">
+                        {connection.location}
+                      </span>
+                    ) : null}
+                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-slate-500">
+                      {mutualLabel}
+                    </span>
                   </div>
                   <Link
                     to={`/connections?suggested=${encodeURIComponent(connection.id)}`}
-                    className="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-accent to-accentDark px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition hover:shadow"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-accent to-accentDark px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition hover:shadow"
                   >
                     Start introduction
                   </Link>

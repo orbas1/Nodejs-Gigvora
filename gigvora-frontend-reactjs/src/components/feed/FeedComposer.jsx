@@ -7,7 +7,6 @@ import { ALLOWED_FEED_MEMBERSHIPS, COMPOSER_OPTIONS } from '../../constants/feed
 import {
   ContentModerationError,
   moderateFeedComposerPayload,
-  sanitiseExternalLink,
 } from '../../utils/contentModeration.js';
 import { MAX_CONTENT_LENGTH } from './feedHelpers.js';
 
@@ -43,7 +42,6 @@ function MediaAttachmentPreview({ attachment, onRemove }) {
 export default function FeedComposer({ onCreate, session, busy = false }) {
   const [mode, setMode] = useState('update');
   const [content, setContent] = useState('');
-  const [link, setLink] = useState('');
   const [attachment, setAttachment] = useState(null);
   const [attachmentAlt, setAttachmentAlt] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -51,8 +49,9 @@ export default function FeedComposer({ onCreate, session, busy = false }) {
   const [showEmojiTray, setShowEmojiTray] = useState(false);
   const [showGifTray, setShowGifTray] = useState(false);
   const textareaId = useId();
-  const linkInputId = useId();
   const mediaAltId = useId();
+  const emojiButtonId = useId();
+  const gifButtonId = useId();
 
   const selectedOption = COMPOSER_OPTIONS.find((option) => option.id === mode) ?? COMPOSER_OPTIONS[0];
   const remainingCharacters = MAX_CONTENT_LENGTH - content.length;
@@ -66,7 +65,6 @@ export default function FeedComposer({ onCreate, session, busy = false }) {
       type: mode,
       content,
       summary: content,
-      link: sanitiseExternalLink(link),
       mediaAttachments: attachment
         ? [
             {
@@ -108,7 +106,6 @@ export default function FeedComposer({ onCreate, session, busy = false }) {
     try {
       await Promise.resolve(onCreate?.(payload));
       setContent('');
-      setLink('');
       setAttachment(null);
       setAttachmentAlt('');
       setMode('update');
@@ -135,15 +132,45 @@ export default function FeedComposer({ onCreate, session, busy = false }) {
 
   return (
     <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-      <form onSubmit={handleSubmit} className="space-y-6 px-6 py-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
-          <UserAvatar name={session?.name} seed={session?.avatarSeed ?? session?.name} size="md" />
+      <form onSubmit={handleSubmit} className="space-y-5 px-5 py-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
+          <UserAvatar name={session?.name} seed={session?.avatarSeed ?? session?.name} size="sm" />
           <div className="flex-1 space-y-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Share with your network</p>
-              <p className="mt-1 text-sm text-slate-600">
-                Updates reach followers, workspaces, and premium subscribers who track {session?.name?.split(' ')[0] ?? 'you'}.
-              </p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Share with your network</p>
+                <p className="text-xs text-slate-500">
+                  Updates reach followers, workspaces, and saved leads watching {session?.name?.split(' ')[0] ?? 'you'}.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {COMPOSER_OPTIONS.map((option) => {
+                  const Icon = option.icon;
+                  const isActive = option.id === mode;
+                  const locked = option.lockedRoles && option.lockedRoles.length;
+                  const allowed = !locked || option.lockedRoles.some((role) => ALLOWED_FEED_MEMBERSHIPS.has(role));
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => {
+                        if (!disabled && allowed) {
+                          setMode(option.id);
+                        }
+                      }}
+                      disabled={disabled || !allowed}
+                      className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                        isActive
+                          ? 'bg-accent text-white shadow-soft'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                      } ${!allowed ? 'opacity-60' : ''}`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div className="relative">
               <label htmlFor={textareaId} className="sr-only">
@@ -156,12 +183,59 @@ export default function FeedComposer({ onCreate, session, busy = false }) {
                   setContent(event.target.value.slice(0, MAX_CONTENT_LENGTH));
                   setError(null);
                 }}
-                rows={5}
+                rows={4}
                 maxLength={MAX_CONTENT_LENGTH}
-                className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-base text-slate-900 shadow-inner transition focus:border-accent focus:bg-white focus:ring-2 focus:ring-accent/20"
+                className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 pb-12 pt-3 text-sm text-slate-900 shadow-inner transition focus:border-accent focus:bg-white focus:ring-2 focus:ring-accent/20"
                 placeholder={`Share an update about ${selectedOption.label.toLowerCase()}…`}
                 disabled={disabled}
               />
+              <div className="pointer-events-none absolute bottom-3 left-4 flex items-center gap-2">
+                <div className="pointer-events-auto relative">
+                  <button
+                    type="button"
+                    id={emojiButtonId}
+                    onClick={() => {
+                      setShowGifTray(false);
+                      setShowEmojiTray((previous) => !previous);
+                    }}
+                    className="inline-flex items-center gap-1 rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-slate-500 shadow-sm transition hover:bg-white"
+                    disabled={disabled}
+                  >
+                    <FaceSmileIcon className="h-4 w-4" />
+                    Emoji
+                  </button>
+                  <EmojiQuickPickerPopover
+                    open={showEmojiTray}
+                    onClose={() => setShowEmojiTray(false)}
+                    onSelect={(emoji) => setContent((previous) => `${previous}${emoji}`)}
+                    labelledBy={emojiButtonId}
+                  />
+                </div>
+                <div className="pointer-events-auto relative">
+                  <button
+                    type="button"
+                    id={gifButtonId}
+                    onClick={() => {
+                      setShowEmojiTray(false);
+                      setShowGifTray((previous) => !previous);
+                    }}
+                    className="inline-flex items-center gap-1 rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-slate-500 shadow-sm transition hover:bg-white"
+                    disabled={disabled}
+                  >
+                    <PhotoIcon className="h-4 w-4" />
+                    Media
+                  </button>
+                  <GifSuggestionPopover
+                    open={showGifTray}
+                    onClose={() => setShowGifTray(false)}
+                    onSelect={(gif) => {
+                      setAttachment({ id: gif.id, type: 'gif', url: gif.url, alt: gif.tone });
+                      setAttachmentAlt(gif.tone);
+                    }}
+                    labelledBy={gifButtonId}
+                  />
+                </div>
+              </div>
               <div className="pointer-events-none absolute bottom-3 right-4 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-400">
                 {remainingCharacters}
               </div>
@@ -169,139 +243,43 @@ export default function FeedComposer({ onCreate, session, busy = false }) {
             <p className="text-xs text-slate-500">{selectedOption.description}</p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 border-y border-slate-200 py-4">
-          {COMPOSER_OPTIONS.map((option) => {
-            const Icon = option.icon;
-            const isActive = option.id === mode;
-            const locked = option.lockedRoles && option.lockedRoles.length;
-            const allowed = !locked || option.lockedRoles.some((role) => ALLOWED_FEED_MEMBERSHIPS.has(role));
-            return (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => {
-                  if (!disabled && allowed) {
-                    setMode(option.id);
-                  }
-                }}
-                disabled={disabled || !allowed}
-                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition ${
-                  isActive
-                    ? 'bg-accent text-white shadow-soft'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
-                } ${!allowed ? 'opacity-60' : ''}`}
-              >
-                <Icon className="h-4 w-4" />
-                {option.label}
-              </button>
-            );
-          })}
-        </div>
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowGifTray(false);
-                  setShowEmojiTray((previous) => !previous);
-                }}
-                className="inline-flex items-center gap-2 rounded-full border border-transparent bg-slate-100 px-3 py-2 font-semibold text-slate-600 transition hover:bg-slate-200 hover:text-slate-900"
-                disabled={disabled}
-              >
-                <FaceSmileIcon className="h-4 w-4" />
-                Emoji
-              </button>
-              <EmojiQuickPickerPopover
-                open={showEmojiTray}
-                onClose={() => setShowEmojiTray(false)}
-                onSelect={(emoji) => setContent((previous) => `${previous}${emoji}`)}
-                labelledBy="composer-emoji-trigger"
-              />
-            </div>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowEmojiTray(false);
-                  setShowGifTray((previous) => !previous);
-                }}
-                className="inline-flex items-center gap-2 rounded-full border border-transparent bg-slate-100 px-3 py-2 font-semibold text-slate-600 transition hover:bg-slate-200 hover:text-slate-900"
-                disabled={disabled}
-              >
-                <PhotoIcon className="h-4 w-4" />
-                GIF & media
-              </button>
-              <GifSuggestionPopover
-                open={showGifTray}
-                onClose={() => setShowGifTray(false)}
-                onSelect={(gif) => {
-                  setAttachment({ id: gif.id, type: 'gif', url: gif.url, alt: gif.tone });
-                  setAttachmentAlt(gif.tone);
-                }}
-                labelledBy="composer-gif-trigger"
-              />
-            </div>
+
+        {attachment ? (
+          <div className="space-y-2">
+            <label htmlFor={mediaAltId} className="text-xs font-medium text-slate-600">
+              Media alt text
+            </label>
+            <input
+              id={mediaAltId}
+              value={attachmentAlt}
+              onChange={(event) => setAttachmentAlt(event.target.value)}
+              maxLength={120}
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
+              placeholder="Describe the media for improved accessibility"
+              disabled={disabled}
+            />
+            <MediaAttachmentPreview attachment={{ ...attachment, alt: attachmentAlt }} onRemove={handleRemoveAttachment} />
           </div>
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr),minmax(0,1fr)]">
-            <div className="space-y-2">
-              <label htmlFor={linkInputId} className="text-xs font-medium text-slate-600">
-                Attach a resource (deck, doc, or listing URL)
-              </label>
-              <input
-                id={linkInputId}
-                value={link}
-                onChange={(event) => {
-                  setLink(event.target.value);
-                  setError(null);
-                }}
-                placeholder="https://"
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                disabled={disabled}
-              />
-            </div>
-            <div className="space-y-2 text-xs text-slate-500">
-              <p className="font-medium text-slate-600">Need inspiration?</p>
-              <p>
-                Opportunity posts automatically appear inside Explorer with the right filters so talent can discover them alongside jobs, gigs, projects, volunteering missions, and Launchpad cohorts.
-              </p>
-            </div>
+        ) : null}
+
+        {error ? (
+          <div
+            className="space-y-2 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700 shadow-inner"
+            role="alert"
+          >
+            <p className="font-semibold">{error.message}</p>
+            {Array.isArray(error.reasons) && error.reasons.length ? (
+              <ul className="list-disc space-y-1 pl-5 text-xs text-rose-600">
+                {error.reasons.map((reason, index) => (
+                  <li key={index}>{reason}</li>
+                ))}
+              </ul>
+            ) : null}
           </div>
-          {attachment ? (
-            <div className="space-y-2">
-              <label htmlFor={mediaAltId} className="text-xs font-medium text-slate-600">
-                Media alt text
-              </label>
-              <input
-                id={mediaAltId}
-                value={attachmentAlt}
-                onChange={(event) => setAttachmentAlt(event.target.value)}
-                maxLength={120}
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
-                placeholder="Describe the media for improved accessibility"
-                disabled={disabled}
-              />
-              <MediaAttachmentPreview attachment={{ ...attachment, alt: attachmentAlt }} onRemove={handleRemoveAttachment} />
-            </div>
-          ) : null}
-          {error ? (
-            <div
-              className="space-y-2 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700 shadow-inner"
-              role="alert"
-            >
-              <p className="font-semibold">{error.message}</p>
-              {Array.isArray(error.reasons) && error.reasons.length ? (
-                <ul className="list-disc space-y-1 pl-5 text-xs text-rose-600">
-                  {error.reasons.map((reason, index) => (
-                    <li key={index}>{reason}</li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
+        ) : null}
+
         <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
-          <p>Your update routes to followers, connections, and workspace partners.</p>
+          <p className="text-[0.75rem] text-slate-500">Your update routes to followers, connections, and workspace partners.</p>
           <button
             type="submit"
             disabled={disabled || !content.trim()}

@@ -10,6 +10,7 @@ user_experience.md
    7. Applied translucent shell treatments, subtle gradients, and backdrop blur adjustments to reinforce a premium, LinkedIn-calibre aesthetic with restrained highlights rather than dense decorative blocks.
    8. Layered a mobile-first quick search dialog with curated trending deep links so small-screen users can instantly launch people, opportunity, and workspace discovery without diving into the mega menus.
    9. Instrumented global search submissions with persona-aware analytics and reset behaviour while echoing insights tracking inside the quick search drawer, ensuring navigation intelligence and query journeys stay observable across entry points.
+   10. Rebuilt the authenticated navigation dock into a LinkedIn-style icon row that anchors Home, Network, Jobs, Projects, Messaging, Notifications, and Work with shared styling tokens while delegating previews to the inbox and alert popovers for consistency.
 1.B. Footer & System Bars
 1.C. Layout Containers
 1.D. Toasts & Feedback
@@ -26,3 +27,14 @@ user_experience.md
    10. Maintained the inbox preview, notifications, language selector, and creation shortcuts in a slim action bar, spacing each control to align with the new search footprint while preserving single-click access for frequent workflows.
    11. Preserved the insights popover with updated styling tokens so persona pulse metrics and trending callouts inherit the refreshed translucency treatments introduced for the spotlight.
    12. Synced the mobile navigation drawer with the new search services, delivering identical trending intelligence and analytics wiring on small screens so the quick-launch experience feels identical to desktop.
+
+5. Feed & Timeline
+5.A. Feed & Timeline ✅
+   1. Re-oriented the composer so post-type toggles sit directly above the textarea with emoji and media pickers embedded inside the field, halving the vertical footprint while keeping rich creation tools one tap away.
+   2. Collapsed the ActivityFilters panel into a lightweight chip row with inline freshness, draft counts, and refresh controls so curating the feed feels immediate instead of modal.
+   3. Retired the experimental timeline pulse card and highlight grid so updates lead the column, reducing above-the-fold noise and letting content breathe.
+   4. Refined the identity rail with slimmer stat badges, real company and agency thumbnails, and modern interest chips so the left column mirrors premium network hubs.
+   5. Reworked suggested connections into full-width profile rows with concise bios, pill metadata, and a responsive introduction button that no longer breaks the layout on smaller screens.
+   6. Slimmed the insights rail callouts by trimming redundant copy and aligning action buttons, ensuring “Start introduction” and Explorer CTAs read naturally without crowding.
+   7. Updated avatar fallbacks to realistic pravatar headshots, keeping the timeline grounded in human imagery when members have not uploaded a profile photo.
+   8. Smoothed the feed shell with a tidier two-row header that separates logo/search/actions from navigation chips, preventing the top bar from feeling congested even on dense workstations.
