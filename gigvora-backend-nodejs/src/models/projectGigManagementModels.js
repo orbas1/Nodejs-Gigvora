@@ -498,6 +498,7 @@ export const ClientKanbanCard = projectGigManagementSequelize.define(
     contactEmail: { type: DataTypes.STRING(180), allowNull: true },
     ownerName: { type: DataTypes.STRING(180), allowNull: true },
     ownerEmail: { type: DataTypes.STRING(180), allowNull: true },
+    ownerRole: { type: DataTypes.STRING(120), allowNull: true },
     healthStatus: { type: DataTypes.ENUM(...CLIENT_ACCOUNT_HEALTH_STATUSES), allowNull: false, defaultValue: 'healthy' },
     startDate: { type: DataTypes.DATE, allowNull: true },
     dueDate: { type: DataTypes.DATE, allowNull: true },
@@ -529,6 +530,22 @@ export const ClientKanbanChecklistItem = projectGigManagementSequelize.define(
     metadata: { type: jsonType, allowNull: true },
   },
   { tableName: 'pgm_client_kanban_checklist_items', underscored: true },
+);
+
+export const ClientKanbanCollaborator = projectGigManagementSequelize.define(
+  'PgmClientKanbanCollaborator',
+  {
+    cardId: { type: DataTypes.INTEGER, allowNull: false },
+    ownerId: { type: DataTypes.INTEGER, allowNull: false },
+    workspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    name: { type: DataTypes.STRING(180), allowNull: false },
+    email: { type: DataTypes.STRING(180), allowNull: true },
+    role: { type: DataTypes.STRING(120), allowNull: true },
+    avatarUrl: { type: DataTypes.STRING(255), allowNull: true },
+    lastActivityAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_client_kanban_collaborators', underscored: true },
 );
 
 export const StoryBlock = projectGigManagementSequelize.define(
@@ -1001,6 +1018,9 @@ ClientKanbanCard.belongsTo(ClientKanbanColumn, { as: 'column', foreignKey: 'colu
 ClientKanbanCard.hasMany(ClientKanbanChecklistItem, { as: 'checklist', foreignKey: 'cardId', onDelete: 'CASCADE' });
 ClientKanbanChecklistItem.belongsTo(ClientKanbanCard, { foreignKey: 'cardId' });
 
+ClientKanbanCard.hasMany(ClientKanbanCollaborator, { as: 'collaborators', foreignKey: 'cardId', onDelete: 'CASCADE' });
+ClientKanbanCollaborator.belongsTo(ClientKanbanCard, { foreignKey: 'cardId' });
+
 GigOrder.hasMany(GigOrderRequirement, { as: 'requirements', foreignKey: 'orderId', onDelete: 'CASCADE' });
 GigOrderRequirement.belongsTo(GigOrder, { foreignKey: 'orderId' });
 
@@ -1079,6 +1099,7 @@ export default {
   ClientKanbanColumn,
   ClientKanbanCard,
   ClientKanbanChecklistItem,
+  ClientKanbanCollaborator,
   StoryBlock,
   BrandAsset,
   ProjectBid,

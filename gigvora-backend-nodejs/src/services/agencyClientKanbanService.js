@@ -5,6 +5,7 @@ import {
   ClientKanbanColumn,
   ClientKanbanCard,
   ClientKanbanChecklistItem,
+  ClientKanbanCollaborator,
   CLIENT_ACCOUNT_HEALTH_STATUSES,
   CLIENT_ACCOUNT_STATUSES,
   CLIENT_ACCOUNT_TIERS,
@@ -126,6 +127,97 @@ function normalizeSlug(value) {
     .slice(0, 160);
 }
 
+function normalizeCollaborator(entry, index) {
+  if (!entry || typeof entry !== 'object') {
+    throw new ValidationError(`Collaborator ${index + 1} is invalid.`);
+  }
+  const name = typeof entry.name === 'string' ? entry.name.trim() : '';
+  if (!name) {
+    throw new ValidationError(`Collaborator ${index + 1} requires a name.`);
+  }
+  const collaborator = {
+    name,
+    email: entry.email ? String(entry.email).trim() : null,
+    role: entry.role ? String(entry.role).trim() : null,
+    avatarUrl: entry.avatarUrl ? String(entry.avatarUrl).trim() : null,
+    metadata: entry.metadata ?? null,
+  };
+  if (entry.lastActivityAt != null) {
+    collaborator.lastActivityAt = normalizeDate(entry.lastActivityAt);
+  } else if (entry.lastActivity != null) {
+    collaborator.lastActivityAt = normalizeDate(entry.lastActivity);
+  } else {
+    collaborator.lastActivityAt = null;
+  }
+  if (entry.id != null) {
+    collaborator.id = Number(entry.id);
+  }
+  return collaborator;
+}
+
+function toPlainCollaborator(instance) {
+  const plain = toPlain(instance);
+  if (!plain) {
+    return null;
+  }
+  const lastActivityAt = plain.lastActivityAt ?? plain.last_activity_at ?? plain.updatedAt ?? plain.updated_at ?? null;
+  return {
+    ...plain,
+    lastActivityAt: lastActivityAt ? new Date(lastActivityAt) : null,
+  };
+}
+
+async function syncCollaborators(ownerId, workspaceId, cardId, collaborators = [], { transaction } = {}) {
+  if (!Array.isArray(collaborators)) {
+    return;
+  }
+  const normalised = collaborators.map((entry, index) => normalizeCollaborator(entry, index));
+  const existing = await ClientKanbanCollaborator.findAll({ where: { cardId }, transaction });
+  const existingMap = new Map(existing.map((record) => [String(record.id), record]));
+  const seen = new Set();
+
+  for (const collaborator of normalised) {
+    if (collaborator.id != null) {
+      const key = String(collaborator.id);
+      const current = existingMap.get(key);
+      if (current) {
+        await current.update(
+          {
+            name: collaborator.name,
+            email: collaborator.email,
+            role: collaborator.role,
+            avatarUrl: collaborator.avatarUrl,
+            lastActivityAt: collaborator.lastActivityAt,
+            metadata: collaborator.metadata ?? current.metadata,
+          },
+          { transaction },
+        );
+        seen.add(current.id);
+        continue;
+      }
+    }
+
+    const created = await ClientKanbanCollaborator.create(
+      {
+        cardId,
+        ownerId,
+        workspaceId: workspaceId ?? null,
+        name: collaborator.name,
+        email: collaborator.email,
+        role: collaborator.role,
+        avatarUrl: collaborator.avatarUrl,
+        lastActivityAt: collaborator.lastActivityAt,
+        metadata: collaborator.metadata ?? null,
+      },
+      { transaction },
+    );
+    seen.add(created.id);
+  }
+
+  const removals = existing.filter((record) => !seen.has(record.id));
+  await Promise.all(removals.map((record) => record.destroy({ transaction })));
+}
+
 function buildScope(ownerId, workspaceId) {
   if (!ownerId) {
     throw new ValidationError('Owner id is required.');
@@ -137,6 +229,16 @@ function buildScope(ownerId, workspaceId) {
     scope.workspaceId = { [Op.is]: null };
   }
   return scope;
+}
+
+function buildCreateScope(ownerId, workspaceId) {
+  if (!ownerId) {
+    throw new ValidationError('Owner id is required.');
+  }
+  return {
+    ownerId,
+    workspaceId: workspaceId ?? null,
+  };
 }
 
 async function ensureColumn(ownerId, workspaceId, columnId, { transaction } = {}) {
@@ -323,7 +425,10 @@ function summarizeChecklist(items = []) {
 
 function aggregateMetrics(columns = []) {
   const allCards = columns.flatMap((column) => column.cards ?? []);
-  const totalValue = allCards.reduce((total, card) => total + Number(card.valueAmount || 0), 0);
+  const totalValue = allCards.reduce((total, card) => {
+    const value = card.valueAmount ?? card.value ?? 0;
+    return total + Number(value || 0);
+  }, 0);
   const dueSoonThreshold = Date.now() + 7 * 24 * 60 * 60 * 1000;
   const dueSoon = allCards.filter((card) => {
     if (!card.dueDate) {
@@ -371,6 +476,7 @@ async function fetchColumnsWithRelations(scope, { transaction } = {}) {
         include: [
           { model: ClientAccount, as: 'client' },
           { model: ClientKanbanChecklistItem, as: 'checklist' },
+          { model: ClientKanbanCollaborator, as: 'collaborators' },
         ],
         order: [['sortOrder', 'ASC']],
       },
@@ -384,12 +490,35 @@ async function fetchColumnsWithRelations(scope, { transaction } = {}) {
     plain.cards = (plain.cards ?? [])
       .map((card) => {
         const checklistSummary = summarizeChecklist(card.checklist ?? []);
+        const collaborators = Array.isArray(card.collaborators)
+          ? card.collaborators
+              .map(toPlainCollaborator)
+              .filter(Boolean)
+              .sort((a, b) => {
+                const left = a.lastActivityAt ? a.lastActivityAt.getTime() : 0;
+                const right = b.lastActivityAt ? b.lastActivityAt.getTime() : 0;
+                if (left === right) {
+                  return a.name.localeCompare(b.name);
+                }
+                return right - left;
+              })
+          : [];
+        const lastActivityAt =
+          card.lastActivityAt ??
+          card.lastInteractionAt ??
+          card.nextInteractionAt ??
+          card.updatedAt ??
+          card.createdAt ??
+          null;
         return {
           ...card,
           checklistSummary,
+          collaborators,
+          lastActivityAt,
         };
       })
       .sort((a, b) => a.sortOrder - b.sortOrder);
+    plain.originalCardCount = plain.cards.length;
     return plain;
   });
 }
@@ -432,11 +561,12 @@ export async function createColumn(ownerId, workspaceId, payload = {}) {
 
   return projectGigManagementSequelize.transaction(async (transaction) => {
     const scope = buildScope(ownerId, workspaceId);
+    const createScope = buildCreateScope(ownerId, workspaceId);
     const sortOrder = await nextSortOrder(ClientKanbanColumn, scope, transaction);
 
     const column = await ClientKanbanColumn.create(
       {
-        ...scope,
+        ...createScope,
         name,
         slug: normalizeSlug(name),
         wipLimit: payload.wipLimit != null ? normalizeNumber(payload.wipLimit, { min: 0 }) : null,
@@ -541,6 +671,9 @@ function buildCardUpdates(payload) {
   if (payload.ownerEmail !== undefined) {
     updates.ownerEmail = payload.ownerEmail ? String(payload.ownerEmail).trim() : null;
   }
+  if (payload.ownerRole !== undefined) {
+    updates.ownerRole = payload.ownerRole ? String(payload.ownerRole).trim() : null;
+  }
   if (payload.healthStatus !== undefined) {
     updates.healthStatus = normalizeEnum(
       payload.healthStatus,
@@ -592,6 +725,7 @@ export async function createCard(ownerId, workspaceId, payload = {}) {
     const column = await ensureColumn(ownerId, workspaceId, payload.columnId, { transaction });
     const client = await resolveClient(ownerId, workspaceId, payload, { transaction });
     const scope = buildScope(ownerId, workspaceId);
+    const createScope = buildCreateScope(ownerId, workspaceId);
     const sortOrder = await nextSortOrder(
       ClientKanbanCard,
       { ...scope, columnId: column.id, archivedAt: { [Op.is]: null } },
@@ -605,7 +739,7 @@ export async function createCard(ownerId, workspaceId, payload = {}) {
 
     const card = await ClientKanbanCard.create(
       {
-        ...scope,
+        ...createScope,
         columnId: column.id,
         clientId: client?.id ?? payload.clientId ?? null,
         title: String(titleSource).trim(),
@@ -629,6 +763,10 @@ export async function createCard(ownerId, workspaceId, payload = {}) {
         metadata: item.metadata ?? null,
       }));
       await ClientKanbanChecklistItem.bulkCreate(checklistPayloads, { transaction });
+    }
+
+    if (Array.isArray(payload.collaborators)) {
+      await syncCollaborators(ownerId, workspaceId, card.id, payload.collaborators, { transaction });
     }
 
     return toPlain(await ensureCard(ownerId, workspaceId, card.id, { transaction }));
@@ -709,6 +847,10 @@ export async function updateCard(ownerId, workspaceId, cardId, payload = {}) {
           transaction,
         });
       }
+    }
+
+    if (Array.isArray(payload.collaborators)) {
+      await syncCollaborators(ownerId, workspaceId, card.id, payload.collaborators, { transaction });
     }
 
     return toPlain(await ensureCard(ownerId, workspaceId, card.id, { transaction }));
