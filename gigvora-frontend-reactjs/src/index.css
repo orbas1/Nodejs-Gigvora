@@ -98,6 +98,30 @@
     @apply pointer-events-none absolute inset-y-0 right-0 hidden w-1/4 lg:block;
     background-image: var(--shell-overlay-desktop);
   }
+
+  .gv-app-top-bar {
+    @apply relative sticky top-0 z-40 border-b border-transparent bg-white/70 backdrop-blur transition-all duration-300;
+  }
+
+  [data-shell-scroll='scrolled'] .gv-app-top-bar {
+    @apply border-slate-200/80 bg-white/90 shadow-subtle;
+  }
+
+  .gv-scroll-progress {
+    @apply pointer-events-none absolute inset-x-0 top-0 z-50 h-0.5 w-full origin-left scale-x-0 transform bg-gradient-to-r from-accent via-indigo-500 to-emerald-400 opacity-0 transition-opacity duration-300;
+  }
+
+  [data-shell-scroll='scrolled'] .gv-scroll-progress {
+    @apply opacity-100;
+  }
+
+  .gv-dashboard-top-rail {
+    @apply relative sticky top-0 z-30 border-b border-transparent bg-white/75 px-4 py-4 backdrop-blur transition-all duration-300 sm:px-6 lg:px-10;
+  }
+
+  [data-shell-scroll='scrolled'] .gv-dashboard-top-rail {
+    @apply border-slate-200/80 bg-white/90;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
