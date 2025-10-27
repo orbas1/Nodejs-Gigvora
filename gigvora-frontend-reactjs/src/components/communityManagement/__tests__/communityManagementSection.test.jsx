@@ -56,6 +56,9 @@ describe('CommunityManagementSection', () => {
               postsPublishedThisWeek: 4,
               postsDraft: 6,
               invitesExpiringSoon: 2,
+              pendingApprovals: 3,
+              invitedMembers: 8,
+              suspendedMembers: 1,
               averageEngagement: 0.62,
               trendingTopics: ['growth', 'ops'],
             },
@@ -72,6 +75,8 @@ describe('CommunityManagementSection', () => {
                 metrics: {
                   invitesPending: 1,
                   invitesExpiringSoon: 1,
+                  membersPending: 2,
+                  membersInvited: 4,
                   membersActive: 58,
                   membersJoinedThisWeek: 2,
                   postsPublished: 12,
@@ -126,6 +131,7 @@ describe('CommunityManagementSection', () => {
     expect(screen.getByText(/Engagement pulse/)).toBeInTheDocument();
     expect(screen.getByText(/\+5 joined this week/i)).toBeInTheDocument();
     expect(screen.getByText(/120\s+active members/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/approvals waiting/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/#growth/i)).toBeInTheDocument();
   });
 });

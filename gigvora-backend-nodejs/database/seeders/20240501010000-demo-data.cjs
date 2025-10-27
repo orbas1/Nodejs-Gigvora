@@ -1,5 +1,6 @@
 'use strict';
 
+const { randomUUID } = require('node:crypto');
 const { QueryTypes, Op } = require('sequelize');
 
 const marketingConsentBaseline = new Date('2024-05-01T00:00:00.000Z');
@@ -482,7 +483,149 @@ const volunteeringSeeds = [
 const groupSeeds = [
   {
     name: '[demo] Marketplace founders circle',
+    slug: 'demo-marketplace-founders-circle',
     description: 'Weekly async briefings for founders sharing acquisition, retention, and compliance playbooks.',
+    visibility: 'private',
+    memberPolicy: 'invite',
+    avatarColor: '#2563eb',
+    bannerImageUrl: 'https://cdn.gigvora.com/community/groups/founders-circle-banner.jpg',
+    metadata: { focus: 'marketplace', seed: 'community-demo' },
+    settings: { timezone: 'America/Los_Angeles', cadence: 'weekly_briefing' },
+  },
+  {
+    name: '[demo] AI builders guild',
+    slug: 'demo-ai-builders-guild',
+    description: 'Hands-on build guild aligning AI experiments with shipping-ready product momentum.',
+    visibility: 'private',
+    memberPolicy: 'invite',
+    avatarColor: '#8b5cf6',
+    bannerImageUrl: 'https://cdn.gigvora.com/community/groups/ai-builders-banner.jpg',
+    metadata: { focus: 'ai', cohort: '2025', seed: 'community-demo' },
+    settings: { timezone: 'America/New_York', cadence: 'biweekly_labs' },
+  },
+];
+
+const groupMembershipSeeds = [
+  {
+    groupSlug: 'demo-marketplace-founders-circle',
+    email: 'ava@gigvora.com',
+    role: 'owner',
+    status: 'active',
+    joinedDaysAgo: 180,
+  },
+  {
+    groupSlug: 'demo-marketplace-founders-circle',
+    email: 'leo@gigvora.com',
+    role: 'moderator',
+    status: 'active',
+    joinedDaysAgo: 4,
+  },
+  {
+    groupSlug: 'demo-marketplace-founders-circle',
+    email: 'mentor@gigvora.com',
+    role: 'member',
+    status: 'pending',
+  },
+  {
+    groupSlug: 'demo-marketplace-founders-circle',
+    email: 'recruiter@gigvora.com',
+    role: 'member',
+    status: 'invited',
+    invitedByEmail: 'ava@gigvora.com',
+  },
+  {
+    groupSlug: 'demo-ai-builders-guild',
+    email: 'mia@gigvora.com',
+    role: 'owner',
+    status: 'active',
+    joinedDaysAgo: 150,
+  },
+  {
+    groupSlug: 'demo-ai-builders-guild',
+    email: 'noah@gigvora.com',
+    role: 'moderator',
+    status: 'active',
+    joinedDaysAgo: 90,
+  },
+  {
+    groupSlug: 'demo-ai-builders-guild',
+    email: 'leo@gigvora.com',
+    role: 'member',
+    status: 'suspended',
+    joinedDaysAgo: 30,
+  },
+];
+
+const groupInviteSeeds = [
+  {
+    groupSlug: 'demo-marketplace-founders-circle',
+    email: 'ops-lead@example.com',
+    role: 'member',
+    status: 'pending',
+    invitedByEmail: 'ava@gigvora.com',
+    message: 'Join the weekly acquisition and retention standup.',
+    expiresInDays: 3,
+  },
+  {
+    groupSlug: 'demo-marketplace-founders-circle',
+    email: 'growth-mentor@example.com',
+    role: 'moderator',
+    status: 'accepted',
+    invitedByEmail: 'leo@gigvora.com',
+    acceptedDaysAgo: 2,
+  },
+  {
+    groupSlug: 'demo-ai-builders-guild',
+    email: 'ml-researcher@example.com',
+    role: 'member',
+    status: 'pending',
+    invitedByEmail: 'mia@gigvora.com',
+    expiresInDays: 5,
+  },
+];
+
+const groupPostSeeds = [
+  {
+    groupSlug: 'demo-marketplace-founders-circle',
+    slug: 'demo-founders-weekly-briefing',
+    title: 'Weekly growth briefing',
+    summary: 'Pipeline health, invite conversion, and nurture priorities for the next sprint.',
+    status: 'published',
+    visibility: 'members',
+    publishedDaysAgo: 2,
+    createdByEmail: 'ava@gigvora.com',
+    updatedByEmail: 'ava@gigvora.com',
+    topicTags: ['growth', 'ops'],
+    metadata: { tags: ['expansion', 'retention'] },
+    content: '## Weekly growth briefing\n\n- Acquisition channel: +12% week-over-week\n- Invites accepted: 18\n- Next sprint focus: onboarding experiments.',
+  },
+  {
+    groupSlug: 'demo-marketplace-founders-circle',
+    slug: 'demo-founders-roadmap-ama',
+    title: 'Roadmap AMA with founders',
+    summary: 'Live AMA to align roadmap, experiments, and success metrics.',
+    status: 'scheduled',
+    visibility: 'members',
+    scheduledInDays: 3,
+    createdByEmail: 'leo@gigvora.com',
+    updatedByEmail: 'leo@gigvora.com',
+    topicTags: ['community'],
+    metadata: { tags: ['ops'] },
+    content: 'Share your roadmap questions ahead of the AMA to prioritise themes.',
+  },
+  {
+    groupSlug: 'demo-ai-builders-guild',
+    slug: 'demo-ai-shipping-update',
+    title: 'AI shipping update',
+    summary: 'Release notes for new copilots and experiment learnings.',
+    status: 'published',
+    visibility: 'members',
+    publishedDaysAgo: 5,
+    createdByEmail: 'mia@gigvora.com',
+    updatedByEmail: 'mia@gigvora.com',
+    topicTags: ['ai', 'launch'],
+    metadata: { tags: ['innovation', 'ops'] },
+    content: 'We shipped two new automations and published the playbook for prompt QA.',
   },
 ];
 
@@ -1080,59 +1223,228 @@ module.exports = {
         );
       }
 
-      const groupIdByName = new Map();
+      const groupIdBySlug = new Map();
       for (const group of groupSeeds) {
         const [groupRow] = await queryInterface.sequelize.query(
-          'SELECT id FROM groups WHERE name = :name LIMIT 1',
+          'SELECT id FROM groups WHERE slug = :slug OR name = :name LIMIT 1',
           {
             type: QueryTypes.SELECT,
             transaction,
-            replacements: { name: group.name },
+            replacements: { slug: group.slug, name: group.name },
           },
         );
+
         if (groupRow?.id) {
-          groupIdByName.set(group.name, groupRow.id);
+          const updatePayload = {
+            name: group.name,
+            slug: group.slug,
+            description: group.description,
+            visibility: group.visibility,
+            memberPolicy: group.memberPolicy,
+            avatarColor: group.avatarColor,
+            bannerImageUrl: group.bannerImageUrl,
+            metadata: group.metadata,
+            settings: group.settings,
+            updatedAt: now,
+          };
+          await queryInterface.bulkUpdate('groups', updatePayload, { id: groupRow.id }, { transaction });
+          groupIdBySlug.set(group.slug, groupRow.id);
           continue;
         }
-        await queryInterface.bulkInsert('groups', [{ ...group, createdAt: now, updatedAt: now }], { transaction });
+
+        await queryInterface.bulkInsert(
+          'groups',
+          [
+            {
+              name: group.name,
+              slug: group.slug,
+              description: group.description,
+              visibility: group.visibility,
+              memberPolicy: group.memberPolicy,
+              avatarColor: group.avatarColor,
+              bannerImageUrl: group.bannerImageUrl,
+              metadata: group.metadata,
+              settings: group.settings,
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+          { transaction },
+        );
         const [insertedGroup] = await queryInterface.sequelize.query(
-          'SELECT id FROM groups WHERE name = :name LIMIT 1',
+          'SELECT id FROM groups WHERE slug = :slug LIMIT 1',
           {
             type: QueryTypes.SELECT,
             transaction,
-            replacements: { name: group.name },
+            replacements: { slug: group.slug },
           },
         );
         if (insertedGroup?.id) {
-          groupIdByName.set(group.name, insertedGroup.id);
+          groupIdBySlug.set(group.slug, insertedGroup.id);
         }
       }
 
-      if (groupIdByName.size) {
-        for (const group of groupSeeds) {
-          const groupId = groupIdByName.get(group.name);
+      if (groupIdBySlug.size) {
+        for (const membershipSeed of groupMembershipSeeds) {
+          const groupId = groupIdBySlug.get(membershipSeed.groupSlug);
           if (!groupId) continue;
-          for (const email of ['ava@gigvora.com', 'leo@gigvora.com']) {
-            const userId = userIds.get(email);
-            if (!userId) continue;
-            const [membership] = await queryInterface.sequelize.query(
-              'SELECT id FROM group_memberships WHERE groupId = :groupId AND userId = :userId LIMIT 1',
-              {
-                type: QueryTypes.SELECT,
-                transaction,
-                replacements: { groupId, userId },
-              },
-            );
-            if (membership?.id) continue;
+          const userId = userIds.get(membershipSeed.email);
+          if (!userId) continue;
+
+          const joinedAt =
+            typeof membershipSeed.joinedDaysAgo === 'number'
+              ? new Date(now.getTime() - membershipSeed.joinedDaysAgo * DAY)
+              : membershipSeed.status === 'active'
+              ? now
+              : null;
+          const invitedById = membershipSeed.invitedByEmail
+            ? userIds.get(membershipSeed.invitedByEmail) ?? null
+            : null;
+
+          const [existingMembership] = await queryInterface.sequelize.query(
+            'SELECT id FROM group_memberships WHERE groupId = :groupId AND userId = :userId LIMIT 1',
+            {
+              type: QueryTypes.SELECT,
+              transaction,
+              replacements: { groupId, userId },
+            },
+          );
+
+          const payload = {
+            role: membershipSeed.role,
+            status: membershipSeed.status,
+            joinedAt,
+            invitedById,
+            metadata: { seed: 'community-demo' },
+            updatedAt: now,
+          };
+
+          if (existingMembership?.id) {
+            await queryInterface.bulkUpdate('group_memberships', payload, { id: existingMembership.id }, { transaction });
+          } else {
             await queryInterface.bulkInsert(
               'group_memberships',
               [
                 {
                   groupId,
                   userId,
-                  role: email === 'ava@gigvora.com' ? 'owner' : 'member',
+                  ...payload,
                   createdAt: now,
-                  updatedAt: now,
+                },
+              ],
+              { transaction },
+            );
+          }
+        }
+
+        for (const inviteSeed of groupInviteSeeds) {
+          const groupId = groupIdBySlug.get(inviteSeed.groupSlug);
+          if (!groupId) continue;
+          const invitedById = inviteSeed.invitedByEmail ? userIds.get(inviteSeed.invitedByEmail) ?? null : null;
+          const [existingInvite] = await queryInterface.sequelize.query(
+            'SELECT id FROM group_invites WHERE groupId = :groupId AND email = :email LIMIT 1',
+            {
+              type: QueryTypes.SELECT,
+              transaction,
+              replacements: { groupId, email: inviteSeed.email },
+            },
+          );
+
+          const expiresAt =
+            typeof inviteSeed.expiresInDays === 'number'
+              ? new Date(now.getTime() + inviteSeed.expiresInDays * DAY)
+              : null;
+          const acceptedAt =
+            typeof inviteSeed.acceptedDaysAgo === 'number'
+              ? new Date(now.getTime() - inviteSeed.acceptedDaysAgo * DAY)
+              : null;
+          const status = inviteSeed.status ?? 'pending';
+          const updatedAt = status === 'accepted' && acceptedAt ? acceptedAt : now;
+          const createdAt = acceptedAt ?? now;
+
+          const payload = {
+            role: inviteSeed.role ?? 'member',
+            status,
+            invitedById,
+            message: inviteSeed.message ?? null,
+            expiresAt,
+            metadata: { seed: 'community-demo' },
+            updatedAt,
+          };
+
+          if (existingInvite?.id) {
+            await queryInterface.bulkUpdate('group_invites', payload, { id: existingInvite.id }, { transaction });
+          } else {
+            await queryInterface.bulkInsert(
+              'group_invites',
+              [
+                {
+                  groupId,
+                  email: inviteSeed.email,
+                  token: randomUUID(),
+                  ...payload,
+                  createdAt,
+                },
+              ],
+              { transaction },
+            );
+          }
+        }
+
+        for (const postSeed of groupPostSeeds) {
+          const groupId = groupIdBySlug.get(postSeed.groupSlug);
+          if (!groupId) continue;
+          const createdById = userIds.get(postSeed.createdByEmail);
+          if (!createdById) continue;
+          const updatedById = postSeed.updatedByEmail ? userIds.get(postSeed.updatedByEmail) ?? createdById : createdById;
+
+          const [existingPost] = await queryInterface.sequelize.query(
+            'SELECT id FROM group_posts WHERE slug = :slug LIMIT 1',
+            {
+              type: QueryTypes.SELECT,
+              transaction,
+              replacements: { slug: postSeed.slug },
+            },
+          );
+
+          const publishedAt =
+            typeof postSeed.publishedDaysAgo === 'number'
+              ? new Date(now.getTime() - postSeed.publishedDaysAgo * DAY)
+              : postSeed.publishedAt ?? null;
+          const scheduledAt =
+            typeof postSeed.scheduledInDays === 'number'
+              ? new Date(now.getTime() + postSeed.scheduledInDays * DAY)
+              : postSeed.scheduledAt ?? null;
+          const createdAt = publishedAt ?? now;
+          const updatedAt = postSeed.status === 'published' && publishedAt ? publishedAt : now;
+
+          const payload = {
+            groupId,
+            title: postSeed.title,
+            summary: postSeed.summary ?? null,
+            content: postSeed.content ?? 'Community update',
+            status: postSeed.status ?? 'draft',
+            visibility: postSeed.visibility ?? 'members',
+            attachments: postSeed.attachments ?? null,
+            topicTags: postSeed.topicTags ?? [],
+            metadata: { ...(postSeed.metadata ?? {}), seed: 'community-demo' },
+            scheduledAt,
+            publishedAt,
+            createdById,
+            updatedById,
+            updatedAt,
+          };
+
+          if (existingPost?.id) {
+            await queryInterface.bulkUpdate('group_posts', payload, { id: existingPost.id }, { transaction });
+          } else {
+            await queryInterface.bulkInsert(
+              'group_posts',
+              [
+                {
+                  slug: postSeed.slug,
+                  ...payload,
+                  createdAt,
                 },
               ],
               { transaction },

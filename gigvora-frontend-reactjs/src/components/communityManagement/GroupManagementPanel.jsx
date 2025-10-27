@@ -935,6 +935,17 @@ function GroupCard({ group, canManage, onEdit, onManageInvites, onManagePosts })
     metrics.invitesExpiringSoon && metrics.invitesExpiringSoon > 0
       ? `${formatCount(metrics.invitesExpiringSoon)} expiring soon`
       : 'All invites healthy';
+  const approvalsHelper =
+    metrics.membersPending && metrics.membersPending > 0
+      ? `${formatCount(metrics.membersPending)} approvals waiting`
+      : 'No approvals pending';
+  const invitedOverallHelper =
+    metrics.membersInvited && metrics.membersInvited > 0
+      ? `${formatCount(metrics.membersInvited)} invited overall`
+      : null;
+  const invitesSummary = [invitesHelper, approvalsHelper, invitedOverallHelper].filter(Boolean).join(' · ');
+  const inviteTone =
+    metrics.invitesExpiringSoon > 0 || (metrics.membersPending && metrics.membersPending > 0) ? 'warning' : 'default';
   const scheduledHelper =
     metrics.scheduledNext7Days && metrics.scheduledNext7Days > 0
       ? `${formatCount(metrics.scheduledNext7Days)} scheduled next 7 days`
@@ -966,10 +977,10 @@ function GroupCard({ group, canManage, onEdit, onManageInvites, onManagePosts })
             tone={metrics.membersJoinedThisWeek > 0 ? 'accent' : 'default'}
           />
           <MetricItem
-            label="Pending invites"
+            label="Invites & approvals"
             value={formatCount(metrics.invitesPending ?? 0)}
-            helper={invitesHelper}
-            tone={metrics.invitesExpiringSoon > 0 ? 'warning' : 'default'}
+            helper={invitesSummary}
+            tone={inviteTone}
           />
           <MetricItem
             label="Posts published"
@@ -1068,6 +1079,10 @@ export default function GroupManagementPanel({ groups, userId, onRefresh }) {
   const aggregatedMetrics = useMemo(() => {
     const stats = groups?.stats ?? {};
     return {
+      pendingInvites: Number(stats.pendingInvites ?? 0),
+      pendingApprovals: Number(stats.pendingApprovals ?? 0),
+      invitedMembers: Number(stats.invitedMembers ?? 0),
+      suspendedMembers: Number(stats.suspendedMembers ?? 0),
       activeMembers: Number(stats.activeMembers ?? 0),
       newMembersThisWeek: Number(stats.newMembersThisWeek ?? 0),
       postsScheduled: Number(stats.postsScheduled ?? 0),
@@ -1105,6 +1120,14 @@ export default function GroupManagementPanel({ groups, userId, onRefresh }) {
         aggregatedMetrics.invitesExpiringSoon > 0
           ? `${formatCount(aggregatedMetrics.invitesExpiringSoon)} expiring soon`
           : 'All invites healthy',
+      invitedOverall:
+        aggregatedMetrics.invitedMembers > 0
+          ? `${formatCount(aggregatedMetrics.invitedMembers)} invited overall`
+          : 'No open invites sent',
+      approvals:
+        aggregatedMetrics.pendingApprovals > 0
+          ? `${formatCount(aggregatedMetrics.pendingApprovals)} approvals waiting`
+          : 'All approvals cleared',
       scheduled:
         aggregatedMetrics.postsDraft > 0
           ? `${formatCount(aggregatedMetrics.postsDraft)} drafts ready`
@@ -1372,10 +1395,14 @@ export default function GroupManagementPanel({ groups, userId, onRefresh }) {
               tone={aggregatedMetrics.newMembersThisWeek > 0 ? 'accent' : 'default'}
             />
             <InsightStat
-              label="Invites"
-              value={formatCount(aggregatedMetrics.invitesExpiringSoon)}
-              helper={aggregatedHelpers.invites}
-              tone={aggregatedMetrics.invitesExpiringSoon > 0 ? 'warning' : 'default'}
+              label="Invites & approvals"
+              value={formatCount(aggregatedMetrics.pendingInvites)}
+              helper={`${aggregatedHelpers.invites} · ${aggregatedHelpers.approvals} · ${aggregatedHelpers.invitedOverall}`}
+              tone={
+                aggregatedMetrics.invitesExpiringSoon > 0 || aggregatedMetrics.pendingApprovals > 0
+                  ? 'warning'
+                  : 'default'
+              }
             />
             <InsightStat
               label="Scheduled posts"

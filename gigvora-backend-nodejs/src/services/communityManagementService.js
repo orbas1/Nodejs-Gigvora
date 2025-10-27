@@ -46,6 +46,10 @@ function parseDate(value) {
 function computeTrendingTopics(posts = []) {
   const map = new Map();
   for (const post of posts) {
+    const status = post.status ?? post.Status;
+    if (status && status !== 'published') {
+      continue;
+    }
     const tags = [];
     if (Array.isArray(post.topicTags)) {
       tags.push(...post.topicTags);
@@ -74,11 +78,11 @@ function summarisePostTimings(posts = [], { now, sevenDaysAhead }) {
   let latestPublishedAt = null;
   for (const post of posts) {
     const scheduledAt = parseDate(post.scheduledAt);
-    if (scheduledAt && scheduledAt >= now && scheduledAt <= sevenDaysAhead) {
+    if (post.status === 'scheduled' && scheduledAt && scheduledAt >= now && scheduledAt <= sevenDaysAhead) {
       scheduledNext7Days += 1;
     }
     const publishedAt = parseDate(post.publishedAt ?? post.updatedAt);
-    if (publishedAt && (!latestPublishedAt || publishedAt > latestPublishedAt)) {
+    if (post.status === 'published' && publishedAt && (!latestPublishedAt || publishedAt > latestPublishedAt)) {
       latestPublishedAt = publishedAt;
     }
   }
@@ -159,10 +163,11 @@ function buildGroupSummary(
   const inviteSummary = summariseInvites(invites, { now, sevenDaysAgo, threeDaysAhead });
   const postTimingSummary = summarisePostTimings(posts, { now, sevenDaysAhead });
   const membersActive = parseNumber(membershipMetrics.active);
-  const membersInvited = parseNumber(membershipMetrics.invited);
-  const membersRequested = parseNumber(membershipMetrics.requested);
+  const membersPending = parseNumber(membershipMetrics.pending);
   const membersJoinedThisWeek = parseNumber(membershipMetrics.joinedLast7Days);
   const leadershipTeam = parseNumber(membershipMetrics.leaders);
+  const membersInvited = parseNumber(membershipMetrics.invited);
+  const membersSuspended = parseNumber(membershipMetrics.suspended);
   const postsPublished = parseNumber(postMetrics.published);
   const postsScheduled = parseNumber(postMetrics.scheduled);
   const postsDraft = parseNumber(postMetrics.draft);
@@ -201,12 +206,13 @@ function buildGroupSummary(
       latestAnnouncementAt: postTimingSummary.latestPublishedAt,
       membersActive,
       membersInvited,
-      membersRequested,
+      membersPending,
       membersJoinedThisWeek,
       leadershipTeam,
       engagementScore,
       engagementLevel,
       trendingTopics,
+      membersSuspended,
     },
     invites,
     posts,
@@ -275,6 +281,8 @@ function sanitizePost(post) {
     publishedAt: plain.publishedAt ? new Date(plain.publishedAt).toISOString() : null,
     createdAt: plain.createdAt ? new Date(plain.createdAt).toISOString() : null,
     updatedAt: plain.updatedAt ? new Date(plain.updatedAt).toISOString() : null,
+    topicTags: Array.isArray(plain.topicTags) ? plain.topicTags : [],
+    metadata: plain.metadata ?? {},
     createdBy: parseUserSummary(plain.createdBy ?? plain.CreatedBy),
     updatedBy: parseUserSummary(plain.updatedBy ?? plain.UpdatedBy),
   };
@@ -402,7 +410,8 @@ export async function getCommunityManagementSnapshot(userId) {
             [fn('COUNT', col('id')), 'total'],
             [fn('SUM', literal("CASE WHEN status = 'active' THEN 1 ELSE 0 END")), 'active'],
             [fn('SUM', literal("CASE WHEN status = 'invited' THEN 1 ELSE 0 END")), 'invited'],
-            [fn('SUM', literal("CASE WHEN status = 'requested' THEN 1 ELSE 0 END")), 'requested'],
+            [fn('SUM', literal("CASE WHEN status = 'pending' THEN 1 ELSE 0 END")), 'pending'],
+            [fn('SUM', literal("CASE WHEN status = 'suspended' THEN 1 ELSE 0 END")), 'suspended'],
             [fn('SUM', literal("CASE WHEN role IN ('owner','moderator') AND status = 'active' THEN 1 ELSE 0 END")), 'leaders'],
             [
               fn(
@@ -457,7 +466,8 @@ export async function getCommunityManagementSnapshot(userId) {
       total: parseNumber(row.total),
       active: parseNumber(row.active),
       invited: parseNumber(row.invited),
-      requested: parseNumber(row.requested),
+      pending: parseNumber(row.pending),
+      suspended: parseNumber(row.suspended),
       leaders: parseNumber(row.leaders),
       joinedLast7Days: parseNumber(row.joinedLast7Days),
     });
@@ -525,6 +535,9 @@ export async function getCommunityManagementSnapshot(userId) {
       acc.postsScheduled += parseNumber(metrics.postsScheduled);
       acc.postsPublishedThisWeek += parseNumber(metrics.postsPublishedThisWeek);
       acc.postsDraft += parseNumber(metrics.postsDraft);
+      acc.pendingApprovals += parseNumber(metrics.membersPending);
+      acc.invitedMembers += parseNumber(metrics.membersInvited);
+      acc.suspendedMembers += parseNumber(metrics.membersSuspended);
       if (typeof metrics.engagementScore === 'number') {
         acc.engagementScoreSum += metrics.engagementScore;
         acc.groupsWithEngagement += 1;
@@ -543,6 +556,9 @@ export async function getCommunityManagementSnapshot(userId) {
       postsScheduled: 0,
       postsPublishedThisWeek: 0,
       postsDraft: 0,
+      pendingApprovals: 0,
+      invitedMembers: 0,
+      suspendedMembers: 0,
       engagementScoreSum: 0,
       groupsWithEngagement: 0,
       trendingTopics: new Map(),
@@ -573,6 +589,9 @@ export async function getCommunityManagementSnapshot(userId) {
         postsPublishedThisWeek: aggregatedGroupMetrics.postsPublishedThisWeek,
         postsDraft: aggregatedGroupMetrics.postsDraft,
         invitesExpiringSoon: aggregatedGroupMetrics.invitesExpiringSoon,
+        pendingApprovals: aggregatedGroupMetrics.pendingApprovals,
+        invitedMembers: aggregatedGroupMetrics.invitedMembers,
+        suspendedMembers: aggregatedGroupMetrics.suspendedMembers,
         averageEngagement,
         trendingTopics,
       },
