@@ -120,18 +120,24 @@ const telemetrySnapshot = {
   runbooks: [{ slug: 'ops/latency', title: 'Latency mitigation', channel: 'platform' }],
 };
 
-jest.unstable_mockModule(runtimeServiceUrl.pathname, () => ({
+const runtimeServiceMock = {
   getRuntimeOperationalSnapshot: jest.fn(async () => runtimeSnapshot),
-}));
+};
 
-jest.unstable_mockModule(telemetryServiceUrl.pathname, () => ({
+const telemetryServiceMock = {
   sampleLiveServiceTelemetry: jest.fn(async () => telemetrySnapshot),
-}));
+};
+
+jest.unstable_mockModule(runtimeServiceUrl.pathname, () => runtimeServiceMock);
+
+jest.unstable_mockModule(telemetryServiceUrl.pathname, () => telemetryServiceMock);
 
 let service;
 
 beforeEach(async () => {
   jest.resetModules();
+  runtimeServiceMock.getRuntimeOperationalSnapshot.mockResolvedValue(runtimeSnapshot);
+  telemetryServiceMock.sampleLiveServiceTelemetry.mockResolvedValue(telemetrySnapshot);
   ({ default: service } = await import('../../src/services/platformPerformanceWarRoomService.js'));
 });
 
@@ -146,5 +152,17 @@ describe('platformPerformanceWarRoomService', () => {
     expect(snapshot.focus.recommendations.length).toBeGreaterThan(0);
     expect(snapshot.healthScore).toBeLessThan(80);
     expect(['critical', 'alert', 'watch', 'stable']).toContain(snapshot.posture);
+  });
+
+  it('gracefully degrades when runtime snapshot is unavailable', async () => {
+    runtimeServiceMock.getRuntimeOperationalSnapshot.mockRejectedValueOnce(new Error('runtime offline'));
+
+    const snapshot = await service.getPlatformPerformanceWarRoomSnapshot({ windowMinutes: 45 });
+
+    expect(snapshot.window.minutes).toBe(30);
+    expect(snapshot.readiness.status).toBe('unknown');
+    expect(snapshot.liveServices.chat.totalMessages).toBe(telemetrySnapshot.chat.totalMessages);
+    expect(snapshot.healthScore).toBeGreaterThan(70);
+    expect(Array.isArray(snapshot.focus.hotspots)).toBe(true);
   });
 });

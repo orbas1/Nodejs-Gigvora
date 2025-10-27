@@ -1,5 +1,6 @@
 import { getRuntimeOperationalSnapshot } from './runtimeObservabilityService.js';
 import { sampleLiveServiceTelemetry } from './liveServiceTelemetryService.js';
+import logger from '../utils/logger.js';
 
 function clamp(value, { min = 0, max = 100 } = {}) {
   if (!Number.isFinite(value)) {
@@ -327,19 +328,28 @@ function buildRecommendations({ hotspots, maintenance, liveServices, rateLimit }
 }
 
 export async function getPlatformPerformanceWarRoomSnapshot({ windowMinutes } = {}) {
-  const [runtime, telemetry] = await Promise.all([
-    getRuntimeOperationalSnapshot(),
-    sampleLiveServiceTelemetry({ windowMinutes }),
-  ]);
+  let runtime = {};
+  try {
+    runtime = await getRuntimeOperationalSnapshot();
+  } catch (error) {
+    logger.error?.({ err: error }, 'Failed to load runtime operational snapshot for war room');
+  }
+
+  let telemetry = null;
+  try {
+    telemetry = await sampleLiveServiceTelemetry({ windowMinutes });
+  } catch (error) {
+    logger.error?.({ err: error, windowMinutes }, 'Failed to sample live service telemetry for war room');
+  }
 
   const window = normaliseWindow(telemetry?.window) ?? { minutes: windowMinutes ?? 15, since: null, until: null };
-  const liveServices = summariseLiveServices(telemetry);
-  const rateLimit = computeRateLimitInsights(runtime.rateLimit ?? {});
-  const database = computeDatabaseInsights(runtime.databasePool ?? {});
-  const dependencies = summariseDependencies(runtime.readiness?.dependencies ?? {});
-  const workers = summariseWorkers(runtime.readiness?.workers ?? {});
-  const maintenance = summariseMaintenance(runtime);
-  const readiness = runtime.readiness ?? {};
+  const liveServices = summariseLiveServices(telemetry ?? {});
+  const rateLimit = computeRateLimitInsights(runtime?.rateLimit ?? {});
+  const database = computeDatabaseInsights(runtime?.databasePool ?? {});
+  const dependencies = summariseDependencies(runtime?.readiness?.dependencies ?? {});
+  const workers = summariseWorkers(runtime?.readiness?.workers ?? {});
+  const maintenance = summariseMaintenance(runtime ?? {});
+  const readiness = runtime?.readiness ?? {};
 
   const { score, posture } = computeHealthScore({
     readiness,

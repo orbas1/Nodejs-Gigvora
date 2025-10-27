@@ -78,22 +78,31 @@ const gdprSettings = {
   },
 };
 
-jest.unstable_mockModule(securityServiceUrl.pathname, () => ({
+const securityServiceMock = {
   getRecentRuntimeSecurityEvents: jest.fn(async () => securityEvents),
-}));
+};
 
-jest.unstable_mockModule(complianceServiceUrl.pathname, () => ({
+const complianceServiceMock = {
   getComplianceOverview: jest.fn(async () => complianceOverview),
-}));
+};
 
-jest.unstable_mockModule(gdprServiceUrl.pathname, () => ({
+const gdprServiceMock = {
   getGdprSettings: jest.fn(async () => gdprSettings),
-}));
+};
+
+jest.unstable_mockModule(securityServiceUrl.pathname, () => securityServiceMock);
+
+jest.unstable_mockModule(complianceServiceUrl.pathname, () => complianceServiceMock);
+
+jest.unstable_mockModule(gdprServiceUrl.pathname, () => gdprServiceMock);
 
 let service;
 
 beforeEach(async () => {
   jest.resetModules();
+  securityServiceMock.getRecentRuntimeSecurityEvents.mockResolvedValue(securityEvents);
+  complianceServiceMock.getComplianceOverview.mockResolvedValue(complianceOverview);
+  gdprServiceMock.getGdprSettings.mockResolvedValue(gdprSettings);
   ({ default: service } = await import('../../src/services/securityPrivacyFabricService.js'));
 });
 
@@ -106,6 +115,21 @@ describe('securityPrivacyFabricService', () => {
     expect(snapshot.privacy.dpo.email).toBe('privacy@gigvora.test');
     expect(snapshot.focus.recommendations.length).toBeGreaterThan(0);
     expect(snapshot.fabricScore).toBeLessThan(100);
+    expect(['fortified', 'steady', 'watch', 'at-risk']).toContain(snapshot.posture);
+  });
+
+  it('returns defaults when dependent services fail', async () => {
+    securityServiceMock.getRecentRuntimeSecurityEvents.mockRejectedValueOnce(new Error('events unavailable'));
+    complianceServiceMock.getComplianceOverview.mockRejectedValueOnce(new Error('compliance offline'));
+    gdprServiceMock.getGdprSettings.mockRejectedValueOnce(new Error('gdpr offline'));
+
+    const snapshot = await service.getSecurityPrivacyFabricSnapshot({ limit: 6 });
+
+    expect(snapshot.security.events).toEqual([]);
+    expect(snapshot.compliance.frameworks.total).toBe(0);
+    expect(snapshot.compliance.obligations.atRisk).toEqual([]);
+    expect(snapshot.privacy.dpo.email).toBeNull();
+    expect(typeof snapshot.fabricScore).toBe('number');
     expect(['fortified', 'steady', 'watch', 'at-risk']).toContain(snapshot.posture);
   });
 });

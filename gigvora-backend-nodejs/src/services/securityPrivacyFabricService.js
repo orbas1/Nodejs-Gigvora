@@ -1,6 +1,7 @@
 import { getRecentRuntimeSecurityEvents } from './securityAuditService.js';
 import { getComplianceOverview } from './adminComplianceManagementService.js';
 import { getGdprSettings } from './gdprSettingsService.js';
+import logger from '../utils/logger.js';
 
 function toDate(value) {
   if (!value) {
@@ -275,11 +276,26 @@ function summarisePrivacyOffice(settings = {}) {
 }
 
 export async function getSecurityPrivacyFabricSnapshot({ limit = 12 } = {}) {
-  const [eventsRaw, complianceOverview, gdprSettings] = await Promise.all([
-    getRecentRuntimeSecurityEvents({ limit }),
-    getComplianceOverview(),
-    getGdprSettings(),
-  ]);
+  let eventsRaw = [];
+  try {
+    eventsRaw = await getRecentRuntimeSecurityEvents({ limit });
+  } catch (error) {
+    logger.error?.({ err: error, limit }, 'Failed to load runtime security events for security fabric');
+  }
+
+  let complianceOverview = {};
+  try {
+    complianceOverview = await getComplianceOverview();
+  } catch (error) {
+    logger.error?.({ err: error }, 'Failed to load compliance overview for security fabric');
+  }
+
+  let gdprSettings = {};
+  try {
+    gdprSettings = await getGdprSettings();
+  } catch (error) {
+    logger.error?.({ err: error }, 'Failed to load GDPR settings for security fabric');
+  }
 
   const events = summariseSecurityEvents(eventsRaw);
   const frameworks = extractFrameworkSummary(complianceOverview);
