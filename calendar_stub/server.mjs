@@ -6,6 +6,13 @@ import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
 import { createDefaultEvents, normaliseEventFixtures, DEFAULT_WORKSPACES, normaliseMetadata } from './fixtures.mjs';
+import calendarContract from '../shared-contracts/domain/platform/calendar/constants.js';
+
+const {
+  COMPANY_CALENDAR_EVENT_TYPES,
+  COMPANY_CALENDAR_EVENT_TYPE_SET,
+  normalizeCompanyCalendarEventType,
+} = calendarContract;
 
 const DEFAULT_HOST = process.env.CALENDAR_STUB_HOST || '0.0.0.0';
 const DEFAULT_PORT = Number.parseInt(process.env.CALENDAR_STUB_PORT || '4010', 10);
@@ -21,9 +28,19 @@ const DEFAULT_ALLOWED_HEADERS = [
   'x-calendar-latency-ms',
   'x-workspace-slug',
 ];
-const SUPPORTED_EVENT_TYPES = ['project', 'interview', 'gig', 'mentorship', 'volunteering'];
-const DEFAULT_VIEW_ROLES = ['calendar:view', 'calendar:manage', 'platform:admin'];
-const DEFAULT_MANAGE_ROLES = ['calendar:manage', 'platform:admin'];
+const SUPPORTED_EVENT_TYPES = COMPANY_CALENDAR_EVENT_TYPES;
+const DEFAULT_VIEW_ROLES = [
+  'calendar:view',
+  'calendar:manage',
+  'platform:admin',
+  'company',
+  'company_admin',
+  'company_manager',
+  'company_viewer',
+  'admin',
+  'viewer',
+];
+const DEFAULT_MANAGE_ROLES = ['calendar:manage', 'platform:admin', 'company_admin', 'company_manager', 'admin'];
 
 const DEFAULT_WINDOW_DAYS = 30;
 const DEFAULT_LOOKAHEAD_DAYS = 45;
@@ -153,10 +170,39 @@ function resolveAllowedOrigins(option) {
   return Array.from(new Set(entries));
 }
 
+function normaliseRoleKey(value) {
+  if (!value) {
+    return null;
+  }
+  return `${value}`
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '') || null;
+}
+
 function buildRoleSet(input, fallback) {
   const values = parseList(input, { toLowerCase: true });
   const effective = values.length ? values : fallback;
-  return new Set(effective.map((role) => role.toLowerCase()));
+  return new Set(
+    effective
+      .map((role) => normaliseRoleKey(role))
+      .filter(Boolean),
+  );
+}
+
+function extractActorRoles(request) {
+  const provided = parseList(request.headers['x-roles'] || request.headers['x-user-roles'], {
+    toLowerCase: true,
+  });
+  const roles = new Set();
+  provided.forEach((role) => {
+    const normalised = normaliseRoleKey(role);
+    if (normalised) {
+      roles.add(normalised);
+    }
+  });
+  return roles;
 }
 
 function evaluateOrigin(request, allowedOrigins, fallbackOrigin) {
@@ -499,25 +545,27 @@ function computeDurationMinutes(startsAt, endsAt) {
 function determineStatus(startsAt, endsAt, now = Date.now()) {
   const startTime = startsAt instanceof Date ? startsAt : new Date(startsAt);
   const endTime = endsAt ? (endsAt instanceof Date ? endsAt : new Date(endsAt)) : null;
+
   if (Number.isNaN(startTime.getTime())) {
-    return 'scheduled';
+    return 'upcoming';
   }
+
   const current = now instanceof Date ? now.getTime() : Number(now);
   if (endTime && !Number.isNaN(endTime.getTime()) && endTime.getTime() <= current) {
     return 'completed';
   }
   if (startTime.getTime() > current) {
-    return 'scheduled';
+    return 'upcoming';
   }
   return 'in_progress';
 }
 
 function normaliseEventType(value) {
-  if (!value) {
-    return 'project';
+  const normalised = normalizeCompanyCalendarEventType(value);
+  if (!normalised || !COMPANY_CALENDAR_EVENT_TYPE_SET.has(normalised)) {
+    throw new Error(`eventType "${value}" is not supported`);
   }
-  const normalised = `${value}`.trim().toLowerCase();
-  return SUPPORTED_EVENT_TYPES.includes(normalised) ? normalised : 'project';
+  return normalised;
 }
 
 function ensureEventShape(event, now = new Date()) {
@@ -629,7 +677,7 @@ function authorizeRequest(request, response, origin, { permission, viewRoles, ma
     }
   }
 
-  const providedRoles = new Set(parseList(request.headers['x-roles'] || request.headers['x-user-roles'], { toLowerCase: true }));
+  const providedRoles = extractActorRoles(request);
   const requiredRoles = permission === 'manage' ? manageRoles : viewRoles;
 
   const hasRequiredRole = !requiredRoles.size || [...providedRoles].some((role) => requiredRoles.has(role));
@@ -938,74 +986,85 @@ export function createCalendarServer(options = {}) {
         return;
       }
 
+      let payload;
       try {
-        const payload = (await parseRequestBody(request)) || {};
-        if (!payload.workspaceId) {
-          sendJson(response, request, origin, 422, { message: 'workspaceId is required' });
-          return;
-        }
-        if (!payload.title) {
-          sendJson(response, request, origin, 422, { message: 'title is required' });
-          return;
-        }
-        if (!payload.startsAt) {
-          sendJson(response, request, origin, 422, { message: 'startsAt is required' });
-          return;
-        }
-
-        const workspaceId = Number.parseInt(`${payload.workspaceId}`, 10);
-        const workspace = findWorkspace(workspaceCatalog, { workspaceId, workspaceSlug: null });
-        if (!workspace) {
-          sendJson(response, request, origin, 404, { message: 'Workspace not found' });
-          return;
-        }
-
-        const startDate = validateDate(payload.startsAt);
-        if (!startDate) {
-          sendJson(response, request, origin, 422, { message: 'startsAt must be a valid ISO date string' });
-          return;
-        }
-
-        const endDate = validateDate(payload.endsAt);
-        if (payload.endsAt && !endDate) {
-          sendJson(response, request, origin, 422, { message: 'endsAt must be a valid ISO date string' });
-          return;
-        }
-        if (startDate && endDate && endDate.getTime() < startDate.getTime()) {
-          sendJson(response, request, origin, 422, { message: 'endsAt cannot be before startsAt' });
-          return;
-        }
-
-        if (payload.metadata && typeof payload.metadata !== 'object') {
-          sendJson(response, request, origin, 422, { message: 'metadata must be an object' });
-          return;
-        }
-
-        const createdAt = new Date();
-        const event = ensureEventShape(
-          {
-            id: nextEventId,
-            workspaceId,
-            title: `${payload.title}`.trim(),
-            eventType: payload.eventType,
-            status: payload.status && typeof payload.status === 'string' ? payload.status : undefined,
-            startsAt: startDate.toISOString(),
-            endsAt: endDate ? endDate.toISOString() : null,
-            location: payload.location ?? null,
-            metadata: payload.metadata ?? null,
-            createdAt: createdAt.toISOString(),
-            updatedAt: createdAt.toISOString(),
-          },
-          createdAt,
-        );
-
-        events = [event, ...events];
-        nextEventId = computeNextEventId(events);
-        sendJson(response, request, origin, 201, serializeEvent(event));
-        persistState();
+        payload = (await parseRequestBody(request)) || {};
       } catch (error) {
         sendJson(response, request, origin, 400, { message: 'Invalid JSON payload', detail: error.message });
+        return;
       }
+
+      if (!payload.workspaceId) {
+        sendJson(response, request, origin, 422, { message: 'workspaceId is required' });
+        return;
+      }
+      if (!payload.title) {
+        sendJson(response, request, origin, 422, { message: 'title is required' });
+        return;
+      }
+      if (!payload.startsAt) {
+        sendJson(response, request, origin, 422, { message: 'startsAt is required' });
+        return;
+      }
+
+      const workspaceId = Number.parseInt(`${payload.workspaceId}`, 10);
+      const workspace = findWorkspace(workspaceCatalog, { workspaceId, workspaceSlug: null });
+      if (!workspace) {
+        sendJson(response, request, origin, 404, { message: 'Workspace not found' });
+        return;
+      }
+
+      const startDate = validateDate(payload.startsAt);
+      if (!startDate) {
+        sendJson(response, request, origin, 422, { message: 'startsAt must be a valid ISO date string' });
+        return;
+      }
+
+      const endDate = validateDate(payload.endsAt);
+      if (payload.endsAt && !endDate) {
+        sendJson(response, request, origin, 422, { message: 'endsAt must be a valid ISO date string' });
+        return;
+      }
+      if (startDate && endDate && endDate.getTime() < startDate.getTime()) {
+        sendJson(response, request, origin, 422, { message: 'endsAt cannot be before startsAt' });
+        return;
+      }
+
+      if (payload.metadata && typeof payload.metadata !== 'object') {
+        sendJson(response, request, origin, 422, { message: 'metadata must be an object' });
+        return;
+      }
+
+      let normalisedEventType;
+      try {
+        normalisedEventType = normaliseEventType(payload.eventType);
+      } catch (error) {
+        sendJson(response, request, origin, 422, { message: error.message });
+        return;
+      }
+
+      const createdAt = new Date();
+      const event = ensureEventShape(
+        {
+          id: nextEventId,
+          workspaceId,
+          title: `${payload.title}`.trim(),
+          eventType: normalisedEventType,
+          status: payload.status && typeof payload.status === 'string' ? payload.status : undefined,
+          startsAt: startDate.toISOString(),
+          endsAt: endDate ? endDate.toISOString() : null,
+          location: payload.location ?? null,
+          metadata: payload.metadata ?? null,
+          createdAt: createdAt.toISOString(),
+          updatedAt: createdAt.toISOString(),
+        },
+        createdAt,
+      );
+
+      events = [event, ...events];
+      nextEventId = computeNextEventId(events);
+      sendJson(response, request, origin, 201, serializeEvent(event));
+      persistState();
       return;
     }
 
@@ -1034,64 +1093,75 @@ export function createCalendarServer(options = {}) {
         return;
       }
 
+      let payload;
       try {
-        const payload = (await parseRequestBody(request)) || {};
-
-        if (payload.startsAt && !validateDate(payload.startsAt)) {
-          sendJson(response, request, origin, 422, { message: 'startsAt must be a valid ISO date string' });
-          return;
-        }
-        if (payload.endsAt && !validateDate(payload.endsAt)) {
-          sendJson(response, request, origin, 422, { message: 'endsAt must be a valid ISO date string' });
-          return;
-        }
-        if (payload.metadata !== undefined && payload.metadata !== null && typeof payload.metadata !== 'object') {
-          sendJson(response, request, origin, 422, { message: 'metadata must be an object' });
-          return;
-        }
-
-        const existing = events[existingIndex];
-        const startDate = payload.startsAt ? validateDate(payload.startsAt) : null;
-        const endDate = payload.endsAt ? validateDate(payload.endsAt) : null;
-        if (startDate && endDate && endDate.getTime() < startDate.getTime()) {
-          sendJson(response, request, origin, 422, { message: 'endsAt cannot be before startsAt' });
-          return;
-        }
-
-        let mergedMetadata = existing.metadata ? structuredClone(existing.metadata) : null;
-        if (payload.metadata !== undefined) {
-          if (payload.metadata === null) {
-            mergedMetadata = null;
-          } else {
-            const incomingMetadata = prepareMetadata(payload.metadata);
-            mergedMetadata = incomingMetadata
-              ? { ...(existing.metadata ?? {}), ...incomingMetadata }
-              : null;
-          }
-        }
-
-        const updatedAt = new Date();
-        const updated = ensureEventShape(
-          {
-            ...existing,
-            title: payload.title ? `${payload.title}`.trim() : existing.title,
-            eventType: payload.eventType ?? existing.eventType,
-            startsAt: startDate ? startDate.toISOString() : existing.startsAt,
-            endsAt: endDate ? endDate.toISOString() : existing.endsAt,
-            location: payload.location ?? existing.location,
-            status: payload.status ?? existing.status,
-            metadata: mergedMetadata,
-            updatedAt: updatedAt.toISOString(),
-          },
-          updatedAt,
-        );
-
-        events[existingIndex] = updated;
-        sendJson(response, request, origin, 200, serializeEvent(updated));
-        persistState();
+        payload = (await parseRequestBody(request)) || {};
       } catch (error) {
         sendJson(response, request, origin, 400, { message: 'Invalid JSON payload', detail: error.message });
+        return;
       }
+
+      if (payload.metadata !== undefined && payload.metadata !== null && typeof payload.metadata !== 'object') {
+        sendJson(response, request, origin, 422, { message: 'metadata must be an object' });
+        return;
+      }
+
+      const existing = events[existingIndex];
+      const startDate = payload.startsAt ? validateDate(payload.startsAt) : null;
+      if (payload.startsAt && !startDate) {
+        sendJson(response, request, origin, 422, { message: 'startsAt must be a valid ISO date string' });
+        return;
+      }
+
+      const endDate = payload.endsAt ? validateDate(payload.endsAt) : null;
+      if (payload.endsAt && !endDate) {
+        sendJson(response, request, origin, 422, { message: 'endsAt must be a valid ISO date string' });
+        return;
+      }
+      if (startDate && endDate && endDate.getTime() < startDate.getTime()) {
+        sendJson(response, request, origin, 422, { message: 'endsAt cannot be before startsAt' });
+        return;
+      }
+
+      let nextEventType = existing.eventType;
+      if (payload.eventType != null) {
+        try {
+          nextEventType = normaliseEventType(payload.eventType);
+        } catch (error) {
+          sendJson(response, request, origin, 422, { message: error.message });
+          return;
+        }
+      }
+
+      let mergedMetadata = existing.metadata ? structuredClone(existing.metadata) : null;
+      if (payload.metadata !== undefined) {
+        if (payload.metadata === null) {
+          mergedMetadata = null;
+        } else {
+          const incomingMetadata = prepareMetadata(payload.metadata);
+          mergedMetadata = incomingMetadata ? { ...(existing.metadata ?? {}), ...incomingMetadata } : null;
+        }
+      }
+
+      const updatedAt = new Date();
+      const updated = ensureEventShape(
+        {
+          ...existing,
+          title: payload.title ? `${payload.title}`.trim() : existing.title,
+          eventType: nextEventType,
+          startsAt: startDate ? startDate.toISOString() : existing.startsAt,
+          endsAt: endDate ? endDate.toISOString() : existing.endsAt,
+          location: payload.location ?? existing.location,
+          status: payload.status ?? existing.status,
+          metadata: mergedMetadata,
+          updatedAt: updatedAt.toISOString(),
+        },
+        updatedAt,
+      );
+
+      events[existingIndex] = updated;
+      sendJson(response, request, origin, 200, serializeEvent(updated));
+      persistState();
       return;
     }
 

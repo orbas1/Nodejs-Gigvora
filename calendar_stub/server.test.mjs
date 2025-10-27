@@ -5,9 +5,12 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { createCalendarServer } from './server.mjs';
+import calendarContract from '../shared-contracts/domain/platform/calendar/constants.js';
 
 const API_KEY = 'test-api-key';
 const ALLOWED_ORIGIN = 'http://localhost:4173';
+
+const { COMPANY_CALENDAR_EVENT_TYPES } = calendarContract;
 
 let app;
 let baseUrl;
@@ -92,7 +95,7 @@ test('returns events when authorised', async () => {
   assert.ok(payload.filters.from && payload.filters.to, 'filters should include window bounds');
   const [firstEvent] = payload.events;
   assert.ok(firstEvent, 'expected at least one event payload');
-  assert.ok(['scheduled', 'in_progress', 'completed'].includes(firstEvent.status));
+  assert.ok(['upcoming', 'in_progress', 'completed'].includes(firstEvent.status));
   assert.ok(Object.prototype.hasOwnProperty.call(firstEvent, 'durationMinutes'));
   assert.ok(
     payload.meta.availableWorkspaces.some((workspace) => workspace.slug === 'acme-talent-hub'),
@@ -119,7 +122,7 @@ test('creates a new event with manage permissions', async () => {
   const created = await createResponse.json();
   assert.ok(Number.isInteger(created.id), 'event id should be numeric');
   assert.strictEqual(created.eventType, 'gig');
-  assert.strictEqual(created.status, 'scheduled');
+  assert.strictEqual(created.status, 'upcoming');
   assert.strictEqual(created.metadata.ownerName, 'QA Automation');
   assert.strictEqual(created.durationMinutes, 45);
 
@@ -130,6 +133,23 @@ test('creates a new event with manage permissions', async () => {
   const gigEvents = listPayload.eventsByType.gig || [];
   assert.ok(gigEvents.some((event) => event.id === created.id));
   assert.ok(listPayload.events.some((event) => event.id === created.id));
+});
+
+test('rejects unsupported event types on creation', async () => {
+  const response = await fetch(`${baseUrl}/api/company/calendar/events`, {
+    method: 'POST',
+    headers: buildHeaders({ 'Content-Type': 'application/json', 'x-roles': 'calendar:manage' }),
+    body: JSON.stringify({
+      workspaceId: 101,
+      title: 'Invalid calendar item',
+      eventType: 'unsupported',
+      startsAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+    }),
+  });
+
+  assert.strictEqual(response.status, 422);
+  const payload = await response.json();
+  assert.match(payload.message, /eventtype/i);
 });
 
 test('exposes slug filtering and default window range', async () => {
@@ -296,6 +316,57 @@ test('loads combined dataset files with workspaces and events', async () => {
     });
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
+});
+
+test('exposes shared supported event types contract', async () => {
+  const response = await fetch(`${baseUrl}/api/company/calendar/events?workspaceId=101`, {
+    headers: buildHeaders({ 'x-roles': 'calendar:view', 'x-user-id': undefined }),
+  });
+  assert.strictEqual(response.status, 200);
+  const payload = await response.json();
+  assert.deepEqual(payload.meta.supportedEventTypes, COMPANY_CALENDAR_EVENT_TYPES);
+});
+
+test('rejects unsupported event types on create', async () => {
+  const response = await fetch(`${baseUrl}/api/company/calendar/events`, {
+    method: 'POST',
+    headers: buildHeaders({ 'Content-Type': 'application/json', 'x-roles': 'calendar:manage' }),
+    body: JSON.stringify({
+      workspaceId: 101,
+      title: 'Invalid calendar drill',
+      eventType: 'unknown-type',
+      startsAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    }),
+  });
+
+  assert.strictEqual(response.status, 422);
+  const payload = await response.json();
+  assert.match(payload.message, /eventtype/i);
+});
+
+test('rejects unsupported event types on updates', async () => {
+  const createResponse = await fetch(`${baseUrl}/api/company/calendar/events`, {
+    method: 'POST',
+    headers: buildHeaders({ 'Content-Type': 'application/json', 'x-roles': 'calendar:manage' }),
+    body: JSON.stringify({
+      workspaceId: 101,
+      title: 'Mentorship office hours',
+      eventType: 'mentorship',
+      startsAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+    }),
+  });
+  assert.strictEqual(createResponse.status, 201);
+  const created = await createResponse.json();
+
+  const updateResponse = await fetch(`${baseUrl}/api/company/calendar/events/${created.id}`, {
+    method: 'PATCH',
+    headers: buildHeaders({ 'Content-Type': 'application/json', 'x-roles': 'calendar:manage' }),
+    body: JSON.stringify({ eventType: 'mystery' }),
+  });
+
+  assert.strictEqual(updateResponse.status, 422);
+  const payload = await updateResponse.json();
+  assert.match(payload.message, /eventtype/i);
 });
 
 test('persists events and workspaces to disk when configured', async () => {
