@@ -413,6 +413,10 @@ describe('TrendingQuickLinks', () => {
   });
 });
 
+beforeEach(() => {
+  window.localStorage.clear();
+});
+
 describe('AppTopBar analytics', () => {
   it('submits marketing search and tracks analytics', async () => {
     const user = userEvent.setup();
@@ -460,9 +464,82 @@ describe('AppTopBar analytics', () => {
     await waitFor(() => {
       expect(searchInput).toHaveValue('');
     });
+    const storedHistory = window.localStorage.getItem('gigvora:marketing_search_history');
+    expect(storedHistory).toBeTruthy();
+    expect(JSON.parse(storedHistory ?? '[]')).toContain('growth');
     expect(analytics.track).toHaveBeenCalledWith(
       'web_header_search_submitted',
       expect.objectContaining({ query: 'growth', persona: 'founder' }),
+      expect.objectContaining({ userId: 42 }),
+    );
+
+    await user.click(searchInput);
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Search "growth" again' }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('replays spotlight history chips and tracks again', async () => {
+    const user = userEvent.setup();
+    const onMarketingSearch = vi.fn();
+
+    analytics.track.mockClear();
+    const chromeValue = createChromeValue();
+
+    render(
+      <NavigationChromeContext.Provider value={chromeValue}>
+        <LanguageProvider>
+          <MemoryRouter>
+            <AppTopBar
+              navOpen={false}
+              onOpenNav={() => {}}
+              onCloseNav={() => {}}
+              isAuthenticated
+              marketingNavigation={[]}
+              marketingSearch={{ placeholder: 'Search the network', ariaLabel: 'Search the network' }}
+              primaryNavigation={[{ id: 'home', label: 'Home', to: '/home' }]}
+              roleOptions={[]}
+              currentRoleKey="founder"
+              onLogout={() => {}}
+              inboxPreview={{ threads: [], loading: false, error: null, lastFetchedAt: null }}
+              connectionState="connected"
+              onRefreshInbox={() => {}}
+              onInboxMenuOpen={() => {}}
+              onInboxThreadClick={() => {}}
+              t={(_, defaultValue) => defaultValue}
+              session={{ id: 42, name: 'Ada Lovelace' }}
+              onMarketingSearch={onMarketingSearch}
+              navigationPulse={[]}
+              navigationTrending={[]}
+            />
+          </MemoryRouter>
+        </LanguageProvider>
+      </NavigationChromeContext.Provider>,
+    );
+
+    const searchInput = screen.getByPlaceholderText(/search the network/i);
+
+    await user.type(searchInput, 'design');
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => {
+      expect(onMarketingSearch).toHaveBeenCalledWith('design');
+    });
+
+    await user.click(searchInput);
+    const replayChip = await screen.findByRole('button', { name: 'Search "design" again' });
+
+    onMarketingSearch.mockClear();
+    analytics.track.mockClear();
+
+    await user.click(replayChip);
+
+    expect(onMarketingSearch).toHaveBeenCalledWith('design');
+    expect(analytics.track).toHaveBeenCalledWith(
+      'web_header_search_submitted',
+      expect.objectContaining({ query: 'design' }),
       expect.objectContaining({ userId: 42 }),
     );
   });
@@ -587,6 +664,49 @@ describe('AppTopBar analytics', () => {
       expect.objectContaining({ userId: 42 }),
     );
     expect(onMarketingSearch).not.toHaveBeenCalled();
+  });
+
+  it('opens quick search overlay with keyboard shortcut', async () => {
+    const user = userEvent.setup();
+    const onMarketingSearch = vi.fn();
+
+    analytics.track.mockClear();
+    const chromeValue = createChromeValue();
+
+    render(
+      <NavigationChromeContext.Provider value={chromeValue}>
+        <LanguageProvider>
+          <MemoryRouter>
+            <AppTopBar
+              navOpen={false}
+              onOpenNav={() => {}}
+              onCloseNav={() => {}}
+              isAuthenticated
+              marketingNavigation={[]}
+              marketingSearch={{ placeholder: 'Search the network', ariaLabel: 'Search the network' }}
+              primaryNavigation={[{ id: 'home', label: 'Home', to: '/home' }]}
+              roleOptions={[]}
+              currentRoleKey="founder"
+              onLogout={() => {}}
+              inboxPreview={{ threads: [], loading: false, error: null, lastFetchedAt: null }}
+              connectionState="connected"
+              onRefreshInbox={() => {}}
+              onInboxMenuOpen={() => {}}
+              onInboxThreadClick={() => {}}
+              t={(_, defaultValue) => defaultValue}
+              session={{ id: 42, name: 'Ada Lovelace' }}
+              onMarketingSearch={onMarketingSearch}
+              navigationPulse={[]}
+              navigationTrending={[]}
+            />
+          </MemoryRouter>
+        </LanguageProvider>
+      </NavigationChromeContext.Provider>,
+    );
+
+    await user.keyboard('{Control>}k{/Control}');
+
+    expect(screen.getByTestId('mock-dialog')).toBeInTheDocument();
   });
 });
 

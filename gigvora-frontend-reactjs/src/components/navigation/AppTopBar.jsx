@@ -1,11 +1,13 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import { Dialog, Menu, Popover, Transition } from '@headlessui/react';
 import {
   ArrowTrendingUpIcon,
+  ArrowUpRightIcon,
   Bars3Icon,
   ChatBubbleLeftRightIcon,
+  ClockIcon,
   MagnifyingGlassIcon,
   SignalIcon,
   SparklesIcon,
@@ -22,7 +24,11 @@ import { LOGO_SRCSET, LOGO_URL } from '../../constants/branding.js';
 import { classNames } from '../../utils/classNames.js';
 import { resolveInitials } from '../../utils/user.js';
 import { formatRelativeTime } from '../../utils/date.js';
-import { deriveNavigationPulse, deriveNavigationTrending } from '../../utils/navigationPulse.js';
+import {
+  deriveNavigationPulse,
+  deriveNavigationTrending,
+  normaliseTrendingEntries,
+} from '../../utils/navigationPulse.js';
 import analytics from '../../services/analytics.js';
 
 function UserMenu({ session, onLogout }) {
@@ -430,13 +436,16 @@ InsightsFlyout.defaultProps = {
   onTrendingNavigate: undefined,
 };
 
-function MobileSearchDialog({
+function QuickSearchDialog({
   open,
   onClose,
   marketingSearch,
   trending,
   onSubmit,
   onTrendingNavigate,
+  recentSearches,
+  onSelectRecent,
+  onClearHistory,
 }) {
   const [value, setValue] = useState('');
 
@@ -453,6 +462,7 @@ function MobileSearchDialog({
   const placeholder = marketingSearch.placeholder ?? 'Search the network';
   const ariaLabel = marketingSearch.ariaLabel ?? 'Search the network';
   const trendingEntries = Array.isArray(trending) ? trending.slice(0, 6) : [];
+  const recentEntries = Array.isArray(recentSearches) ? recentSearches.slice(0, 6) : [];
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -465,6 +475,14 @@ function MobileSearchDialog({
 
   const handleTrendingClick = (entry) => {
     onTrendingNavigate?.(entry);
+    onClose();
+  };
+
+  const handleRecentClick = (entry) => {
+    if (!entry) {
+      return;
+    }
+    onSelectRecent?.(entry);
     onClose();
   };
 
@@ -531,17 +549,44 @@ function MobileSearchDialog({
                     Search
                   </button>
                 </form>
+                {recentEntries.length ? (
+                  <section className="mt-6 space-y-3" aria-label="Recent searches">
+                    <header className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+                      <span className="inline-flex items-center gap-2 text-slate-500">
+                        <ClockIcon className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                        Recent searches
+                      </span>
+                      <button
+                        type="button"
+                        onClick={onClearHistory}
+                        className="text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-slate-400 transition hover:text-slate-600"
+                      >
+                        Clear
+                      </button>
+                    </header>
+                    <div className="flex flex-wrap gap-2">
+                      {recentEntries.map((entry) => (
+                        <button
+                          key={entry}
+                          type="button"
+                          onClick={() => handleRecentClick(entry)}
+                          aria-label={`Search "${entry}" again`}
+                          className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-slate-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.25em] text-slate-500 transition hover:border-accent/50 hover:bg-white hover:text-accent-strong"
+                        >
+                          <span className="truncate">{entry}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
                 {trendingEntries.length ? (
-                  <div className="mt-6 space-y-3">
-                    <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+                  <section className="mt-6 space-y-3" aria-label="Trending destinations">
+                    <header className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
                       <span className="inline-flex items-center gap-2 text-slate-500">
                         <ArrowTrendingUpIcon className="h-4 w-4 text-accent" aria-hidden="true" />
                         Trending now
                       </span>
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.3em] text-slate-500">
-                        Curated for you
-                      </span>
-                    </div>
+                    </header>
                     <div className="space-y-2">
                       {trendingEntries.map((entry) => (
                         <Link
@@ -555,7 +600,7 @@ function MobileSearchDialog({
                         </Link>
                       ))}
                     </div>
-                  </div>
+                  </section>
                 ) : null}
               </Dialog.Panel>
             </Transition.Child>
@@ -566,7 +611,7 @@ function MobileSearchDialog({
   );
 }
 
-MobileSearchDialog.propTypes = {
+QuickSearchDialog.propTypes = {
   open: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   marketingSearch: PropTypes.shape({
@@ -583,13 +628,142 @@ MobileSearchDialog.propTypes = {
   ),
   onSubmit: PropTypes.func,
   onTrendingNavigate: PropTypes.func,
+  recentSearches: PropTypes.arrayOf(PropTypes.string),
+  onSelectRecent: PropTypes.func,
+  onClearHistory: PropTypes.func,
 };
 
-MobileSearchDialog.defaultProps = {
+QuickSearchDialog.defaultProps = {
   marketingSearch: null,
   trending: [],
   onSubmit: undefined,
   onTrendingNavigate: undefined,
+  recentSearches: [],
+  onSelectRecent: undefined,
+  onClearHistory: undefined,
+};
+
+function SearchSpotlight({
+  open,
+  trending,
+  recentSearches,
+  onHistorySelect,
+  onTrendingSelect,
+  onClearHistory,
+  onPointerEnter,
+  onPointerLeave,
+}) {
+  const hasHistory = Array.isArray(recentSearches) && recentSearches.length > 0;
+  const hasTrending = Array.isArray(trending) && trending.length > 0;
+
+  if (!open || (!hasHistory && !hasTrending)) {
+    return null;
+  }
+
+  return (
+    <Transition
+      show={open}
+      as={Fragment}
+      enter="transition ease-out duration-150"
+      enterFrom="opacity-0 translate-y-2"
+      enterTo="opacity-100 translate-y-0"
+      leave="transition ease-in duration-100"
+      leaveFrom="opacity-100 translate-y-0"
+      leaveTo="opacity-0 translate-y-2"
+    >
+      <div
+        className="absolute left-0 right-0 top-[calc(100%+0.75rem)] z-50"
+        onMouseEnter={onPointerEnter}
+        onMouseLeave={onPointerLeave}
+      >
+        <div className="space-y-4 rounded-3xl border border-slate-200/70 bg-white/95 p-4 text-sm shadow-xl backdrop-blur">
+          {hasHistory ? (
+            <section className="space-y-3" aria-label="Recent searches">
+              <header className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+                <span className="inline-flex items-center gap-2 text-slate-500">
+                  <ClockIcon className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                  Recent searches
+                </span>
+                <button
+                  type="button"
+                  onClick={onClearHistory}
+                  className="text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-slate-400 transition hover:text-slate-600"
+                >
+                  Clear
+                </button>
+              </header>
+              <div className="flex flex-wrap gap-2">
+                {recentSearches.map((entry) => (
+                  <button
+                    key={entry}
+                    type="button"
+                    onClick={() => onHistorySelect?.(entry)}
+                    aria-label={`Search "${entry}" again`}
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-slate-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.25em] text-slate-500 transition hover:border-accent/50 hover:bg-white hover:text-accent-strong"
+                  >
+                    <span className="truncate">{entry}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ) : null}
+          {hasHistory && hasTrending ? <div className="h-px bg-slate-200/70" /> : null}
+          {hasTrending ? (
+            <section className="space-y-3" aria-label="Suggested destinations">
+              <header className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+                <span className="inline-flex items-center gap-2 text-slate-500">
+                  <ArrowTrendingUpIcon className="h-4 w-4 text-accent" aria-hidden="true" />
+                  Suggested now
+                </span>
+              </header>
+              <div className="grid gap-2">
+                {trending.map((entry) => (
+                  <Link
+                    key={entry.id}
+                    to={entry.to ?? '#'}
+                    onClick={() => onTrendingSelect?.(entry)}
+                    className="group flex items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white px-4 py-3 font-semibold text-slate-700 transition hover:border-accent/60 hover:text-accent-strong"
+                  >
+                    <span className="line-clamp-2 text-left leading-snug">{entry.label}</span>
+                    <ArrowUpRightIcon className="h-4 w-4 text-slate-300 group-hover:text-accent" aria-hidden="true" />
+                  </Link>
+                ))}
+              </div>
+            </section>
+          ) : null}
+        </div>
+      </div>
+    </Transition>
+  );
+}
+
+SearchSpotlight.propTypes = {
+  open: PropTypes.bool,
+  trending: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      to: PropTypes.string,
+      description: PropTypes.string,
+    }),
+  ),
+  recentSearches: PropTypes.arrayOf(PropTypes.string),
+  onHistorySelect: PropTypes.func,
+  onTrendingSelect: PropTypes.func,
+  onClearHistory: PropTypes.func,
+  onPointerEnter: PropTypes.func,
+  onPointerLeave: PropTypes.func,
+};
+
+SearchSpotlight.defaultProps = {
+  open: false,
+  trending: [],
+  recentSearches: [],
+  onHistorySelect: undefined,
+  onTrendingSelect: undefined,
+  onClearHistory: undefined,
+  onPointerEnter: undefined,
+  onPointerLeave: undefined,
 };
 
 export default function AppTopBar({
@@ -615,7 +789,11 @@ export default function AppTopBar({
   navigationTrending,
 }) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  const [isQuickSearchOpen, setIsQuickSearchOpen] = useState(false);
+  const [searchHistory, setSearchHistory] = useState([]);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isSearchPopoverHover, setIsSearchPopoverHover] = useState(false);
+  const searchBlurTimeoutRef = useRef(null);
   const sessionId = session?.id ?? null;
   const resolvedMarketingMenus = marketingNavigation ?? [];
   const pulseInsights = useMemo(() => {
@@ -631,6 +809,118 @@ export default function AppTopBar({
     }
     return deriveNavigationTrending(resolvedMarketingMenus, 6);
   }, [navigationTrending, resolvedMarketingMenus]);
+
+  const searchTrendingEntries = useMemo(() => {
+    const searchSuggestions = normaliseTrendingEntries(
+      marketingSearch?.trending ?? [],
+      marketingSearch,
+    );
+    if (searchSuggestions.length > 0) {
+      return searchSuggestions.slice(0, 6);
+    }
+    return trendingEntries.slice(0, 6);
+  }, [marketingSearch, trendingEntries]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    try {
+      const stored = window.localStorage.getItem('gigvora:marketing_search_history');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          const sanitised = parsed
+            .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+            .filter((entry) => entry);
+          if (sanitised.length) {
+            setSearchHistory(sanitised.slice(0, 10));
+          }
+        }
+      }
+    } catch (error) {
+      // Ignore storage errors silently
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const handler = (event) => {
+      if (!marketingSearch) {
+        return;
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setIsQuickSearchOpen(true);
+      }
+    };
+
+    window.addEventListener('keydown', handler);
+    return () => {
+      window.removeEventListener('keydown', handler);
+    };
+  }, [marketingSearch]);
+
+  useEffect(() => {
+    return () => {
+      if (searchBlurTimeoutRef.current) {
+        window.clearTimeout(searchBlurTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const persistSearchHistory = useCallback((next) => {
+    const persistValue = (value) => {
+      if (typeof window !== 'undefined') {
+        try {
+          window.localStorage.setItem('gigvora:marketing_search_history', JSON.stringify(value));
+        } catch (error) {
+          // Ignore storage errors silently
+        }
+      }
+      return value;
+    };
+
+    if (typeof next === 'function') {
+      setSearchHistory((prevState) => {
+        const resolved = next(prevState);
+        if (!Array.isArray(resolved)) {
+          return persistValue([]);
+        }
+        return persistValue(resolved);
+      });
+      return;
+    }
+
+    const resolvedValue = Array.isArray(next) ? next : [];
+    setSearchHistory(resolvedValue);
+    persistValue(resolvedValue);
+  }, []);
+
+  const recordSearchTerm = useCallback(
+    (term) => {
+      const trimmed = typeof term === 'string' ? term.trim() : '';
+      if (!trimmed) {
+        return;
+      }
+      persistSearchHistory((prevState) => {
+        const previous = Array.isArray(prevState) ? prevState : [];
+        const deduped = [
+          trimmed,
+          ...previous.filter((entry) => entry.toLowerCase() !== trimmed.toLowerCase()),
+        ];
+        return deduped.slice(0, 10);
+      });
+    },
+    [persistSearchHistory],
+  );
+
+  const clearSearchHistory = useCallback(() => {
+    persistSearchHistory([]);
+  }, [persistSearchHistory]);
 
   const handleTrendingNavigate = useCallback(
     (entry) => {
@@ -654,8 +944,11 @@ export default function AppTopBar({
           trackPromise.catch(() => {});
         }
       }
+      if (entry.label) {
+        recordSearchTerm(entry.label);
+      }
     },
-    [currentRoleKey, sessionId],
+    [currentRoleKey, recordSearchTerm, sessionId],
   );
 
   const submitMarketingSearch = useCallback(
@@ -678,9 +971,10 @@ export default function AppTopBar({
           trackPromise.catch(() => {});
         }
       }
+      recordSearchTerm(trimmed);
       onMarketingSearch?.(trimmed);
     },
-    [currentRoleKey, onMarketingSearch, sessionId],
+    [currentRoleKey, onMarketingSearch, recordSearchTerm, sessionId],
   );
 
   const handleSearchSubmit = (event) => {
@@ -689,13 +983,79 @@ export default function AppTopBar({
     setSearchQuery('');
   };
 
-  const openMobileSearch = useCallback(() => {
-    setIsMobileSearchOpen(true);
+  const openQuickSearch = useCallback(() => {
+    setIsQuickSearchOpen(true);
   }, []);
 
-  const closeMobileSearch = useCallback(() => {
-    setIsMobileSearchOpen(false);
+  const closeQuickSearch = useCallback(() => {
+    setIsQuickSearchOpen(false);
   }, []);
+
+  const handleHistorySelect = useCallback(
+    (value) => {
+      submitMarketingSearch(value);
+      setSearchQuery('');
+      setIsSearchFocused(false);
+      setIsSearchPopoverHover(false);
+    },
+    [submitMarketingSearch],
+  );
+
+  const handleSpotlightTrendingSelect = useCallback(
+    (entry) => {
+      handleTrendingNavigate(entry);
+      setIsSearchFocused(false);
+      setIsSearchPopoverHover(false);
+    },
+    [handleTrendingNavigate],
+  );
+
+  const handleSearchFocus = useCallback(() => {
+    if (searchBlurTimeoutRef.current) {
+      window.clearTimeout(searchBlurTimeoutRef.current);
+    }
+    setIsSearchFocused(true);
+  }, []);
+
+  const handleSearchBlur = useCallback(() => {
+    if (searchBlurTimeoutRef.current) {
+      window.clearTimeout(searchBlurTimeoutRef.current);
+    }
+    searchBlurTimeoutRef.current = window.setTimeout(() => {
+      setIsSearchFocused(false);
+    }, 80);
+  }, []);
+
+  const handleSearchKeyDown = useCallback((event) => {
+    if (event.key === 'Escape') {
+      event.currentTarget.blur();
+      setIsSearchFocused(false);
+      setIsSearchPopoverHover(false);
+    }
+  }, []);
+
+  const handleSpotlightPointerEnter = useCallback(() => {
+    if (searchBlurTimeoutRef.current) {
+      window.clearTimeout(searchBlurTimeoutRef.current);
+    }
+    setIsSearchPopoverHover(true);
+  }, []);
+
+  const handleSpotlightPointerLeave = useCallback(() => {
+    if (searchBlurTimeoutRef.current) {
+      window.clearTimeout(searchBlurTimeoutRef.current);
+    }
+    searchBlurTimeoutRef.current = window.setTimeout(() => {
+      setIsSearchPopoverHover(false);
+      setIsSearchFocused(false);
+    }, 80);
+  }, []);
+
+  const shouldShowSearchSpotlight = Boolean(
+    marketingSearch &&
+      (isSearchFocused || isSearchPopoverHover) &&
+      (searchHistory.length > 0 || searchTrendingEntries.length > 0),
+  );
 
   return (
     <header className="relative sticky top-0 z-40 border-b border-transparent bg-white/85 backdrop-blur">
@@ -739,7 +1099,7 @@ export default function AppTopBar({
           {marketingSearch ? (
             <button
               type="button"
-              onClick={openMobileSearch}
+              onClick={openQuickSearch}
               className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-600 shadow-sm transition hover:border-slate-400/80 hover:text-slate-900 md:hidden"
             >
               <span className="sr-only">Open quick search</span>
@@ -764,22 +1124,40 @@ export default function AppTopBar({
         ) : null}
 
         {marketingSearch ? (
-          <form
-            className="hidden min-w-[14rem] flex-[1.2] items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-sm shadow-inner ring-1 ring-transparent transition focus-within:bg-white focus-within:ring-2 focus-within:ring-accent/20 md:flex lg:min-w-[18rem]"
-            onSubmit={handleSearchSubmit}
-            role="search"
-            aria-label={marketingSearch.ariaLabel ?? marketingSearch.placeholder}
-          >
-            <MagnifyingGlassIcon className="h-5 w-5 text-slate-400" aria-hidden="true" />
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder={marketingSearch.placeholder}
+          <div className="relative hidden min-w-[14rem] flex-[1.2] md:flex lg:min-w-[18rem]">
+            <form
+              className="flex w-full items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-sm shadow-inner ring-1 ring-transparent transition focus-within:bg-white focus-within:ring-2 focus-within:ring-accent/20"
+              onSubmit={handleSearchSubmit}
+              role="search"
               aria-label={marketingSearch.ariaLabel ?? marketingSearch.placeholder}
-              className="flex-1 border-0 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:ring-0"
+            >
+              <MagnifyingGlassIcon className="h-5 w-5 text-slate-400" aria-hidden="true" />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                onFocus={handleSearchFocus}
+                onBlur={handleSearchBlur}
+                onKeyDown={handleSearchKeyDown}
+                placeholder={marketingSearch.placeholder}
+                aria-label={marketingSearch.ariaLabel ?? marketingSearch.placeholder}
+                className="flex-1 border-0 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:ring-0"
+              />
+              <span className="hidden items-center gap-1 rounded-full border border-slate-200/70 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-slate-400 md:inline-flex">
+                ⌘K
+              </span>
+            </form>
+            <SearchSpotlight
+              open={shouldShowSearchSpotlight}
+              trending={searchTrendingEntries}
+              recentSearches={searchHistory}
+              onHistorySelect={handleHistorySelect}
+              onTrendingSelect={handleSpotlightTrendingSelect}
+              onClearHistory={clearSearchHistory}
+              onPointerEnter={handleSpotlightPointerEnter}
+              onPointerLeave={handleSpotlightPointerLeave}
             />
-          </form>
+          </div>
         ) : null}
 
         <div className="hidden min-w-0 flex-1 items-center justify-end gap-2 sm:flex sm:gap-3 lg:gap-4">
@@ -829,13 +1207,16 @@ export default function AppTopBar({
           )}
         </div>
       </div>
-      <MobileSearchDialog
-        open={isMobileSearchOpen}
-        onClose={closeMobileSearch}
+      <QuickSearchDialog
+        open={isQuickSearchOpen}
+        onClose={closeQuickSearch}
         marketingSearch={marketingSearch}
-        trending={trendingEntries}
+        trending={searchTrendingEntries}
         onSubmit={submitMarketingSearch}
         onTrendingNavigate={handleTrendingNavigate}
+        recentSearches={searchHistory}
+        onSelectRecent={handleHistorySelect}
+        onClearHistory={clearSearchHistory}
       />
     </header>
   );
