@@ -32,6 +32,18 @@ function buildStatus(overrides = {}) {
       { id: 'status', label: 'Status page' },
       { id: 'email', label: 'Customer email' },
     ],
+    lastBroadcast: {
+      id: 12,
+      fingerprint: 'BR-0012-20240511',
+      subject: 'Maintenance rehearsal broadcast',
+      audience: 'customers',
+      channels: [
+        { id: 'status', label: 'Status page' },
+        { id: 'email', label: 'Customer email' },
+      ],
+      dispatchedAt: '2024-05-11T22:30:00.000Z',
+      dispatchedBy: 'ops-lead@gigvora.com',
+    },
     window: {
       label: 'Database maintenance',
       phase: 'scheduled',
@@ -95,6 +107,22 @@ describe('SystemStatusToast', () => {
     expect(screen.getByText('99.982%')).toBeInTheDocument();
     expect(screen.getByText('182 ms')).toBeInTheDocument();
     expect(screen.getByText('Status page')).toBeInTheDocument();
+  });
+
+  it('renders last broadcast fingerprint and metadata', () => {
+    render(
+      <SystemStatusToast
+        status={buildStatus()}
+        onViewIncidents={() => {}}
+        onViewRunbook={() => {}}
+        onDismiss={() => {}}
+      />,
+    );
+
+    expect(screen.getByText(/Last broadcast/i)).toBeInTheDocument();
+    expect(screen.getByText(/BR-0012-20240511/)).toBeInTheDocument();
+    expect(screen.getByText(/Maintenance rehearsal broadcast/)).toBeInTheDocument();
+    expect(screen.getByText(/Audience · customers/i)).toBeInTheDocument();
   });
 
   it('renders maintenance window, warnings, escalations, and feedback summary', () => {

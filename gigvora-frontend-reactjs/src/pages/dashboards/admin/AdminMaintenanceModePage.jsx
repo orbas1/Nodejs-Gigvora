@@ -80,6 +80,15 @@ const FALLBACK_STATUS = {
     { id: 'trust-centre', label: 'Trust centre' },
     { id: 'slack', label: '#gigvora-ops' },
   ],
+  lastBroadcast: {
+    id: 'broadcast-ops-01',
+    fingerprint: 'BR-0001-20240510',
+    subject: 'Maintenance rehearsal broadcast',
+    audience: 'customers',
+    channels: ['email', 'status-page'],
+    dispatchedAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
+    dispatchedBy: 'ops@gigvora.com',
+  },
   incidentRoomUrl: 'https://gigvora.slack.com/archives/gigvora-ops',
   runbookUrl: 'https://gigvora.notion.site/maintenance-runbook',
   acknowledgedAt: null,
@@ -417,6 +426,7 @@ export default function AdminMaintenanceModePage() {
       warnings: Array.isArray(status?.warnings) ? status.warnings : FALLBACK_STATUS.warnings,
       escalations: Array.isArray(status?.escalations) ? status.escalations : FALLBACK_STATUS.escalations,
       feedback: status?.feedback ?? FALLBACK_STATUS.feedback,
+      lastBroadcast: status?.lastBroadcast ?? FALLBACK_STATUS.lastBroadcast,
     };
   }, [status]);
 

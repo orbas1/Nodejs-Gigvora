@@ -88,12 +88,16 @@ export default function SystemStatusToast({
 }) {
   const severity = severityTokens[status.severity] ?? severityTokens.notice;
   const incidents = Array.isArray(status.incidents) ? status.incidents : [];
-  const channels = Array.isArray(status.channels) ? status.channels : [];
+  const baseChannels = Array.isArray(status.channels) ? status.channels : [];
   const metrics = status.metrics ?? {};
   const windowMeta = status.window ?? null;
   const warnings = Array.isArray(status.warnings) ? status.warnings : [];
   const escalations = Array.isArray(status.escalations) ? status.escalations : [];
   const feedback = status.feedback ?? null;
+  const lastBroadcast = status.lastBroadcast ?? null;
+  const broadcastChannels = Array.isArray(lastBroadcast?.channels) && lastBroadcast.channels.length
+    ? lastBroadcast.channels
+    : baseChannels;
 
   return (
     <aside className="pointer-events-auto w-full max-w-xl rounded-3xl border border-white/20 bg-slate-900/95 p-6 shadow-[0_25px_65px_-30px_rgba(15,23,42,0.75)] backdrop-blur-xl">
@@ -142,6 +146,27 @@ export default function SystemStatusToast({
           value={metrics.activeIncidents ?? incidents.length ?? 0}
         />
       </dl>
+
+      {lastBroadcast ? (
+        <section className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-xs text-slate-200">
+          <header className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-semibold uppercase tracking-[0.3em] text-white/60">Last broadcast</p>
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.25em] text-white/60">
+              Fingerprint {lastBroadcast.fingerprint ?? '—'}
+            </span>
+          </header>
+          {lastBroadcast.subject ? (
+            <p className="mt-2 text-sm text-slate-200">{lastBroadcast.subject}</p>
+          ) : null}
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-[0.65rem] uppercase tracking-[0.25em] text-white/40">
+            {lastBroadcast.audience ? <span>Audience · {lastBroadcast.audience}</span> : null}
+            {lastBroadcast.dispatchedAt ? (
+              <span>Dispatched {formatDuration(lastBroadcast.dispatchedAt)}</span>
+            ) : null}
+            {lastBroadcast.dispatchedBy ? <span>By {lastBroadcast.dispatchedBy}</span> : null}
+          </div>
+        </section>
+      ) : null}
 
       {windowMeta ? (
         <section className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-xs text-slate-200">
@@ -278,11 +303,11 @@ export default function SystemStatusToast({
         </div>
       ) : null}
 
-      {channels.length > 0 ? (
+      {broadcastChannels.length > 0 ? (
         <div className="mt-6">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Broadcast channels</p>
           <div className="mt-2 flex flex-wrap gap-2">
-            {channels.map((channel) => (
+            {broadcastChannels.map((channel) => (
               <span
                 key={channel.id || channel}
                 className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-200"
@@ -449,6 +474,23 @@ SystemStatusToast.propTypes = {
         }),
       ]),
     ),
+    lastBroadcast: PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      fingerprint: PropTypes.string,
+      subject: PropTypes.string,
+      audience: PropTypes.string,
+      channels: PropTypes.arrayOf(
+        PropTypes.oneOfType([
+          PropTypes.string,
+          PropTypes.shape({
+            id: PropTypes.string,
+            label: PropTypes.string,
+          }),
+        ]),
+      ),
+      dispatchedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+      dispatchedBy: PropTypes.string,
+    }),
     window: PropTypes.shape({
       label: PropTypes.string,
       phase: PropTypes.string,

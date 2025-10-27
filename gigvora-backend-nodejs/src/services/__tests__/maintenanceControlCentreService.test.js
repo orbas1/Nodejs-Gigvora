@@ -65,6 +65,19 @@ describe('maintenanceControlCentreService', () => {
       notificationLeadMinutes: 90,
     });
 
+    const dispatchedAt = new Date('2025-03-30T09:00:00Z');
+    await MaintenanceBroadcastLog.create({
+      subject: 'Maintenance rehearsal broadcast',
+      body: 'Testing broadcast fingerprint integration.',
+      channels: ['email', 'status-page'],
+      audience: 'customers',
+      includeTimeline: true,
+      includeStatusPage: true,
+      dispatchedAt,
+      dispatchedBy: 'ops@gigvora.com',
+      metadata: {},
+    });
+
     const snapshot = await getMaintenanceDashboardSnapshot();
 
     expect(snapshot.status.title).toBe('Operational');
@@ -72,6 +85,12 @@ describe('maintenanceControlCentreService', () => {
     expect(snapshot.status.metrics.uptime).toBeCloseTo(99.99);
     expect(snapshot.windows).toHaveLength(1);
     expect(snapshot.windows[0].channels).toEqual(['status-page', 'email']);
+    expect(snapshot.status.lastBroadcast).toMatchObject({
+      subject: 'Maintenance rehearsal broadcast',
+      audience: 'customers',
+      dispatchedBy: 'ops@gigvora.com',
+    });
+    expect(snapshot.status.lastBroadcast.fingerprint).toMatch(/^BR-\d{4}-20250330$/);
   });
 
   it('creates, updates, and deletes maintenance windows with channel normalisation', async () => {

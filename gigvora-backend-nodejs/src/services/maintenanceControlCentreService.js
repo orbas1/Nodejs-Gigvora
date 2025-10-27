@@ -169,13 +169,52 @@ function sanitizeSnapshot(snapshot) {
   };
 }
 
+function buildBroadcastFingerprint(record) {
+  if (!record) {
+    return null;
+  }
+
+  const date = record.dispatchedAt instanceof Date ? record.dispatchedAt : new Date(record.dispatchedAt);
+  if (Number.isNaN(date.getTime())) {
+    return `BR-${String(record.id ?? '0000').padStart(4, '0')}`;
+  }
+
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `BR-${String(record.id).padStart(4, '0')}-${year}${month}${day}`;
+}
+
 export async function getMaintenanceDashboardSnapshot({ includeWindows = true } = {}) {
-  const snapshot = await MaintenanceOperationalSnapshot.findOne({
-    include: [{ model: MaintenanceFeedbackSnapshot, as: 'feedbackSnapshot' }],
-    order: [['capturedAt', 'DESC']],
-  });
+  const [snapshot, latestBroadcast] = await Promise.all([
+    MaintenanceOperationalSnapshot.findOne({
+      include: [{ model: MaintenanceFeedbackSnapshot, as: 'feedbackSnapshot' }],
+      order: [['capturedAt', 'DESC']],
+    }),
+    MaintenanceBroadcastLog.findOne({ order: [['dispatchedAt', 'DESC']] }),
+  ]);
 
   const status = sanitizeSnapshot(snapshot);
+
+  const broadcast = latestBroadcast
+    ? (() => {
+        const plain = latestBroadcast.get({ plain: true });
+        const dispatchedAt = plain.dispatchedAt instanceof Date
+          ? plain.dispatchedAt
+          : new Date(plain.dispatchedAt);
+        return {
+          id: plain.id,
+          subject: plain.subject,
+          audience: plain.audience,
+          channels: Array.isArray(plain.channels) ? plain.channels : [],
+          dispatchedAt: dispatchedAt instanceof Date && !Number.isNaN(dispatchedAt.getTime())
+            ? dispatchedAt.toISOString()
+            : null,
+          dispatchedBy: plain.dispatchedBy ?? null,
+          fingerprint: buildBroadcastFingerprint(plain),
+        };
+      })()
+    : null;
 
   let windows = [];
   if (includeWindows) {
@@ -183,7 +222,9 @@ export async function getMaintenanceDashboardSnapshot({ includeWindows = true } 
     windows = records.map(serializeWindow);
   }
 
-  return { status, windows };
+  const statusWithBroadcast = status ? { ...status, lastBroadcast: broadcast } : status;
+
+  return { status: statusWithBroadcast, windows };
 }
 
 export async function listMaintenanceWindows() {
