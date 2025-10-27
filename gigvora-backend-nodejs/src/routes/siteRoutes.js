@@ -17,6 +17,16 @@ const navigationChromeQuerySchema = z
   })
   .strip();
 
+const themeFabricQuerySchema = z
+  .object({
+    includeComponents: optionalTrimmedString({ max: 5 })
+      .refine((value) => value == null || ['true', 'false'].includes(value.toLowerCase()), {
+        message: 'includeComponents must be true or false when provided.',
+      })
+      .transform((value) => value?.toLowerCase()),
+  })
+  .strip();
+
 const sitePagesQuerySchema = z
   .object({
     limit: optionalNumber({ min: 1, max: 50, integer: true }).transform((value) => value ?? undefined),
@@ -37,6 +47,11 @@ router.get(
   '/navigation/chrome',
   validateRequest({ query: navigationChromeQuerySchema }),
   asyncHandler(siteController.navigationChrome),
+);
+router.get(
+  '/theme/fabric',
+  validateRequest({ query: themeFabricQuerySchema }),
+  asyncHandler(siteController.themeFabric),
 );
 router.get('/navigation', asyncHandler(siteController.navigation));
 router.get('/pages', validateRequest({ query: sitePagesQuerySchema }), asyncHandler(siteController.index));

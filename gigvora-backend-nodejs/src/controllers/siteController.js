@@ -5,6 +5,7 @@ import {
   getPublishedSitePage,
 } from '../services/siteManagementService.js';
 import { getNavigationChrome } from '../services/navigationChromeService.js';
+import { getThemeFabric } from '../services/themeFabricService.js';
 import { AuthorizationError, ValidationError } from '../utils/errors.js';
 import { resolveRequestPermissions, resolveRequestUserId } from '../utils/requestContext.js';
 
@@ -78,6 +79,12 @@ export async function navigationChrome(req, res) {
   res.json({ chrome });
 }
 
+export async function themeFabric(req, res) {
+  const includeComponents = req.query?.includeComponents !== 'false';
+  const fabric = await getThemeFabric({ includeComponentProfiles: includeComponents });
+  res.json({ fabric });
+}
+
 export async function index(req, res) {
   const status = `${req.query?.status ?? 'published'}`.trim().toLowerCase();
   const includeDrafts = req.query?.includeDrafts === 'true';
@@ -108,6 +115,7 @@ export default {
   settings,
   navigation,
   navigationChrome,
+  themeFabric,
   index,
   show,
 };

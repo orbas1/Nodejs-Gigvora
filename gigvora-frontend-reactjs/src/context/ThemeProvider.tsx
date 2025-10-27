@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import analytics from '../services/analytics.js';
+import { fetchThemeFabric } from '../services/publicSite.js';
 
 const STORAGE_KEY = 'gigvora:web:theme:preferences';
 const COLOR_SCHEME_ATTRIBUTE = 'color-scheme';
@@ -78,7 +79,7 @@ const MODE_PRESETS = {
   },
 };
 
-const ACCENT_PRESETS = {
+const BASE_ACCENT_PRESETS = {
   azure: {
     accent: '#2563eb',
     accentStrong: '#1d4ed8',
@@ -116,7 +117,7 @@ const ACCENT_PRESETS = {
   },
 };
 
-const DENSITY_SCALE = {
+const BASE_DENSITY_SCALE = {
   spacious: 1.05,
   comfortable: 1,
   cozy: 0.92,
@@ -220,6 +221,53 @@ function pxToRem(px, scale) {
   return `${((px * scale) / 16).toFixed(3)}rem`;
 }
 
+function normaliseSpacingValue(value, fallback) {
+  const numeric = Number.parseFloat(value);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+  return numeric;
+}
+
+function mergeTypography(base = {}, overrides = {}) {
+  const heading = { ...(base.heading ?? {}), ...(overrides.heading ?? {}) };
+  const body = { ...(base.body ?? {}), ...(overrides.body ?? {}) };
+  const label = { ...(base.label ?? {}), ...(overrides.label ?? {}) };
+  return {
+    ...base,
+    ...overrides,
+    heading,
+    body,
+    label,
+  };
+}
+
+function mergeTokenLayers(base, overrides) {
+  if (!overrides || typeof overrides !== 'object') {
+    return base;
+  }
+  const result = { ...base, ...overrides };
+  if (base.colors || overrides.colors) {
+    result.colors = { ...(base.colors ?? {}), ...(overrides.colors ?? {}) };
+  }
+  if (base.spacing || overrides.spacing) {
+    result.spacing = { ...(base.spacing ?? {}), ...(overrides.spacing ?? {}) };
+  }
+  if (base.radii || overrides.radii) {
+    result.radii = { ...(base.radii ?? {}), ...(overrides.radii ?? {}) };
+  }
+  if (base.shadows || overrides.shadows) {
+    result.shadows = { ...(base.shadows ?? {}), ...(overrides.shadows ?? {}) };
+  }
+  if (base.overlays || overrides.overlays) {
+    result.overlays = { ...(base.overlays ?? {}), ...(overrides.overlays ?? {}) };
+  }
+  if (base.typography || overrides.typography) {
+    result.typography = mergeTypography(base.typography ?? {}, overrides.typography ?? {});
+  }
+  return result;
+}
+
 function applyCssVariables(tokens, mode, density, accentName) {
   if (!isBrowser()) {
     return;
@@ -308,6 +356,10 @@ const defaultThemeValue = {
     shadows: {},
     overlays: {},
   },
+  fabricStatus: 'idle',
+  fabricVersion: null,
+  fabricMetadata: null,
+  availableAccents: Object.keys(BASE_ACCENT_PRESETS),
   setMode: () => {},
   setAccent: () => {},
   setDensity: () => {},
@@ -324,8 +376,16 @@ export function ThemeProvider({ children }) {
   const [accent, setAccentState] = useState(stored?.accent ?? 'azure');
   const [density, setDensityState] = useState(stored?.density ?? 'comfortable');
   const [systemMode, setSystemMode] = useState(detectSystemMode);
+  const [fabricState, setFabricState] = useState({
+    status: 'idle',
+    version: null,
+    theme: null,
+    components: null,
+    metadata: null,
+  });
 
   const componentTokensRef = useRef(new Map());
+  const fabricComponentTokensRef = useRef(new Map());
   const lastTrackedRef = useRef({ mode: null, accent: null, density: null });
 
   useEffect(() => {
@@ -345,34 +405,125 @@ export function ThemeProvider({ children }) {
     return () => mediaQuery.removeListener(handleChange);
   }, []);
 
+  useEffect(() => {
+    if (!isBrowser()) {
+      return;
+    }
+    let cancelled = false;
+    const controller = new AbortController();
+    setFabricState((prev) => ({ ...prev, status: 'loading' }));
+    fetchThemeFabric({}, { signal: controller.signal })
+      .then((payload) => {
+        if (cancelled) {
+          return;
+        }
+        const theme = payload?.theme ?? null;
+        const components = payload?.components ?? null;
+        const metadata = payload?.metadata ?? {};
+        const version = payload?.version ?? null;
+        setFabricState({ status: 'ready', theme, components, metadata, version });
+        analytics.setGlobalContext({
+          themeFabricVersion: version ?? 'unversioned',
+        });
+        analytics.track('theme.fabric_loaded', {
+          version: version ?? 'unversioned',
+          accentPresets: Object.keys(theme?.accentPresets ?? {}),
+          componentProfiles: Object.keys(components?.tokens ?? {}),
+        });
+      })
+      .catch((error) => {
+        if (cancelled || error?.name === 'AbortError') {
+          return;
+        }
+        console.warn('Unable to hydrate theme fabric', error);
+        setFabricState((prev) => ({ ...prev, status: 'error' }));
+      });
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    const remoteComponents = fabricState.components?.tokens ?? {};
+    const next = new Map();
+    Object.entries(remoteComponents).forEach(([key, value]) => {
+      const trimmed = `${key}`.trim();
+      if (trimmed) {
+        next.set(trimmed, value);
+      }
+    });
+    fabricComponentTokensRef.current = next;
+  }, [fabricState.components]);
+
   const resolvedMode = modePreference === 'system' ? systemMode : modePreference;
 
+  const accentPresets = useMemo(
+    () => ({ ...BASE_ACCENT_PRESETS, ...(fabricState.theme?.accentPresets ?? {}) }),
+    [fabricState.theme],
+  );
+
+  const densityScaleMap = useMemo(
+    () => ({ ...BASE_DENSITY_SCALE, ...(fabricState.theme?.densityScale ?? {}) }),
+    [fabricState.theme],
+  );
+
+  const spacingConfig = useMemo(
+    () => ({
+      values: { ...BASE_SPACING, ...(fabricState.theme?.spacing?.values ?? {}) },
+      scale: fabricState.theme?.spacing?.scale ?? 1,
+    }),
+    [fabricState.theme],
+  );
+
+  const radii = useMemo(
+    () => ({ ...RADIUS_PRESETS, ...(fabricState.theme?.radii ?? {}) }),
+    [fabricState.theme],
+  );
+
+  const mergedModes = useMemo(() => {
+    const overrides = fabricState.theme?.modes ?? {};
+    return Object.entries(MODE_PRESETS).reduce((acc, [key, preset]) => {
+      acc[key] = mergeTokenLayers(preset, overrides[key] ?? {});
+      return acc;
+    }, {});
+  }, [fabricState.theme]);
+
+  const typography = useMemo(
+    () => mergeTypography(TYPOGRAPHY_PRESETS, fabricState.theme?.typography ?? {}),
+    [fabricState.theme],
+  );
+
   const tokens = useMemo(() => {
-    const modeTokens = MODE_PRESETS[resolvedMode] ?? MODE_PRESETS.light;
-    const accentTokens = ACCENT_PRESETS[accent] ?? ACCENT_PRESETS.azure;
-    const densityScale = DENSITY_SCALE[density] ?? DENSITY_SCALE.comfortable;
-
+    const modeTokens = mergedModes[resolvedMode] ?? mergedModes.light ?? MODE_PRESETS.light;
+    const accentToken = accentPresets[accent]
+      ?? accentPresets.azure
+      ?? accentPresets[Object.keys(accentPresets)[0]]
+      ?? BASE_ACCENT_PRESETS.azure;
+    const densityScale = densityScaleMap[density] ?? densityScaleMap.comfortable ?? 1;
     const spacing = Object.fromEntries(
-      Object.entries(BASE_SPACING).map(([key, value]) => [key, pxToRem(value, densityScale)]),
+      Object.entries(spacingConfig.values).map(([key, value]) => {
+        const base = normaliseSpacingValue(value, BASE_SPACING[key]);
+        return [key, pxToRem(base * spacingConfig.scale, densityScale)];
+      }),
     );
-
     return {
       colors: {
         ...modeTokens.colors,
-        accent: accentTokens.accent,
-        accentStrong: accentTokens.accentStrong,
-        accentSoft: accentTokens.accentSoft,
-        primary: accentTokens.primary,
-        primarySoft: accentTokens.primarySoft,
+        accent: accentToken.accent,
+        accentStrong: accentToken.accentStrong ?? accentToken.accent,
+        accentSoft: accentToken.accentSoft ?? 'rgba(37, 99, 235, 0.1)',
+        primary: accentToken.primary ?? accentToken.accent,
+        primarySoft: accentToken.primarySoft ?? accentToken.accentSoft ?? 'rgba(37, 99, 235, 0.1)',
       },
       spacing,
-      radii: { ...RADIUS_PRESETS },
-      typography: { ...TYPOGRAPHY_PRESETS },
+      radii: { ...radii },
+      typography,
       density: densityScale,
-      shadows: { ...modeTokens.shadows },
-      overlays: { ...modeTokens.overlays },
+      shadows: { ...(modeTokens.shadows ?? {}) },
+      overlays: { ...(modeTokens.overlays ?? {}) },
     };
-  }, [accent, density, resolvedMode]);
+  }, [accent, accentPresets, density, densityScaleMap, mergedModes, radii, resolvedMode, spacingConfig, typography]);
 
   useEffect(() => {
     applyCssVariables(tokens, resolvedMode, density, accent);
@@ -409,10 +560,7 @@ export function ThemeProvider({ children }) {
       return;
     }
     const existing = componentTokensRef.current.get(key) ?? {};
-    const next = {
-      ...existing,
-      ...overrides,
-    };
+    const next = mergeTokenLayers(existing, overrides ?? {});
     componentTokensRef.current.set(key, next);
   }, []);
 
@@ -428,20 +576,20 @@ export function ThemeProvider({ children }) {
       if (!componentName) {
         return tokens;
       }
-      const overrides = componentTokensRef.current.get(`${componentName}`.trim());
-      if (!overrides) {
+      const key = `${componentName}`.trim();
+      if (!key) {
         return tokens;
       }
-      return {
-        ...tokens,
-        ...overrides,
-        colors: { ...tokens.colors, ...(overrides.colors ?? {}) },
-        spacing: { ...tokens.spacing, ...(overrides.spacing ?? {}) },
-        radii: { ...tokens.radii, ...(overrides.radii ?? {}) },
-        shadows: { ...tokens.shadows, ...(overrides.shadows ?? {}) },
-        overlays: { ...tokens.overlays, ...(overrides.overlays ?? {}) },
-        typography: { ...tokens.typography, ...(overrides.typography ?? {}) },
-      };
+      let resolved = tokens;
+      const fabricLayer = fabricComponentTokensRef.current.get(key);
+      if (fabricLayer) {
+        resolved = mergeTokenLayers(resolved, fabricLayer);
+      }
+      const overrides = componentTokensRef.current.get(key);
+      if (overrides) {
+        resolved = mergeTokenLayers(resolved, overrides);
+      }
+      return resolved;
     },
     [tokens],
   );
@@ -463,25 +611,30 @@ export function ThemeProvider({ children }) {
   const setAccent = useCallback(
     (nextAccent) => {
       const normalised = normalisePreference(nextAccent, accent);
-      if (!ACCENT_PRESETS[normalised] || normalised === accent) {
+      if (normalised === accent) {
         return;
       }
-      analytics.track('theme.accent_changed', { nextAccent: normalised, previousAccent: accent });
+      const isAvailable = Boolean(accentPresets[normalised]);
+      analytics.track('theme.accent_changed', {
+        nextAccent: normalised,
+        previousAccent: accent,
+        available: isAvailable,
+      });
       setAccentState(normalised);
     },
-    [accent],
+    [accent, accentPresets],
   );
 
   const setDensity = useCallback(
     (nextDensity) => {
       const normalised = normalisePreference(nextDensity, density);
-      if (!DENSITY_SCALE[normalised] || normalised === density) {
+      if (!densityScaleMap[normalised] || normalised === density) {
         return;
       }
       analytics.track('theme.density_changed', { nextDensity: normalised, previousDensity: density });
       setDensityState(normalised);
     },
-    [density],
+    [density, densityScaleMap],
   );
 
   const value = useMemo(
@@ -491,6 +644,10 @@ export function ThemeProvider({ children }) {
       accent,
       density,
       tokens,
+      fabricStatus: fabricState.status,
+      fabricVersion: fabricState.version,
+      fabricMetadata: fabricState.metadata,
+      availableAccents: Object.keys(accentPresets),
       setMode,
       setAccent,
       setDensity,
@@ -498,7 +655,23 @@ export function ThemeProvider({ children }) {
       removeComponentTokens,
       resolveComponentTokens,
     }),
-    [accent, density, modePreference, resolvedMode, tokens, setMode, setAccent, setDensity, updateComponentTokens, removeComponentTokens, resolveComponentTokens],
+    [
+      accent,
+      accentPresets,
+      density,
+      fabricState.metadata,
+      fabricState.status,
+      fabricState.version,
+      modePreference,
+      resolvedMode,
+      setMode,
+      setAccent,
+      setDensity,
+      tokens,
+      updateComponentTokens,
+      removeComponentTokens,
+      resolveComponentTokens,
+    ],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

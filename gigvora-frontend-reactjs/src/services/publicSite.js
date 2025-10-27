@@ -72,6 +72,13 @@ export async function fetchNavigationChrome(params = {}, options = {}) {
   return response?.chrome ?? response;
 }
 
+export async function fetchThemeFabric(params = {}, options = {}) {
+  const safeParams = ensureParams(params);
+  const safeOptions = ensureOptions(options);
+  const response = await apiClient.get('/site/theme/fabric', { ...safeOptions, params: safeParams });
+  return response?.fabric ?? response;
+}
+
 export async function fetchSitePages(params = {}, options = {}) {
   const safeParams = ensureParams(params);
   const safeOptions = ensureOptions(options);
@@ -91,6 +98,7 @@ export default {
   fetchSiteSettings,
   fetchSiteNavigation,
   fetchNavigationChrome,
+  fetchThemeFabric,
   fetchSitePages,
   fetchSitePage,
 };
