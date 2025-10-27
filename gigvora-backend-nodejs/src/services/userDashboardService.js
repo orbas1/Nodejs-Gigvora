@@ -87,7 +87,7 @@ const TERMINAL_STATUSES = new Set(['withdrawn', 'rejected', 'hired']);
 const OFFER_STATUSES = new Set(['offered', 'hired']);
 const INTERVIEW_STATUSES = new Set(['interview']);
 const FOLLOW_UP_STATUSES = new Set(['submitted', 'under_review', 'shortlisted', 'interview', 'offered']);
-const ESCROW_PENDING_STATUSES = new Set(['initiated', 'funded', 'in_escrow', 'disputed']);
+const ESCROW_PENDING_STATUSES = new Set(['initiated', 'funded', 'in_escrow', 'pending_release', 'held', 'paused', 'disputed']);
 const ESCROW_RELEASED_STATUSES = new Set(['released']);
 const ESCROW_REFUND_STATUSES = new Set(['refunded']);
 const INVOICE_READY_STATUSES = new Set(['released', 'completed']);
@@ -1275,7 +1275,7 @@ function buildEscrowManagementSection({
   );
 
   const releaseQueue = sanitizedTransactions
-    .filter((transaction) => ESCROW_PENDING_STATUSES.has(transaction.status))
+    .filter((transaction) => ESCROW_PENDING_STATUSES.has(transaction.status) && transaction.status !== 'paused')
     .sort((a, b) => {
       const aReference = a.scheduledReleaseAt ?? a.createdAt ?? null;
       const bReference = b.scheduledReleaseAt ?? b.createdAt ?? null;
