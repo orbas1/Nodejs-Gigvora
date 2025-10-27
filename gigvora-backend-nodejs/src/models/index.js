@@ -33,6 +33,7 @@ export {
 import './agencyWorkforceModels.js';
 import { RbacPolicyAuditEvent } from './rbacPolicyAuditEvent.js';
 import { RuntimeAnnouncement } from './runtimeAnnouncement.js';
+import './maintenanceControlCentreModels.js';
 import {
   CompanyPage,
   CompanyPageSection,

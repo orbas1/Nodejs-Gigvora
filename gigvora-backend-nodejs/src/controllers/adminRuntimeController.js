@@ -5,6 +5,14 @@ import {
   updateAnnouncementStatus,
   getAnnouncement,
 } from '../services/runtimeMaintenanceService.js';
+import {
+  getMaintenanceDashboardSnapshot,
+  listMaintenanceWindows,
+  createMaintenanceWindow,
+  updateMaintenanceWindow,
+  deleteMaintenanceWindow,
+  sendMaintenanceBroadcast,
+} from '../services/maintenanceControlCentreService.js';
 import logger from '../utils/logger.js';
 import { extractAdminActor, stampPayloadWithActor, coercePositiveInteger } from '../utils/adminRequestContext.js';
 
@@ -71,10 +79,51 @@ export async function fetchMaintenance(req, res) {
   res.json(record);
 }
 
+export async function maintenanceDashboard(req, res) {
+  const dashboard = await getMaintenanceDashboardSnapshot();
+  res.json(dashboard);
+}
+
+export async function listMaintenanceWindowsController(req, res) {
+  const windows = await listMaintenanceWindows();
+  res.json({ windows });
+}
+
+export async function createMaintenanceWindowController(req, res) {
+  const { actor } = buildServiceContext(req);
+  const window = await createMaintenanceWindow(req.body ?? {}, { actor });
+  res.status(201).json(window);
+}
+
+export async function updateMaintenanceWindowController(req, res) {
+  const { actor } = buildServiceContext(req);
+  const { windowId } = req.params ?? {};
+  const window = await updateMaintenanceWindow(windowId, req.body ?? {}, { actor });
+  res.json(window);
+}
+
+export async function deleteMaintenanceWindowController(req, res) {
+  const { windowId } = req.params ?? {};
+  await deleteMaintenanceWindow(windowId);
+  res.status(204).send();
+}
+
+export async function sendMaintenanceNotification(req, res) {
+  const { actor } = buildServiceContext(req);
+  const result = await sendMaintenanceBroadcast(req.body ?? {}, { actor });
+  res.status(202).json(result);
+}
+
 export default {
   listMaintenance,
   createMaintenance,
   updateMaintenance,
   changeMaintenanceStatus,
   fetchMaintenance,
+  maintenanceDashboard,
+  listMaintenanceWindowsController,
+  createMaintenanceWindowController,
+  updateMaintenanceWindowController,
+  deleteMaintenanceWindowController,
+  sendMaintenanceNotification,
 };
