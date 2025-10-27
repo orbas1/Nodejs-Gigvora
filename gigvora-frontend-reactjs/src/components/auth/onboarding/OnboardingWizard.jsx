@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import PersonaSelection, { personaShape, DEFAULT_PERSONAS_FOR_SELECTION } from './PersonaSelection.jsx';
+import WorkspacePrimerCarousel from './WorkspacePrimerCarousel.jsx';
 import { listOnboardingPersonas, createOnboardingJourney } from '../../../services/onboarding.js';
 
 const STEP_SEQUENCE = [
@@ -32,6 +33,67 @@ const DEFAULT_PREFERENCES = {
 };
 
 const DEFAULT_INVITES = [{ email: '', role: 'Collaborator' }];
+
+const FALLBACK_PRIMER_MESSAGES = [
+  'Personalise your hero, invites, and insights with persona-backed defaults.',
+  'Invite your core collaborators so approvals and rituals stay in sync.',
+  'Activate AI story starters, analytics, and executive briefs on launch.',
+];
+
+function createPersonaPrimerSlides(persona, insights) {
+  if (!persona) {
+    return [];
+  }
+
+  const modules = persona.recommendedModules ?? [];
+  const signatureMoments = persona.signatureMoments ?? [];
+  const [winsInsight] = insights.filter((entry) => entry.label === 'Signature wins');
+  const metrics = (persona.metrics ?? []).slice(0, 2).map((metric) => ({
+    label: metric.label,
+    value: metric.value,
+  }));
+
+  const slides = [
+    {
+      id: `${persona.id}-overview`,
+      pill: persona.title,
+      title: `Launch the ${persona.title.toLowerCase()}`,
+      description: persona.subtitle || persona.headline || '',
+      metrics,
+      checklist: [
+        winsInsight?.value?.[0],
+        modules.length ? `Preloaded modules: ${modules.slice(0, 3).join(', ')}` : null,
+      ].filter(Boolean),
+    },
+  ];
+
+  signatureMoments.forEach((moment, index) => {
+    slides.push({
+      id: `${persona.id}-moment-${index + 1}`,
+      pill: `Moment ${index + 1}`,
+      title: moment.label,
+      description: moment.description,
+      checklist: [
+        modules[index] ? `Align with ${modules[index]}` : null,
+        FALLBACK_PRIMER_MESSAGES[index % FALLBACK_PRIMER_MESSAGES.length],
+      ].filter(Boolean),
+    });
+  });
+
+  slides.push({
+    id: `${persona.id}-collaboration`,
+    pill: 'Collaboration',
+    title: 'Invite collaborators and calibrate signals',
+    description:
+      'Confirm who publishes updates, reviews analytics, and approves storytelling so workflows stay coordinated.',
+    checklist: [
+      'Add at least one collaborator before launch',
+      persona.metrics?.[0]?.label ? `Track ${persona.metrics[0].label.toLowerCase()} from day one` : null,
+    ].filter(Boolean),
+  });
+
+  return slides;
+}
 
 export default function OnboardingWizard({
   personas = DEFAULT_PERSONAS_FOR_SELECTION,
@@ -177,6 +239,21 @@ export default function OnboardingWizard({
       modules: selectedPersona?.recommendedModules ?? [],
     };
   }, [invites, preferences, profile, selectedPersona]);
+
+  const personaPrimerSlides = useMemo(() => {
+    return createPersonaPrimerSlides(selectedPersona, personaInsights);
+  }, [personaInsights, selectedPersona]);
+
+  const handlePrimerSlideChange = useCallback(
+    ({ index, slide }) => {
+      analytics?.track?.('web_onboarding_primer_viewed', {
+        personaId: selectedPersonaId,
+        slideIndex: index,
+        slideId: slide?.id,
+      });
+    },
+    [analytics, selectedPersonaId],
+  );
 
   const canProceed = useMemo(() => {
     if (!currentStep) {
@@ -335,24 +412,45 @@ export default function OnboardingWizard({
 
   const renderPersonaStep = () => {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         {personaLoadError && (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
             {personaLoadError}
           </div>
         )}
-        <PersonaSelection
-          personas={personaOptions}
-          value={selectedPersonaId}
-          onChange={handlePersonaChange}
-          disabled={launching || personasLoading}
-        />
-        {personasLoading && (
-          <div className="flex items-center gap-2 text-sm text-slate-500">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-accent" aria-hidden="true" />
-            Loading personas…
+        <div className="grid gap-6 xl:grid-cols-[3fr_2fr]">
+          <div className="space-y-4">
+            <PersonaSelection
+              personas={personaOptions}
+              value={selectedPersonaId}
+              onChange={handlePersonaChange}
+              disabled={launching || personasLoading}
+            />
+            {personasLoading && (
+              <div className="flex items-center gap-2 text-sm text-slate-500">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-accent" aria-hidden="true" />
+                Loading personas…
+              </div>
+            )}
           </div>
-        )}
+          <div className="space-y-4">
+            <WorkspacePrimerCarousel
+              slides={personaPrimerSlides.length ? personaPrimerSlides : undefined}
+              onSlideChange={handlePrimerSlideChange}
+            />
+            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h4 className="text-sm font-semibold text-slate-800">Why it matters</h4>
+              <ul className="mt-3 space-y-2 text-sm text-slate-600">
+                {FALLBACK_PRIMER_MESSAGES.map((message) => (
+                  <li key={message} className="flex items-start gap-2">
+                    <span className="mt-1 inline-flex h-2 w-2 flex-none rounded-full bg-accent" aria-hidden="true" />
+                    <span>{message}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
       </div>
     );
   };
@@ -815,7 +913,15 @@ export default function OnboardingWizard({
         </div>
       </div>
 
-      {error && <p className="rounded-2xl bg-rose-50 p-4 text-sm font-semibold text-rose-600">{error}</p>}
+      {error && (
+        <p
+          role="alert"
+          aria-live="assertive"
+          className="rounded-2xl bg-rose-50 p-4 text-sm font-semibold text-rose-600"
+        >
+          {error}
+        </p>
+      )}
     </div>
   );
 }
