@@ -1,5 +1,6 @@
 import { ArrowPathIcon, BanknotesIcon, ClockIcon, RocketLaunchIcon } from '@heroicons/react/24/outline';
 import DataStatus from '../../../../components/DataStatus.jsx';
+import EscrowMilestoneTracker from '../../../../components/commerce/EscrowMilestoneTracker.jsx';
 import { useEscrow } from './EscrowContext.jsx';
 import { formatCurrency, formatNumber } from './formatters.js';
 
@@ -21,7 +22,15 @@ function StatCard({ title, value, icon: Icon, accent }) {
 }
 
 export default function OverviewPanel() {
-  const { state, refreshOverview, openActivityDrawer, openTransactionWizard } = useEscrow();
+  const {
+    state,
+    refreshOverview,
+    openActivityDrawer,
+    openTransactionWizard,
+    releaseTransaction,
+    refundTransaction,
+    triggerToast,
+  } = useEscrow();
   const { overview } = state;
   const data = overview.data;
 
@@ -29,6 +38,25 @@ export default function OverviewPanel() {
   const currencyTotals = data?.summary?.currencyTotals ?? [];
   const alerts = data?.summary?.alerts ?? [];
   const recentTransactions = data?.recentTransactions ?? [];
+
+  const handleInspect = (transaction) =>
+    openActivityDrawer('Move details', { type: 'move', item: transaction });
+
+  const handleRelease = async (transaction) => {
+    try {
+      await releaseTransaction(transaction.id);
+    } catch (error) {
+      triggerToast(error.message || 'Unable to release move', 'error');
+    }
+  };
+
+  const handleRefund = async (transaction) => {
+    try {
+      await refundTransaction(transaction.id);
+    } catch (error) {
+      triggerToast(error.message || 'Unable to refund move', 'error');
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -214,6 +242,14 @@ export default function OverviewPanel() {
                 </ul>
               </div>
             </section>
+
+            <EscrowMilestoneTracker
+              transactions={state.transactions.list}
+              loading={state.transactions.loading}
+              onInspect={handleInspect}
+              onRelease={handleRelease}
+              onRefund={handleRefund}
+            />
 
             <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <h2 className="text-sm font-semibold text-slate-900">Guardrails</h2>

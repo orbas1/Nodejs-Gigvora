@@ -1,17 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { ArrowPathIcon, BanknotesIcon, TrashIcon } from '@heroicons/react/24/outline';
-
-const DEFAULT_INVOICE = {
-  mentee: '',
-  package: '',
-  amount: '',
-  currency: '£',
-  status: 'Sent',
-  issuedOn: '',
-  dueOn: '',
-  notes: '',
-};
+import InvoiceGenerator from '../../../../components/commerce/InvoiceGenerator.jsx';
+import SubscriptionManager from '../../../../components/commerce/SubscriptionManager.jsx';
 
 const DEFAULT_PAYOUT = {
   amount: '',
@@ -24,7 +15,6 @@ const DEFAULT_PAYOUT = {
   notes: '',
 };
 
-const INVOICE_STATUSES = ['Draft', 'Sent', 'Paid', 'Overdue', 'Cancelled'];
 const PAYOUT_STATUSES = ['Scheduled', 'Processing', 'Paid', 'Failed'];
 
 function formatDateInput(value) {
@@ -53,17 +43,10 @@ export default function FinanceManagementSection({
   invoiceSaving,
   payoutSaving,
 }) {
-  const [invoiceForm, setInvoiceForm] = useState(DEFAULT_INVOICE);
+  const [invoiceDraft, setInvoiceDraft] = useState(null);
   const [payoutForm, setPayoutForm] = useState(DEFAULT_PAYOUT);
-  const [editingInvoiceId, setEditingInvoiceId] = useState(null);
   const [editingPayoutId, setEditingPayoutId] = useState(null);
   const [feedback, setFeedback] = useState({ invoice: null, payout: null });
-
-  useEffect(() => {
-    if (!editingInvoiceId) {
-      setInvoiceForm(DEFAULT_INVOICE);
-    }
-  }, [editingInvoiceId]);
 
   useEffect(() => {
     if (!editingPayoutId) {
@@ -71,36 +54,33 @@ export default function FinanceManagementSection({
     }
   }, [editingPayoutId]);
 
-  const handleInvoiceSubmit = async (event) => {
-    event.preventDefault();
+  const handleInvoiceSave = async (payload) => {
     setFeedback((current) => ({ ...current, invoice: null }));
-    const payload = {
-      mentee: invoiceForm.mentee,
-      package: invoiceForm.package,
-      amount: invoiceForm.amount,
-      currency: invoiceForm.currency,
-      status: invoiceForm.status,
-      issuedOn: invoiceForm.issuedOn,
-      dueOn: invoiceForm.dueOn,
-      notes: invoiceForm.notes,
-    };
-    if (invoiceForm.status === 'Paid') {
-      payload.paidOn = invoiceForm.dueOn || new Date().toISOString();
+    const { quickSend, ...invoicePayload } = payload;
+
+    if (invoicePayload.status === 'Paid' && !invoicePayload.paidOn) {
+      invoicePayload.paidOn = invoicePayload.dueOn || new Date().toISOString();
     }
+
     try {
-      if (editingInvoiceId) {
-        await onUpdateInvoice?.(editingInvoiceId, payload);
+      if (invoiceDraft?.id && !quickSend) {
+        await onUpdateInvoice?.(invoiceDraft.id, invoicePayload);
       } else {
-        await onCreateInvoice?.(payload);
+        await onCreateInvoice?.(invoicePayload);
       }
-      setInvoiceForm(DEFAULT_INVOICE);
-      setEditingInvoiceId(null);
-      setFeedback((current) => ({ ...current, invoice: { type: 'success', message: 'Invoice saved.' } }));
+      const message = quickSend
+        ? 'Invoice snapshot queued.'
+        : invoiceDraft?.id
+        ? 'Invoice updated.'
+        : 'Invoice saved.';
+      setFeedback((current) => ({ ...current, invoice: { type: 'success', message } }));
+      setInvoiceDraft(null);
     } catch (error) {
       setFeedback((current) => ({
         ...current,
         invoice: { type: 'error', message: error.message || 'Unable to save invoice.' },
       }));
+      throw error;
     }
   };
 
@@ -174,128 +154,24 @@ export default function FinanceManagementSection({
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-5">
-          <form onSubmit={handleInvoiceSubmit} className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50 p-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-                {editingInvoiceId ? 'Update invoice' : 'Raise invoice'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingInvoiceId(null);
-                  setInvoiceForm(DEFAULT_INVOICE);
-                }}
-                className="text-xs font-semibold text-accent hover:underline"
-              >
-                Reset
-              </button>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                Mentee or organisation
-                <input
-                  type="text"
-                  required
-                  value={invoiceForm.mentee}
-                  onChange={(event) => setInvoiceForm((current) => ({ ...current, mentee: event.target.value }))}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm text-slate-800 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                />
-              </label>
-              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                Package
-                <input
-                  type="text"
-                  value={invoiceForm.package}
-                  onChange={(event) => setInvoiceForm((current) => ({ ...current, package: event.target.value }))}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm text-slate-800 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                />
-              </label>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
-              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                Amount
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={invoiceForm.currency}
-                    onChange={(event) => setInvoiceForm((current) => ({ ...current, currency: event.target.value }))}
-                    className="w-16 rounded-2xl border border-slate-200 px-4 py-2 text-sm text-slate-800 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                  />
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    required
-                    value={invoiceForm.amount}
-                    onChange={(event) => setInvoiceForm((current) => ({ ...current, amount: event.target.value }))}
-                    className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm text-slate-800 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                  />
-                </div>
-              </label>
-              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                Status
-                <select
-                  value={invoiceForm.status}
-                  onChange={(event) => setInvoiceForm((current) => ({ ...current, status: event.target.value }))}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm text-slate-800 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                >
-                  {INVOICE_STATUSES.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                Issued on
-                <input
-                  type="date"
-                  value={formatDateInput(invoiceForm.issuedOn)}
-                  onChange={(event) => setInvoiceForm((current) => ({ ...current, issuedOn: event.target.value }))}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm text-slate-800 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                />
-              </label>
-              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                Due on
-                <input
-                  type="date"
-                  value={formatDateInput(invoiceForm.dueOn)}
-                  onChange={(event) => setInvoiceForm((current) => ({ ...current, dueOn: event.target.value }))}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm text-slate-800 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                />
-              </label>
-            </div>
-            <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-              Notes
-              <textarea
-                rows="3"
-                value={invoiceForm.notes}
-                onChange={(event) => setInvoiceForm((current) => ({ ...current, notes: event.target.value }))}
-                className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm text-slate-800 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-              />
-            </label>
-            <div className="flex items-center gap-3">
-              <button
-                type="submit"
-                disabled={invoiceSaving}
-                className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accentDark disabled:cursor-not-allowed disabled:bg-slate-400"
-              >
-                {invoiceSaving ? <ArrowPathIcon className="h-4 w-4 animate-spin" /> : <BanknotesIcon className="h-4 w-4" />}
-                {invoiceSaving ? 'Saving…' : editingInvoiceId ? 'Update invoice' : 'Create invoice'}
-              </button>
-              {feedback.invoice ? (
-                <p
-                  className={`text-sm font-medium ${
-                    feedback.invoice.type === 'success' ? 'text-emerald-600' : 'text-rose-600'
-                  }`}
-                >
-                  {feedback.invoice.message}
-                </p>
-              ) : null}
-            </div>
-          </form>
+          <InvoiceGenerator
+            value={invoiceDraft}
+            saving={invoiceSaving}
+            onSubmit={handleInvoiceSave}
+            onCancel={() => {
+              setInvoiceDraft(null);
+              setFeedback((current) => ({ ...current, invoice: null }));
+            }}
+          />
+          {feedback.invoice ? (
+            <p
+              className={`text-sm font-medium ${
+                feedback.invoice.type === 'success' ? 'text-emerald-600' : 'text-rose-600'
+              }`}
+            >
+              {feedback.invoice.message}
+            </p>
+          ) : null}
 
           <div className="overflow-hidden rounded-3xl border border-slate-200">
             <table className="min-w-full divide-y divide-slate-200">
@@ -338,17 +214,8 @@ export default function FinanceManagementSection({
                           type="button"
                           className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:border-accent hover:text-accent"
                           onClick={() => {
-                            setEditingInvoiceId(invoice.id);
-                            setInvoiceForm({
-                              mentee: invoice.mentee,
-                              package: invoice.package,
-                              amount: invoice.amount,
-                              currency: invoice.currency,
-                              status: invoice.status,
-                              issuedOn: formatDateInput(invoice.issuedOn),
-                              dueOn: formatDateInput(invoice.dueOn),
-                              notes: invoice.notes ?? '',
-                            });
+                            setInvoiceDraft(invoice);
+                            setFeedback((current) => ({ ...current, invoice: null }));
                           }}
                         >
                           Edit
@@ -359,9 +226,8 @@ export default function FinanceManagementSection({
                           onClick={async () => {
                             try {
                               await onDeleteInvoice?.(invoice.id);
-                              if (editingInvoiceId === invoice.id) {
-                                setEditingInvoiceId(null);
-                                setInvoiceForm(DEFAULT_INVOICE);
+                              if (invoiceDraft?.id === invoice.id) {
+                                setInvoiceDraft(null);
                               }
                               setFeedback((current) => ({ ...current, invoice: { type: 'success', message: 'Invoice removed.' } }));
                             } catch (deleteError) {
@@ -613,6 +479,8 @@ export default function FinanceManagementSection({
           </div>
         </div>
       </div>
+
+      <SubscriptionManager />
     </section>
   );
 }
