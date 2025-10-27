@@ -11,6 +11,8 @@ import {
   formatCurrency,
   formatDate,
   formatRelative,
+  getInitials,
+  buildCollaboratorAvatar,
   isValidHexColor,
   normalizeExternalUrl,
   parseTags,
@@ -43,6 +45,10 @@ describe('clientKanban utils', () => {
     expect(toDateInputValue('2024-01-02')).toBe('2024-01-02');
     expect(parseTags('a, b , c')).toEqual(['a', 'b', 'c']);
     expect(buildTagString(['a', 'b'])).toBe('a, b');
+    expect(getInitials('Jamie Rivera')).toBe('JR');
+    const avatar = buildCollaboratorAvatar({ name: 'Jamie Rivera' }, 'seed');
+    expect(avatar).toMatchObject({ name: 'Jamie Rivera', initials: 'JR' });
+    expect(typeof avatar.tone).toBe('string');
   });
 });
 
@@ -187,6 +193,7 @@ describe('KanbanColumn', () => {
 
     expect(screen.getByLabelText('Backlog column')).toBeInTheDocument();
     expect(screen.getByText('Limit 5')).toBeInTheDocument();
+    expect(screen.getByText('Capacity')).toBeInTheDocument();
 
     await user.click(screen.getAllByLabelText('Add card')[0]);
     expect(handlers.onAddCard).toHaveBeenCalledWith(column);

@@ -38,3 +38,16 @@ user_experience.md
    6. Slimmed the insights rail callouts by trimming redundant copy and aligning action buttons, ensuring “Start introduction” and Explorer CTAs read naturally without crowding.
    7. Updated avatar fallbacks to realistic pravatar headshots, keeping the timeline grounded in human imagery when members have not uploaded a profile photo.
    8. Smoothed the feed shell with a tidier two-row header that separates logo/search/actions from navigation chips, preventing the top bar from feeling congested even on dense workstations.
+
+15. Collaboration & Workspaces
+15.C. Collaboration & Kanban Workspaces ✅
+   1. Elevated the board ribbon with presence-aware avatar stacks, live active counts, and a health-infused focus pill so teams can read contributor energy and client posture at a glance.【F:gigvora-frontend-reactjs/src/components/agency/clientKanban/BoardToolbar.jsx†L1-L211】
+   2. Hardened focus mode so every creation surface inherits the active client, filtered columns stay hydrated, and analytics keep broadcasting the selected relationship across the shell.【F:gigvora-frontend-reactjs/src/components/agency/clientKanban/ClientKanbanBoard.jsx†L99-L590】
+   3. Refined engagement tiles with owner attribution, richer crew visuals, and premium status treatments so each card mirrors a polished CRM snapshot without sacrificing clarity.【F:gigvora-frontend-reactjs/src/components/agency/clientKanban/CardTile.jsx†L1-L224】
+   4. Reworked column shells with capacity progress, focus callouts, and last-activity cues so standups instantly show load, freshness, and any gaps for the targeted client.【F:gigvora-frontend-reactjs/src/components/agency/clientKanban/KanbanColumn.jsx†L1-L154】
+   5. Normalised collaborator presence, column recency, and focus defaults in the board controller so downstream components always receive hydrated, persona-aware records.【F:gigvora-frontend-reactjs/src/components/agency/clientKanban/ClientKanbanBoard.jsx†L263-L420】
+   6. Added resilient avatar utilities that hash collaborator seeds into gradient swatches, preserve initials, and work gracefully with owner fallbacks, matching the polish of networks like LinkedIn.【F:gigvora-frontend-reactjs/src/components/agency/clientKanban/utils.js†L1-L78】
+   7. Expanded board tests to cover focus-aware defaults and collaborator presence summaries, keeping the enhanced workflow contract under watch.【F:gigvora-frontend-reactjs/src/components/agency/clientKanban/__tests__/ClientKanbanBoard.test.jsx†L200-L318】
+   8. Extended component specs to expect the new capacity rail and continue guarding the interactive shell so regressions surface early.【F:gigvora-frontend-reactjs/src/components/agency/clientKanban/__tests__/clientKanban.test.jsx†L167-L216】
+   9. Published a dedicated Kanban preview entrypoint with rich sample data, enabling visual QA and executive demos without bootstrapping the entire shell.【F:gigvora-frontend-reactjs/kanban-preview.html†L1-L38】【F:gigvora-frontend-reactjs/src/preview/kanban-preview.jsx†L1-L159】
+   10. Tuned drag-and-drop and creation flows to respect filtered views so moving or adding work never breaks ordering when the board is focused on a single client persona.【F:gigvora-frontend-reactjs/src/components/agency/clientKanban/ClientKanbanBoard.jsx†L431-L590】

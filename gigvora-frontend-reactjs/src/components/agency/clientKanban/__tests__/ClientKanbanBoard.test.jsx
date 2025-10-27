@@ -73,21 +73,21 @@ vi.mock('../ClientEditorDrawer.jsx', () => ({
 describe('ClientKanbanBoard', () => {
   const actions = {
     refresh: vi.fn(),
-    createColumn: vi.fn().mockResolvedValue({}),
-    updateColumn: vi.fn().mockResolvedValue({}),
-    deleteColumn: vi.fn().mockResolvedValue({}),
-    createCard: vi.fn().mockResolvedValue({ id: 'card-new' }),
-    updateCard: vi.fn().mockResolvedValue({}),
-    moveCard: vi.fn().mockResolvedValue({}),
-    deleteCard: vi.fn().mockResolvedValue({}),
-    addChecklistItem: vi.fn().mockResolvedValue({}),
-    updateChecklistItem: vi.fn().mockResolvedValue({}),
-    deleteChecklistItem: vi.fn().mockResolvedValue({}),
-    createClient: vi.fn().mockResolvedValue({ id: 'client-new' }),
-    updateClient: vi.fn().mockResolvedValue({}),
+    createColumn: vi.fn(),
+    updateColumn: vi.fn(),
+    deleteColumn: vi.fn(),
+    createCard: vi.fn(),
+    updateCard: vi.fn(),
+    moveCard: vi.fn(),
+    deleteCard: vi.fn(),
+    addChecklistItem: vi.fn(),
+    updateChecklistItem: vi.fn(),
+    deleteChecklistItem: vi.fn(),
+    createClient: vi.fn(),
+    updateClient: vi.fn(),
   };
 
-  const boardData = {
+  const initialBoardData = {
     columns: [
       {
         id: 'col-1',
@@ -97,6 +97,7 @@ describe('ClientKanbanBoard', () => {
             id: 'card-1',
             title: 'Acme Inc.',
             notes: 'Initial outreach',
+            clientId: 'client-1',
             checklist: [
               { id: 'item-1', title: 'Send proposal', completed: false },
             ],
@@ -111,6 +112,8 @@ describe('ClientKanbanBoard', () => {
     columnSummary: [{ id: 'col-1', total: 1 }],
   };
 
+  let boardData;
+
   beforeEach(() => {
     toolbarProps = undefined;
     dataStatusProps = undefined;
@@ -123,6 +126,27 @@ describe('ClientKanbanBoard', () => {
     Object.values(actions).forEach((fn) => fn.mockClear?.());
     window.confirm = vi.fn(() => true);
     window.prompt = vi.fn();
+    boardData = JSON.parse(JSON.stringify(initialBoardData));
+    actions.createColumn.mockResolvedValue({});
+    actions.updateColumn.mockResolvedValue({});
+    actions.deleteColumn.mockResolvedValue({});
+    actions.updateCard.mockResolvedValue({});
+    actions.moveCard.mockResolvedValue({});
+    actions.deleteCard.mockResolvedValue({});
+    actions.addChecklistItem.mockResolvedValue({});
+    actions.updateChecklistItem.mockResolvedValue({});
+    actions.deleteChecklistItem.mockResolvedValue({});
+    actions.createClient.mockResolvedValue({ id: 'client-new' });
+    actions.updateClient.mockResolvedValue({});
+    actions.createCard.mockImplementation(async (payload = {}) => {
+      const card = { id: 'card-new', ...payload };
+      const targetId = payload.columnId ?? boardData.columns[0]?.id;
+      const targetColumn = boardData.columns.find((column) => column.id === targetId) ?? boardData.columns[0];
+      if (targetColumn) {
+        targetColumn.cards = [...targetColumn.cards, card];
+      }
+      return card;
+    });
   });
 
   it('shows an error state when loading fails', () => {
@@ -147,6 +171,9 @@ describe('ClientKanbanBoard', () => {
 
     await waitFor(() => expect(toolbarProps).toBeDefined());
     expect(toolbarProps.panelOpen).toBe(true);
+    expect(toolbarProps.focusClientMode).toBe(false);
+    expect(typeof toolbarProps.onToggleFocusClient).toBe('function');
+    expect(toolbarProps.canFocusClient).toBe(false);
 
     act(() => {
       ref.current.createLead({ columnId: 'col-1', title: 'Follow-up' });
@@ -176,6 +203,8 @@ describe('ClientKanbanBoard', () => {
     await waitFor(() => expect(kanbanColumnsProps.length).toBeGreaterThan(0));
 
     const columnProps = kanbanColumnsProps[0];
+    expect(columnProps.focusMode).toBe(false);
+    expect(columnProps.highlightClientId).toBeNull();
     act(() => {
       columnProps.onOpenCard(boardData.columns[0].cards[0]);
     });
@@ -233,6 +262,11 @@ describe('ClientKanbanBoard', () => {
       await columnProps.onAddCard(boardData.columns[0]);
     });
     expect(cardWizardProps.open).toBe(true);
+    expect(cardWizardProps.initialCard).toMatchObject({ columnId: 'col-1' });
+
+    act(() => {
+      cardWizardProps.onClose();
+    });
 
     act(() => {
       clientPanelProps.onCreate();
@@ -240,8 +274,46 @@ describe('ClientKanbanBoard', () => {
     await waitFor(() => expect(clientEditorDrawerProps.open).toBe(true));
 
     act(() => {
-      clientPanelProps.onSelect({ id: 'client-1' });
+      clientPanelProps.onSelect({ id: 'client-1', name: 'Acme Inc.' });
     });
-    await waitFor(() => expect(clientPanelProps.activeClientId).toBe('client-1'));
+    await waitFor(() => expect(toolbarProps.focusClientMode).toBe(true));
+    expect(toolbarProps.canFocusClient).toBe(true);
+    expect(toolbarProps.activeClient).toMatchObject({ name: 'Acme Inc.' });
+    expect(kanbanColumnsProps[0].focusMode).toBe(true);
+    expect(kanbanColumnsProps[0].highlightClientId).toBe('client-1');
+    expect(clientPanelProps.activeClientId).toBe('client-1');
+
+    await act(async () => {
+      await columnProps.onAddCard(boardData.columns[0]);
+    });
+    await waitFor(() => expect(cardWizardProps.open).toBe(true));
+    expect(cardWizardProps.initialCard).toMatchObject({ clientId: 'client-1' });
+  });
+
+  it('summarizes collaborator presence for the toolbar', async () => {
+    const enhancedData = {
+      ...boardData,
+      columns: [
+        {
+          ...boardData.columns[0],
+          cards: [
+            {
+              ...boardData.columns[0].cards[0],
+              collaborators: [{ id: 'teammate-1', name: 'Taylor Reed' }],
+              updatedAt: new Date().toISOString(),
+            },
+          ],
+        },
+      ],
+    };
+
+    render(<ClientKanbanBoard data={enhancedData} loading={false} error={null} actions={actions} />);
+
+    await waitFor(() => expect(toolbarProps.collaborationSummary).toBeDefined());
+    expect(toolbarProps.collaborationSummary.members[0]).toMatchObject({
+      name: 'Taylor Reed',
+      presence: 'active',
+    });
+    expect(toolbarProps.collaborationSummary.activeMembers).toBeGreaterThanOrEqual(1);
   });
 });
