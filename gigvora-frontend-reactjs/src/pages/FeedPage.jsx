@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import UserAvatar from '../components/UserAvatar.jsx';
 import ShareModal from '../components/feed/ShareModal.jsx';
+import PageHeader from '../components/PageHeader.jsx';
 import useCachedResource from '../hooks/useCachedResource.js';
 import { apiClient } from '../services/apiClient.js';
 import { listFeedPosts, createFeedPost, updateFeedPost, deleteFeedPost, reactToFeedPost } from '../services/liveFeed.js';
