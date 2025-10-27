@@ -20,11 +20,12 @@ The server honours the following environment variables:
 | `CALENDAR_STUB_PORT` | Listening port. | `4010` |
 | `CALENDAR_STUB_ALLOWED_ORIGINS` | Comma-separated list of permitted origins. | `*` |
 | `CALENDAR_STUB_FALLBACK_ORIGIN` | Origin echoed when requests omit `Origin`. | `http://localhost:4173` |
-| `CALENDAR_STUB_VIEW_ROLES` | Roles allowed to view events. | `calendar:view,calendar:manage,platform:admin` |
-| `CALENDAR_STUB_MANAGE_ROLES` | Roles allowed to mutate events. | `calendar:manage,platform:admin` |
+| `CALENDAR_STUB_VIEW_ROLES` | Roles allowed to view events. | `calendar:view,calendar:manage,platform:admin,company,company_admin,company_manager,company_viewer,admin,viewer` |
+| `CALENDAR_STUB_MANAGE_ROLES` | Roles allowed to mutate events. | `calendar:manage,platform:admin,company_admin,company_manager,admin` |
 | `CALENDAR_STUB_API_KEY` | Optional API key enforced against `x-api-key` or Bearer tokens. | _unset_ |
 | `CALENDAR_STUB_EVENTS_FILE` | Path to a JSON file containing seeded events. | _unset_ |
 | `CALENDAR_STUB_WORKSPACES_FILE` | Path to a JSON file containing workspace fixtures. | _unset_ |
+| `CALENDAR_STUB_PERSIST_FILE` | When set, mutations write back to this JSON dataset (events + workspaces). | _unset_ |
 | `CALENDAR_STUB_MIN_LATENCY_MS` | Minimum latency (ms) injected for calendar API requests. | `0` |
 | `CALENDAR_STUB_MAX_LATENCY_MS` | Maximum latency (ms). | `0` |
 
@@ -32,14 +33,20 @@ When no fixtures are supplied, the stub loads deterministic default events cover
 interviews, gigs, mentorship, and volunteering across two sample workspaces sourced from
 `calendar_stub/data/company-calendar.json`. The same dataset powers the database seeder
 (`gigvora-backend-nodejs/database/seeders/20241031090500-company-calendar-demo.cjs`) so local MySQL
-instances and the stub share aligned data.
+instances and the stub share aligned data. Allowed event types are sourced from the shared
+contract at `shared-contracts/domain/platform/calendar/constants.js`, keeping the stub, backend
+service, and seeders synchronised.
 
 ## Request Requirements
 
 All API calls must include:
 
 - `Origin` header matching an allowed origin (or rely on the fallback origin).
-- `x-roles` header containing at least one of the configured roles.
+- `x-roles` header containing at least one of the configured roles. Role values are normalised by the
+  stub (e.g. `calendar:manage`, `calendar-manage`, and `CALENDAR_MANAGE` are treated as the same role)
+  to mirror the production access checker. The default set includes company roles such as
+  `company_admin` and `company_manager` so workspace membership tests behave like MySQL-backed
+  environments.
 - `x-user-id` header for mutation requests (POST, PATCH, DELETE).
 - Optional `x-api-key` header or Bearer token when `CALENDAR_STUB_API_KEY` is set.
 
@@ -50,8 +57,11 @@ All API calls must include:
 - `GET /api/company/calendar/events?workspaceSlug=<slug>` – slug-based variant of the listing
   endpoint. Clients can also provide `x-workspace-slug` when query parameters are unavailable.
 - `GET /api/company/calendar/events/:id` – fetch a single event.
-- `POST /api/company/calendar/events` – create an event. Requires `workspaceId`, `title`, `startsAt`.
-- `PATCH /api/company/calendar/events/:id` – update an event.
+- `POST /api/company/calendar/events` – create an event. Requires `workspaceId`, `title`, `startsAt`,
+  and an `eventType` belonging to the shared contract list (`project`, `interview`, `gig`,
+  `mentorship`, or `volunteering`).
+- `PATCH /api/company/calendar/events/:id` – update an event. Unsupported `eventType` values return a
+  `422` response to match the production service contract.
 - `DELETE /api/company/calendar/events/:id` – delete an event.
 
 ## Scenario Toggles & Latency Simulation
@@ -67,10 +77,15 @@ Developers can exercise failure modes without modifying code:
 ## Dynamic Fixtures
 
 - Supply `seedEvents` when constructing the server (useful for tests) or point
-  `CALENDAR_STUB_EVENTS_FILE` at a JSON array. Fixture entries can include either absolute `startsAt`
+  `CALENDAR_STUB_EVENTS_FILE` at either a JSON array **or** an object containing `{ events: [] }` (with
+  optional `{ workspaces: [] }`). Fixture entries can include either absolute `startsAt`
   timestamps or relative offsets (`startOffsetHours`, `endOffsetHours`).
 - Use `CALENDAR_STUB_WORKSPACES_FILE` or the `workspaces` option to override the available
   workspaces. `resetWorkspaces()` can refresh the in-memory catalogue at runtime.
+- Configure `CALENDAR_STUB_PERSIST_FILE` (or pass `persistPath` when instantiating the server) to
+  persist every POST/PATCH/DELETE mutation to disk. The stub emits a dataset matching the seeder
+  shape—`{ workspaces: [...], events: [...], meta: { generatedAt, schemaVersion } }`—so local QA
+  environments stay aligned with backend fixtures.
 - Call `resetEvents(null)` to reload the baseline fixtures, or `resetEvents([...])` to inject custom
   events during tests.
 
@@ -85,7 +100,8 @@ against the stub. All payloads are stored in-memory and are reset when the proce
 Event listing responses include:
 
 - `workspace` details (id, slug, name, timezone, membership role, currency).
-- `events` flattened list with `durationMinutes` and time-aware `status` values.
+- `events` flattened list with `durationMinutes` and time-aware `status` values (`upcoming`,
+  `in_progress`, `completed`).
 - `eventsByType` grouped arrays for each supported event type.
 - `filters` echoing window bounds, active event type filters, and the resolved workspace slug.
 - `summary` containing totals, per-type upcoming pointers, overdue counts, and the active window.
