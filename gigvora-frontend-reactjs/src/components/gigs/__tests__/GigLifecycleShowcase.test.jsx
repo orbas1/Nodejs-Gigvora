@@ -38,4 +38,53 @@ describe('GigLifecycleShowcase', () => {
     ).toBeInTheDocument();
     expect(screen.getByText((content) => content.includes('Analytics and reporting bundles.'))).toBeInTheDocument();
   });
+
+  it('renders data provided by a custom blueprint payload', () => {
+    const blueprint = {
+      hero: {
+        eyebrow: 'Custom operations',
+        title: 'Custom blueprint',
+        description: 'Tailored delivery steps for premium cohorts.',
+        highlights: ['Custom highlight one', 'Custom highlight two'],
+      },
+      timelinePhases: [
+        { title: 'Phase 1', description: 'Custom phase', metrics: ['Metric A'] },
+      ],
+      submission: {
+        title: 'Custom submission',
+        steps: ['First step'],
+        highlight: { title: 'Custom note', description: 'Details for operators.' },
+      },
+      levels: {
+        title: 'Custom levels',
+        levels: [{ name: 'Alpha', detail: 'Alpha detail' }],
+        addons: ['Addon A'],
+      },
+      tasks: {
+        title: 'Custom tasks',
+        tasks: ['Task A'],
+        mediaCallouts: [{ label: 'Asset', helper: 'Asset guidance' }],
+      },
+      faq: {
+        title: 'Custom FAQ',
+        items: [{ question: 'Custom question?', answer: 'Custom answer.' }],
+        note: 'Custom note',
+      },
+      reviews: {
+        title: 'Custom reviews',
+        items: ['Review A'],
+      },
+    };
+
+    render(<GigLifecycleShowcase blueprint={blueprint} />);
+
+    expect(screen.getByText('Custom blueprint')).toBeInTheDocument();
+    expect(screen.getByText('Tailored delivery steps for premium cohorts.')).toBeInTheDocument();
+    expect(screen.getByText('Custom highlight one')).toBeInTheDocument();
+    expect(screen.getByText('Custom submission')).toBeInTheDocument();
+    expect(screen.getByText('Custom tasks')).toBeInTheDocument();
+    expect(screen.getByText('Custom FAQ')).toBeInTheDocument();
+    expect(screen.getByText('Custom reviews')).toBeInTheDocument();
+    expect(screen.getAllByText('Custom note').length).toBeGreaterThanOrEqual(1);
+  });
 });
