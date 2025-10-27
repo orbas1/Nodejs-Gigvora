@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
 import dataset from './data/company-calendar.json' with { type: 'json' };
+import calendarContract from '../shared-contracts/domain/platform/calendar/constants.js';
+
+const { assertCompanyCalendarEventType } = calendarContract;
 
 const DEFAULT_EVENT_BLUEPRINTS = Array.isArray(dataset.events) ? dataset.events : [];
 export const DEFAULT_WORKSPACES = (Array.isArray(dataset.workspaces) ? dataset.workspaces : []).map((workspace) => ({
@@ -11,6 +14,39 @@ export const DEFAULT_WORKSPACES = (Array.isArray(dataset.workspaces) ? dataset.w
   defaultCurrency: workspace.defaultCurrency ? `${workspace.defaultCurrency}`.trim() : 'USD',
   membershipRole: workspace.membershipRole ? `${workspace.membershipRole}`.trim() : 'admin',
 }));
+
+const ALLOWED_VISIBILITY = new Set(['internal', 'hiring_team', 'confidential', 'public']);
+
+function pruneUndefined(object) {
+  if (!object || typeof object !== 'object') {
+    return undefined;
+  }
+
+  return Object.entries(object).reduce((accumulator, [key, value]) => {
+    if (value == null) {
+      return accumulator;
+    }
+
+    if (Array.isArray(value)) {
+      const filtered = value.filter((item) => item != null);
+      if (filtered.length) {
+        accumulator[key] = filtered;
+      }
+      return accumulator;
+    }
+
+    if (typeof value === 'object') {
+      const nested = pruneUndefined(value);
+      if (nested && Object.keys(nested).length) {
+        accumulator[key] = nested;
+      }
+      return accumulator;
+    }
+
+    accumulator[key] = value;
+    return accumulator;
+  }, {});
+}
 
 function computeDateFromOffset(now, offsetHours) {
   if (typeof offsetHours !== 'number' || Number.isNaN(offsetHours)) {
@@ -57,20 +93,27 @@ function sanitizeParticipants(participants = []) {
   if (!Array.isArray(participants)) {
     return undefined;
   }
+
   const list = participants
     .map((participant) => {
       if (!participant || typeof participant !== 'object') {
         return null;
       }
-      const name = participant.name ? `${participant.name}`.trim() : undefined;
-      const email = participant.email ? `${participant.email}`.trim().toLowerCase() : undefined;
-      const role = participant.role ? `${participant.role}`.trim() : undefined;
-      if (!name && !email && !role) {
+
+      const cleaned = pruneUndefined({
+        name: participant.name ? `${participant.name}`.trim() : undefined,
+        email: participant.email ? `${participant.email}`.trim().toLowerCase() : undefined,
+        role: participant.role ? `${participant.role}`.trim() : undefined,
+      });
+
+      if (!cleaned || !Object.keys(cleaned).length) {
         return null;
       }
-      return { name, email, role };
+
+      return cleaned;
     })
     .filter(Boolean);
+
   return list.length ? list.slice(0, 20) : undefined;
 }
 
@@ -83,14 +126,20 @@ function sanitizeAttachments(attachments = []) {
       if (!attachment || typeof attachment !== 'object') {
         return null;
       }
-      const label = attachment.label ? `${attachment.label}`.trim() : undefined;
-      const url = attachment.url ? `${attachment.url}`.trim() : undefined;
-      if (!label && !url) {
+
+      const cleaned = pruneUndefined({
+        label: attachment.label ? `${attachment.label}`.trim() : undefined,
+        url: attachment.url ? `${attachment.url}`.trim() : undefined,
+      });
+
+      if (!cleaned || !Object.keys(cleaned).length) {
         return null;
       }
-      return { label, url };
+
+      return cleaned;
     })
     .filter(Boolean);
+
   return list.length ? list.slice(0, 20) : undefined;
 }
 
@@ -98,7 +147,15 @@ function sanitizeMetadata(metadata) {
   if (!metadata || typeof metadata !== 'object') {
     return {};
   }
-  const cleaned = {
+
+  const visibility = metadata.visibility
+    ? `${metadata.visibility}`
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9_]+/g, '_')
+    : undefined;
+
+  const cleaned = pruneUndefined({
     relatedEntityId:
       metadata.relatedEntityId != null && Number.isFinite(Number(metadata.relatedEntityId))
         ? Number(metadata.relatedEntityId)
@@ -111,14 +168,15 @@ function sanitizeMetadata(metadata) {
     ownerName: metadata.ownerName ? `${metadata.ownerName}`.trim() : undefined,
     ownerEmail: metadata.ownerEmail ? `${metadata.ownerEmail}`.trim().toLowerCase() : undefined,
     notes: metadata.notes ? `${metadata.notes}`.trim() : undefined,
-    visibility: metadata.visibility ? `${metadata.visibility}`.trim().toLowerCase() : undefined,
+    visibility: visibility && ALLOWED_VISIBILITY.has(visibility) ? visibility : undefined,
+    attendees: sanitizeParticipants(metadata.attendees),
     participants: sanitizeParticipants(metadata.participants ?? metadata.attendees),
     attachments: sanitizeAttachments(metadata.attachments),
     color: metadata.color ? `${metadata.color}`.trim() : undefined,
     seedSource: metadata.seedSource ? `${metadata.seedSource}`.trim() : undefined,
-  };
+  });
 
-  return Object.fromEntries(Object.entries(cleaned).filter(([, value]) => value != null));
+  return cleaned ?? {};
 }
 
 export function normaliseMetadata(metadata) {
@@ -139,12 +197,19 @@ function createEventFromBlueprint(blueprint, now) {
   const timestamp = new Date(now).toISOString();
   const id = toPositiveInteger(blueprint.id);
 
+  let eventType;
+  try {
+    eventType = assertCompanyCalendarEventType(blueprint.eventType);
+  } catch (error) {
+    throw new Error(`Calendar blueprint eventType is invalid for "${blueprint.title}": ${error.message}`);
+  }
+
   return {
     id: id ?? randomUUID(),
     workspaceId: toPositiveInteger(blueprint.workspaceId, 0),
     title: `${blueprint.title}`.trim(),
-    eventType: `${blueprint.eventType}`.trim().toLowerCase(),
-    status: blueprint.status ? `${blueprint.status}`.trim().toLowerCase() : 'scheduled',
+    eventType,
+    status: blueprint.status ? `${blueprint.status}`.trim().toLowerCase() : 'upcoming',
     startsAt: startDate ? startDate.toISOString() : timestamp,
     endsAt: endDate ? endDate.toISOString() : null,
     location: blueprint.location ? `${blueprint.location}` : null,
@@ -180,12 +245,19 @@ export function normaliseEventFixtures(events, { now = Date.now(), allowEmpty = 
     const createdAt = resolveDate(event.createdAt, now, new Date(now));
     const updatedAt = resolveDate(event.updatedAt, now, createdAt ?? new Date(now));
 
+    let eventType;
+    try {
+      eventType = assertCompanyCalendarEventType(event.eventType);
+    } catch (error) {
+      throw new Error(`Calendar fixture eventType is invalid for "${event.title}": ${error.message}`);
+    }
+
     return {
       id: toPositiveInteger(event.id, randomUUID()),
       workspaceId: toPositiveInteger(event.workspaceId, 0),
       title: `${event.title}`.trim(),
-      eventType: `${event.eventType}`.trim().toLowerCase(),
-      status: event.status ? `${event.status}`.trim().toLowerCase() : 'scheduled',
+      eventType,
+      status: event.status ? `${event.status}`.trim().toLowerCase() : 'upcoming',
       startsAt: startDate ? startDate.toISOString() : new Date(now).toISOString(),
       endsAt: endDate ? endDate.toISOString() : null,
       location: event.location ? `${event.location}` : null,
@@ -195,3 +267,5 @@ export function normaliseEventFixtures(events, { now = Date.now(), allowEmpty = 
     };
   });
 }
+
+export { sanitizeMetadata, sanitizeParticipants, sanitizeAttachments };

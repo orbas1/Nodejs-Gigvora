@@ -5,6 +5,7 @@ import { adminRoutes } from './adminRoutes.js';
 import adminModerationRoutes from './adminModerationRoutes.js';
 import adminComplianceRoutes from './adminComplianceRoutes.js';
 import adminPlatformRoutes from './adminPlatformRoutes.js';
+import adminMobileAppRoutes from './adminMobileAppRoutes.js';
 import agencyRoutes from './agencyRoutes.js';
 import agencyJobManagementRoutes from './agencyJobManagementRoutes.js';
 import agencyBlogRoutes from './agencyBlogRoutes.js';
@@ -74,6 +75,7 @@ const routeDefinitions = [
   ['/admin/moderation', adminModerationRoutes],
   ['/admin/compliance', adminComplianceRoutes],
   ['/admin/platform', adminPlatformRoutes],
+  ['/admin/mobile-apps', adminMobileAppRoutes],
   ['/admin', adminRoutes],
   ['/agency/job-management', agencyJobManagementRoutes],
   ['/agency/wallet', agencyWalletRoutes],

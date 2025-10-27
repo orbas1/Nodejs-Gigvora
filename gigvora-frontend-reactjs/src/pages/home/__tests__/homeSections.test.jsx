@@ -72,20 +72,28 @@ describe('HomeHeroSection', () => {
         keywords={[{ label: 'First' }, 'Second']}
         onClaimWorkspace={claimSpy}
         onBrowseOpportunities={browseSpy}
+        insightStats={[{ id: 'impact', label: 'Launch impact', value: '38% faster cycles' }]}
       />,
     );
 
     expect(screen.getByText('A vibrant headline')).toBeInTheDocument();
+    expect(screen.getByText('Launch impact')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /claim your workspace/i }));
     fireEvent.click(screen.getByRole('button', { name: /browse live opportunities/i }));
 
     expect(claimSpy).toHaveBeenCalledTimes(1);
     expect(browseSpy).toHaveBeenCalledTimes(1);
-    expect(analyticsMock.track).toHaveBeenCalledTimes(3);
+    expect(analyticsMock.track).toHaveBeenCalledTimes(4);
     expect(analyticsMock.track).toHaveBeenNthCalledWith(
       1,
       'web_home_hero_viewed',
       expect.objectContaining({ heroId: 'home-hero' }),
+      expect.any(Object),
+    );
+    expect(analyticsMock.track).toHaveBeenNthCalledWith(
+      2,
+      'web_home_hero_stats_viewed',
+      expect.objectContaining({ heroId: 'home-hero', statCount: 1 }),
       expect.any(Object),
     );
   });

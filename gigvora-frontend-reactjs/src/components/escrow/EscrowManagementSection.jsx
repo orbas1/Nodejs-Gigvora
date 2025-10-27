@@ -19,6 +19,10 @@ import EscrowDrawer from './EscrowDrawer.jsx';
 import EscrowAccountForm from './EscrowAccountForm.jsx';
 import EscrowTransactionForm from './EscrowTransactionForm.jsx';
 import EscrowDisputeForm from './EscrowDisputeForm.jsx';
+import EscrowMilestoneTracker from './EscrowMilestoneTracker.jsx';
+import InvoiceGenerator from './InvoiceGenerator.jsx';
+import SubscriptionManager from './SubscriptionManager.jsx';
+import { updateEscrowSettings as updateProjectEscrowSettings } from '../../services/projectGigManagement.js';
 
 function formatCurrency(amount, currency) {
   if (amount == null) {
@@ -253,6 +257,180 @@ DisputeDetails.propTypes = {
   dispute: PropTypes.object.isRequired,
 };
 
+function toDate(value) {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date;
+}
+
+function buildMilestoneFallback(queue = [], currency = 'USD') {
+  if (!Array.isArray(queue) || queue.length === 0) {
+    return {
+      summary: {
+        currency,
+        totalAmount: 0,
+        overdueAmount: 0,
+        dueSoonCount: 0,
+        upcomingCount: 0,
+        averageCycleDays: null,
+      },
+      items: [],
+    };
+  }
+
+  const now = Date.now();
+  let totalAmount = 0;
+  let overdueAmount = 0;
+  let dueSoonCount = 0;
+  const durations = [];
+
+  const items = queue.map((transaction) => {
+    const amount = Number(transaction.amount ?? 0);
+    totalAmount += amount;
+
+    const scheduledAt = toDate(transaction.scheduledReleaseAt) ?? toDate(transaction.createdAt);
+    const createdAt = toDate(transaction.createdAt);
+    if (scheduledAt && createdAt) {
+      const diff = (scheduledAt.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
+      if (Number.isFinite(diff)) {
+        durations.push(diff);
+      }
+    }
+
+    let risk = 'neutral';
+    if (scheduledAt) {
+      const distance = scheduledAt.getTime() - now;
+      if (distance < 0) {
+        risk = 'critical';
+        overdueAmount += amount;
+      } else if (distance <= 1000 * 60 * 60 * 48) {
+        risk = 'warning';
+        dueSoonCount += 1;
+      }
+    }
+
+    return {
+      id: transaction.id,
+      transactionId: transaction.id,
+      reference: transaction.reference,
+      label: transaction.milestoneLabel ?? transaction.reference ?? `Milestone ${transaction.id}`,
+      amount,
+      currencyCode: transaction.currencyCode ?? currency,
+      counterpartyId: transaction.counterpartyId ?? transaction.counterparty?.id ?? null,
+      counterpartyName: transaction.counterparty?.displayName ?? transaction.counterparty?.name ?? transaction.counterparty?.email ?? null,
+      scheduledReleaseAt: transaction.scheduledReleaseAt ?? null,
+      createdAt: transaction.createdAt ?? null,
+      hasOpenDispute: Boolean(transaction.hasOpenDispute),
+      disputeCount: Array.isArray(transaction.disputes) ? transaction.disputes.length : 0,
+      status: risk === 'critical' ? 'overdue' : risk === 'warning' ? 'due_soon' : 'scheduled',
+      risk,
+    };
+  });
+
+  const averageCycleDays = durations.length
+    ? Number((durations.reduce((sum, value) => sum + value, 0) / durations.length).toFixed(1))
+    : null;
+
+  return {
+    summary: {
+      currency,
+      totalAmount: Number(totalAmount.toFixed(2)),
+      overdueAmount: Number(overdueAmount.toFixed(2)),
+      dueSoonCount,
+      upcomingCount: items.length,
+      averageCycleDays,
+    },
+    items,
+  };
+}
+
+function buildInvoiceFallback(transactions = [], currency = 'USD') {
+  const ready = transactions.filter((transaction) => transaction.status === 'released');
+  const subtotal = ready.reduce((sum, transaction) => sum + Number(transaction.netAmount ?? transaction.amount ?? 0), 0);
+  const nextInvoiceNumber = `INV-${new Date().getFullYear()}-${String(ready.length + 1).padStart(4, '0')}`;
+
+  const items = ready.map((transaction) => ({
+    id: transaction.id,
+    transactionId: transaction.id,
+    reference: transaction.reference,
+    label: transaction.milestoneLabel ?? transaction.reference ?? `Invoice ${transaction.id}`,
+    amount: Number(transaction.netAmount ?? transaction.amount ?? 0),
+    currencyCode: transaction.currencyCode ?? currency,
+    counterpartyId: transaction.counterpartyId ?? transaction.counterparty?.id ?? null,
+    counterpartyName:
+      transaction.counterparty?.displayName ??
+      transaction.counterparty?.name ??
+      transaction.counterparty?.email ??
+      null,
+    releasedAt: transaction.releasedAt ?? null,
+  }));
+
+  return {
+    currency,
+    readyCount: ready.length,
+    readyTotal: Number(subtotal.toFixed(2)),
+    nextInvoiceNumber,
+    items,
+    topClients: [],
+  };
+}
+
+function buildSubscriptionFallback(transactions = [], currency = 'USD') {
+  const subscriptionTypes = new Set(['subscription', 'retainer', 'membership']);
+  const items = transactions
+    .filter((transaction) => {
+      const type = String(transaction.type ?? '').toLowerCase();
+      const billingModel = String(transaction.metadata?.billingModel ?? '').toLowerCase();
+      return subscriptionTypes.has(type) || billingModel === 'subscription' || billingModel === 'retainer';
+    })
+    .map((transaction) => ({
+      id: transaction.id,
+      transactionId: transaction.id,
+      name: transaction.metadata?.subscriptionName ?? transaction.reference ?? `Subscription ${transaction.id}`,
+      amount: Number(transaction.metadata?.recurringAmount ?? transaction.amount ?? 0),
+      currencyCode: transaction.currencyCode ?? currency,
+      status: transaction.metadata?.subscriptionStatus ?? transaction.status ?? 'active',
+      nextRenewalAt: transaction.metadata?.nextBillingAt ?? transaction.scheduledReleaseAt ?? null,
+      averageCycleDays: Number(transaction.metadata?.billingIntervalDays ?? 0) || null,
+    }));
+
+  const normalisedItems = items.map((item) => {
+    const normalizedStatus = ['paused', 'cancelled'].includes(String(item.status).toLowerCase())
+      ? String(item.status).toLowerCase()
+      : 'active';
+    return { ...item, status: normalizedStatus };
+  });
+
+  const summary = normalisedItems.reduce(
+    (accumulator, item) => {
+      const amount = Number(item.amount ?? 0);
+      if (item.status === 'active') {
+        accumulator.activeCount += 1;
+        accumulator.monthlyRecurringRevenue += amount;
+      } else if (item.status === 'paused') {
+        accumulator.pausedCount += 1;
+      } else {
+        accumulator.cancelledCount += 1;
+      }
+      return accumulator;
+    },
+    { activeCount: 0, pausedCount: 0, cancelledCount: 0, monthlyRecurringRevenue: 0 },
+  );
+
+  return {
+    summary: {
+      ...summary,
+      monthlyRecurringRevenue: Number(summary.monthlyRecurringRevenue.toFixed(2)),
+    },
+    items: normalisedItems,
+  };
+}
+
 export default function EscrowManagementSection({
   data,
   userId,
@@ -298,6 +476,63 @@ export default function EscrowManagementSection({
       })),
     [transactions, accountLookup],
   );
+
+  const transactionLookup = useMemo(() => {
+    const map = new Map();
+    enrichedTransactions.forEach((transaction) => {
+      map.set(transaction.id, transaction);
+    });
+    return map;
+  }, [enrichedTransactions]);
+
+  const milestoneData = useMemo(() => {
+    if (data?.milestones) {
+      const base = data.milestones;
+      const summary = base.summary
+        ? base.summary
+        : {
+            currency: base.currency ?? defaultCurrency,
+            totalAmount: base.totalAmount ?? 0,
+            overdueAmount: base.overdueAmount ?? 0,
+            dueSoonCount: base.dueSoonCount ?? 0,
+            upcomingCount: base.upcomingCount ?? (Array.isArray(base.items) ? base.items.length : 0),
+            averageCycleDays: base.averageCycleDays ?? null,
+          };
+      return {
+        summary,
+        items: Array.isArray(base.items) ? base.items : [],
+      };
+    }
+    return buildMilestoneFallback(releaseQueue, defaultCurrency);
+  }, [data?.milestones, releaseQueue, defaultCurrency]);
+
+  const invoiceData = useMemo(() => {
+    if (data?.billing?.invoices) {
+      return data.billing.invoices;
+    }
+    return buildInvoiceFallback(enrichedTransactions, defaultCurrency);
+  }, [data?.billing?.invoices, enrichedTransactions, defaultCurrency]);
+
+  const subscriptionData = useMemo(() => {
+    if (data?.billing?.subscriptions) {
+      const base = data.billing.subscriptions;
+      const summary = base.summary
+        ? base.summary
+        : {
+            activeCount: base.activeCount ?? 0,
+            pausedCount: base.pausedCount ?? 0,
+            cancelledCount: base.cancelledCount ?? 0,
+            monthlyRecurringRevenue: base.monthlyRecurringRevenue ?? 0,
+          };
+      const items = Array.isArray(base.items)
+        ? base.items
+        : Array.isArray(base.subscriptions)
+        ? base.subscriptions
+        : [];
+      return { summary, items };
+    }
+    return buildSubscriptionFallback(enrichedTransactions, defaultCurrency);
+  }, [data?.billing?.subscriptions, enrichedTransactions, defaultCurrency]);
 
   const [internalView, setInternalView] = useState('overview');
   const currentView = activeView ?? internalView;
@@ -432,6 +667,133 @@ export default function EscrowManagementSection({
       await handleActionSuccess('Dispute opened.');
     } catch (error) {
       handleActionError(error, 'Unable to open dispute.');
+    }
+  };
+
+  const handleMilestoneRelease = async (milestone) => {
+    const transactionId = milestone.transactionId ?? milestone.id;
+    await handleRelease(transactionId, {
+      notes: milestone.label ? `Released via milestone tracker · ${milestone.label}` : undefined,
+      metadata: {
+        ...(transactionLookup.get(transactionId)?.metadata ?? {}),
+        milestoneTracker: {
+          ...(transactionLookup.get(transactionId)?.metadata?.milestoneTracker ?? {}),
+          releasedAt: new Date().toISOString(),
+        },
+      },
+    });
+  };
+
+  const handleMilestoneHold = async (milestone) => {
+    const transactionId = milestone.transactionId ?? milestone.id;
+    const existing = transactionLookup.get(transactionId);
+    await handleUpdateTransaction(transactionId, {
+      status: 'held',
+      metadata: {
+        ...(existing?.metadata ?? {}),
+        milestoneTracker: {
+          ...(existing?.metadata?.milestoneTracker ?? {}),
+          heldAt: new Date().toISOString(),
+        },
+      },
+    });
+  };
+
+  const handleMilestoneInspect = (milestone) => {
+    const transactionId = milestone.transactionId ?? milestone.id;
+    const transaction = transactionLookup.get(transactionId) ?? milestone;
+    setDrawer({ type: 'transaction-detail', payload: transaction });
+  };
+
+  const handleMilestoneReview = (milestone) => {
+    const transactionId = milestone.transactionId ?? milestone.id;
+    const transaction = transactionLookup.get(transactionId) ?? milestone;
+    setDrawer({ type: 'dispute-create', payload: transaction });
+  };
+
+  const handleGenerateInvoice = async (invoice) => {
+    await handleCreateTransaction({
+      accountId: invoice.accountId,
+      amount: invoice.totals.total,
+      currencyCode: invoice.lineItems[0]?.currencyCode ?? invoice.currency ?? defaultCurrency,
+      reference: invoice.invoiceNumber,
+      type: 'invoice',
+      counterpartyId:
+        invoice.lineItems.find((item) => item.counterpartyId)?.counterpartyId ??
+        transactionLookup.get(invoice.lineItems[0]?.transactionId)?.counterpartyId ??
+        null,
+      metadata: {
+        invoice: {
+          number: invoice.invoiceNumber,
+          issueDate: invoice.issueDate,
+          dueDate: invoice.dueDate,
+          clientName: invoice.clientName,
+          notes: invoice.notes,
+          sendCopy: invoice.sendCopy,
+          totals: invoice.totals,
+          lineItems: invoice.lineItems,
+        },
+      },
+    });
+  };
+
+  const handlePauseSubscription = async (subscription) => {
+    const transactionId = subscription.transactionId ?? subscription.id;
+    const existing = transactionLookup.get(transactionId);
+    await handleUpdateTransaction(transactionId, {
+      status: 'paused',
+      metadata: {
+        ...(existing?.metadata ?? {}),
+        subscriptionStatus: 'paused',
+        milestoneTracker: existing?.metadata?.milestoneTracker ?? undefined,
+        pausedAt: new Date().toISOString(),
+      },
+    });
+  };
+
+  const handleResumeSubscription = async (subscription) => {
+    const transactionId = subscription.transactionId ?? subscription.id;
+    const existing = transactionLookup.get(transactionId);
+    await handleUpdateTransaction(transactionId, {
+      status: 'in_escrow',
+      metadata: {
+        ...(existing?.metadata ?? {}),
+        subscriptionStatus: 'active',
+        resumedAt: new Date().toISOString(),
+      },
+    });
+  };
+
+  const handleCancelSubscription = async (subscription) => {
+    const transactionId = subscription.transactionId ?? subscription.id;
+    const existing = transactionLookup.get(transactionId);
+    await handleUpdateTransaction(transactionId, {
+      status: 'cancelled',
+      metadata: {
+        ...(existing?.metadata ?? {}),
+        subscriptionStatus: 'cancelled',
+        cancelledAt: new Date().toISOString(),
+      },
+    });
+  };
+
+  const handleToggleAutoReleaseSetting = async (enabled) => {
+    setProcessing('settings');
+    try {
+      await updateProjectEscrowSettings(userId, {
+        autoReleaseEnabled: enabled,
+        autoReleaseAfterDays: data?.settings?.autoReleaseAfterDays ?? 7,
+      });
+      setProcessing(null);
+      setFeedback({
+        tone: 'success',
+        message: enabled ? 'Auto-release enabled.' : 'Auto-release disabled.',
+      });
+      if (onRefresh) {
+        await onRefresh();
+      }
+    } catch (error) {
+      handleActionError(error, 'Unable to update auto-release settings.');
     }
   };
 
@@ -606,6 +968,34 @@ export default function EscrowManagementSection({
           onRefund={(transaction) => setDrawer({ type: 'refund', payload: transaction })}
           onDispute={(transaction) => setDrawer({ type: 'dispute-create', payload: transaction })}
         />
+        <EscrowMilestoneTracker
+          summary={milestoneData.summary}
+          milestones={milestoneData.items}
+          onRelease={handleMilestoneRelease}
+          onHold={handleMilestoneHold}
+          onRequestReview={handleMilestoneReview}
+          onInspect={handleMilestoneInspect}
+        />
+        <div className="grid gap-6 xl:grid-cols-2">
+          <InvoiceGenerator
+            currency={invoiceData.currency ?? defaultCurrency}
+            nextInvoiceNumber={invoiceData.nextInvoiceNumber ?? `INV-${new Date().getFullYear()}-0001`}
+            availableTransactions={invoiceData.items ?? []}
+            accounts={accounts}
+            onGenerate={handleGenerateInvoice}
+            loading={isProcessing('transaction')}
+          />
+          <SubscriptionManager
+            summary={subscriptionData.summary}
+            subscriptions={subscriptionData.items}
+            currency={defaultCurrency}
+            settings={data?.settings ?? null}
+            onToggleAutoRelease={handleToggleAutoReleaseSetting}
+            onPause={handlePauseSubscription}
+            onResume={handleResumeSubscription}
+            onCancel={handleCancelSubscription}
+          />
+        </div>
       </div>
 
       <div className={currentView === 'release' ? 'space-y-6' : 'hidden'} id="escrow-management-release">
@@ -648,6 +1038,36 @@ EscrowManagementSection.propTypes = {
       releaseQueue: PropTypes.arrayOf(PropTypes.object),
       disputes: PropTypes.arrayOf(PropTypes.object),
     }),
+    milestones: PropTypes.oneOfType([
+      PropTypes.shape({
+        summary: PropTypes.object,
+        items: PropTypes.arrayOf(PropTypes.object),
+      }),
+      PropTypes.shape({
+        currency: PropTypes.string,
+        totalAmount: PropTypes.number,
+        overdueAmount: PropTypes.number,
+        dueSoonCount: PropTypes.number,
+        upcomingCount: PropTypes.number,
+        averageCycleDays: PropTypes.number,
+        items: PropTypes.arrayOf(PropTypes.object),
+      }),
+    ]),
+    billing: PropTypes.shape({
+      invoices: PropTypes.shape({
+        currency: PropTypes.string,
+        readyCount: PropTypes.number,
+        readyTotal: PropTypes.number,
+        nextInvoiceNumber: PropTypes.string,
+        items: PropTypes.arrayOf(PropTypes.object),
+      }),
+      subscriptions: PropTypes.shape({
+        summary: PropTypes.object,
+        items: PropTypes.arrayOf(PropTypes.object),
+        currency: PropTypes.string,
+      }),
+    }),
+    settings: PropTypes.object,
   }).isRequired,
   userId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
   onRefresh: PropTypes.func,
