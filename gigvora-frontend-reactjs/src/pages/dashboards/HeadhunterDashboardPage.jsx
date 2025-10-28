@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import useSession from '../../hooks/useSession.js';
+import JobApplicationWorkspaceContainer from '../../components/jobApplications/JobApplicationWorkspaceContainer.jsx';
+import JobManagementWorkspace from '../../components/jobs/JobManagementWorkspace.jsx';
 
 const INSIGHTS = [
   {
@@ -50,9 +52,29 @@ const AVAILABLE_DASHBOARDS = [
   { id: 'agency', label: 'Agency', href: '/dashboard/agency' },
 ];
 
+const MENU_SECTIONS = [
+  {
+    label: 'Workspace',
+    items: [
+      { id: 'headhunter-overview', name: 'Overview', sectionId: 'headhunter-overview' },
+      { id: 'headhunter-job-hub', name: 'Job hub', sectionId: 'headhunter-job-hub' },
+      { id: 'headhunter-job-publisher', name: 'Listings', sectionId: 'headhunter-job-publisher' },
+    ],
+  },
+];
+
 export default function HeadhunterDashboardPage() {
   const { session } = useSession();
   const displayName = session?.name || session?.firstName || 'Headhunter';
+  const handleOpenPublisher = () => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const anchor = document.getElementById('headhunter-job-publisher');
+    if (anchor) {
+      anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   return (
     <DashboardAccessGuard requiredRoles={ALLOWED_ROLES}>
@@ -60,19 +82,15 @@ export default function HeadhunterDashboardPage() {
         currentDashboard="headhunter"
         title="Headhunter HQ"
         subtitle="Mandates & relationships"
-        description="Monitor outreach momentum, upcoming interviews, and placement health in one workspace."
-        menuSections={[]}
+        menuSections={MENU_SECTIONS}
         availableDashboards={AVAILABLE_DASHBOARDS}
       >
         <div className="mx-auto max-w-6xl space-y-12 px-4 py-12 sm:px-6 lg:px-8">
-          <header className="space-y-4 border-b border-slate-200 pb-8">
-            <div>
-              <p className="text-sm uppercase tracking-[0.4em] text-slate-500">Headhunter HQ</p>
-              <h1 className="mt-2 text-3xl font-semibold text-slate-900">Good morning, {displayName}</h1>
-              <p className="mt-3 max-w-3xl text-sm text-slate-600">
-                Monitor outreach momentum, upcoming interviews, and placement health in one workspace.
-              </p>
-            </div>
+          <section id="headhunter-overview" className="space-y-8 border-b border-slate-200 pb-8">
+            <header className="space-y-3">
+              <p className="text-sm uppercase tracking-[0.35em] text-slate-500">Headhunter HQ</p>
+              <h1 className="text-3xl font-semibold text-slate-900">Good morning, {displayName}</h1>
+            </header>
             <div className="grid gap-4 sm:grid-cols-3">
               {INSIGHTS.map((insight) => (
                 <div
@@ -81,11 +99,11 @@ export default function HeadhunterDashboardPage() {
                 >
                   <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">{insight.title}</p>
                   <p className="mt-3 text-3xl font-semibold text-slate-900">{insight.value}</p>
-                  <p className="mt-2 text-xs text-slate-500">{insight.detail}</p>
+                  <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{insight.detail}</p>
                 </div>
               ))}
             </div>
-          </header>
+          </section>
 
           <section className="grid gap-8 lg:grid-cols-[1.2fr_1fr]">
             <div className="space-y-6">
@@ -99,7 +117,7 @@ export default function HeadhunterDashboardPage() {
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-slate-900">{action.title}</p>
-                        <p className="text-xs text-slate-500">{action.description}</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{action.description}</p>
                       </div>
                     </li>
                   ))}
@@ -152,6 +170,37 @@ export default function HeadhunterDashboardPage() {
                 </Link>
               </div>
             </aside>
+          </section>
+
+          {session?.id ? (
+            <section id="headhunter-job-hub" className="space-y-4 rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-2xl font-semibold text-slate-900">Job hub</h2>
+                <button
+                  type="button"
+                  onClick={handleOpenPublisher}
+                  className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700"
+                >
+                  New listing
+                </button>
+              </div>
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                <JobApplicationWorkspaceContainer userId={session.id} onCreateJob={handleOpenPublisher} />
+              </div>
+            </section>
+          ) : null}
+
+          <section
+            id="headhunter-job-publisher"
+            className="space-y-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-soft"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-2xl font-semibold text-slate-900">Job listings</h2>
+              <span className="rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-accent">
+                Draft &amp; publish
+              </span>
+            </div>
+            <JobManagementWorkspace />
           </section>
         </div>
       </DashboardLayout>

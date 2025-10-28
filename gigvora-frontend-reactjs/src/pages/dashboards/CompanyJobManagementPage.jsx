@@ -6,6 +6,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import DataStatus from '../../components/DataStatus.jsx';
 import AccessDeniedPanel from '../../components/dashboard/AccessDeniedPanel.jsx';
 import JobAdvertList from '../../components/company/jobManagement/JobAdvertList.jsx';
+import JobApplicationWorkspaceContainer from '../../components/jobApplications/JobApplicationWorkspaceContainer.jsx';
 import JobAdvertForm from '../../components/company/jobManagement/JobAdvertForm.jsx';
 import ApplicantKanbanBoard from '../../components/company/jobManagement/ApplicantKanbanBoard.jsx';
 import InterviewManager from '../../components/company/jobManagement/InterviewManager.jsx';
@@ -479,6 +480,24 @@ export default function CompanyJobManagementPage() {
       activeMenuItem="jobs"
     >
       <div className="space-y-6">
+        {session?.id ? (
+          <section id="job-hub-workspace" className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-xl font-semibold text-slate-900">Job hub</h2>
+              <button
+                type="button"
+                onClick={handleCreateJob}
+                className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500"
+              >
+                Post job
+              </button>
+            </div>
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+              <JobApplicationWorkspaceContainer userId={session.id} onCreateJob={handleCreateJob} />
+            </div>
+          </section>
+        ) : null}
+
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-4">
             <label className="flex items-center gap-2 text-sm text-slate-600">

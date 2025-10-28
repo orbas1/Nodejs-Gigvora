@@ -26,7 +26,15 @@ user_experience.md
    9. Tuned focus, blur, and hover choreography around the search spotlight to eliminate flicker, providing act()-safe transitions in tests and accessible escape handling when users dismiss the experience.
    10. Maintained the inbox preview, notifications, language selector, and creation shortcuts in a slim action bar, spacing each control to align with the new search footprint while preserving single-click access for frequent workflows.
    11. Preserved the insights popover with updated styling tokens so persona pulse metrics and trending callouts inherit the refreshed translucency treatments introduced for the spotlight.
-   12. Synced the mobile navigation drawer with the new search services, delivering identical trending intelligence and analytics wiring on small screens so the quick-launch experience feels identical to desktop.
+12. Synced the mobile navigation drawer with the new search services, delivering identical trending intelligence and analytics wiring on small screens so the quick-launch experience feels identical to desktop.
+
+14. Job Listings & ATS Pipelines
+14.A. Job Listings & ATS Pipelines ✅
+   1. Refreshed `OverviewPanel.jsx` persona actions so every dashboard exposes a job-posting trigger alongside candidate, interview, and update controls from a single toolbar.【F:gigvora-frontend-reactjs/src/components/jobApplications/panels/OverviewPanel.jsx†L351-L360】
+   2. Embedded the job hub inside the company job management workspace and wired the side-nav entry so hiring teams land directly on the ATS console with a single click.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyJobManagementPage.jsx†L483-L498】【F:gigvora-frontend-reactjs/src/constants/companyDashboardMenu.js†L60-L63】
+   3. Routed the headhunter dashboard through a dedicated menu with a job hub section and inline job management studio, keeping listings, pipelines, and publishing flows in one canvas.【F:gigvora-frontend-reactjs/src/pages/dashboards/HeadhunterDashboardPage.jsx†L60-L204】
+   4. Tightened the agency dashboard section with tab-ready CTAs so teams can open job management instantly while keeping the workspace container focused on live requisitions.【F:gigvora-frontend-reactjs/src/pages/dashboards/agency/sections/AgencyJobApplicationsSection.jsx†L5-L33】
+   5. Kept the shared job hub available to every persona via the new menu scaffolding while preserving existing data hydration for listings, pipelines, and candidate stats.【F:gigvora-frontend-reactjs/src/components/jobApplications/JobApplicationWorkspaceContainer.jsx†L247-L311】
 
 5. Feed & Timeline
 5.A. Feed & Timeline ✅
