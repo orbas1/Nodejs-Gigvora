@@ -89,14 +89,6 @@ export default function HeadhunterDashboardPage() {
         availableDashboards={AVAILABLE_DASHBOARDS}
       >
         <div className="mx-auto max-w-6xl space-y-12 px-4 py-12 sm:px-6 lg:px-8">
-          <section id="headhunter-overview" className="space-y-4 border-b border-slate-200 pb-8">
-            <div>
-              <p className="text-sm uppercase tracking-[0.4em] text-slate-500">Headhunter HQ</p>
-              <h1 className="mt-2 text-3xl font-semibold text-slate-900">Good morning, {displayName}</h1>
-              <p className="mt-3 max-w-3xl text-sm text-slate-600">
-                Monitor outreach momentum, upcoming interviews, and placement health in one workspace.
-              </p>
-            </div>
           <section id="headhunter-overview" className="space-y-8 border-b border-slate-200 pb-8">
             <header className="space-y-3">
               <p className="text-sm uppercase tracking-[0.35em] text-slate-500">Headhunter HQ</p>
