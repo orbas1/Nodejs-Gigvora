@@ -57,6 +57,11 @@ const companyDashboardMenuSections = [
     label: 'ATS',
     items: [
       {
+        name: 'Job hub',
+        sectionId: 'job-hub-workspace',
+        href: '/dashboard/company/job-management#job-hub-workspace',
+      },
+      {
         name: 'Lifecycle',
         description: 'Plan requisitions and ATS automations.',
         sectionId: 'job-lifecycle-ats-intelligence',

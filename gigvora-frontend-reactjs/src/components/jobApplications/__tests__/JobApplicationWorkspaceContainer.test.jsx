@@ -130,8 +130,8 @@ describe('JobApplicationWorkspaceContainer', () => {
 
     await waitFor(() => expect(serviceMocks.fetchJobApplicationWorkspace).toHaveBeenCalledWith(51));
 
-    const quickCreateSection = await screen.findByText('Quick create');
-    expect(quickCreateSection).toBeInTheDocument();
+    const companyNav = await screen.findByRole('button', { name: /company dash/i });
+    expect(companyNav).toBeInTheDocument();
   });
 
   it('submits a new application via the drawer workflow', async () => {

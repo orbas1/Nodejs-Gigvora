@@ -5,7 +5,7 @@ import OverviewPanel from '../panels/OverviewPanel.jsx';
 import ResponsesPanel from '../panels/ResponsesPanel.jsx';
 
 describe('OverviewPanel', () => {
-  it('renders key metrics and triggers quick actions', async () => {
+  it('renders persona tabs and triggers actions', async () => {
     const onCreateApplication = vi.fn();
     const onCreateInterview = vi.fn();
     const onCreateFavourite = vi.fn();
@@ -35,11 +35,12 @@ describe('OverviewPanel', () => {
       />,
     );
 
-    expect(screen.getByText('12 total')).toBeInTheDocument();
-    const quickActions = within(screen.getByTestId('overview-quick-actions')).getAllByRole('button');
-    expect(quickActions).toHaveLength(4);
+    expect(screen.getByText('Total apps')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /company/i })).toBeInTheDocument();
+    const actions = within(screen.getByTestId('overview-actions')).getAllByRole('button');
+    expect(actions).toHaveLength(4);
 
-    await userEvent.click(quickActions[0]);
+    await userEvent.click(actions[0]);
     expect(onCreateApplication).toHaveBeenCalledTimes(1);
   });
 });
