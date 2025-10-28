@@ -8,6 +8,9 @@ import ResponsesPanel from './panels/ResponsesPanel.jsx';
 
 const NAV_ITEMS = [
   { id: 'overview', label: 'Overview', sectionId: 'job-hub-overview' },
+  { id: 'company', label: 'Company dash', sectionId: 'job-hub-overview-company' },
+  { id: 'headhunter', label: 'Headhunter desk', sectionId: 'job-hub-overview-headhunter' },
+  { id: 'agency', label: 'Agency desk', sectionId: 'job-hub-overview-agency' },
   { id: 'apps', label: 'Apps', sectionId: 'job-hub-apps' },
   { id: 'meets', label: 'Meets', sectionId: 'job-hub-meets' },
   { id: 'saved', label: 'Saved', sectionId: 'job-hub-saved' },
@@ -18,6 +21,12 @@ function resolveNavItems(workspace) {
   const summary = workspace?.summary ?? {};
   return NAV_ITEMS.map((item) => {
     switch (item.id) {
+      case 'overview':
+        return { ...item, count: (workspace?.jobListings ?? []).length || summary.totalApplications || 0 };
+      case 'company':
+      case 'headhunter':
+      case 'agency':
+        return { ...item, count: summary.totalApplications ?? 0 };
       case 'apps':
         return { ...item, count: summary.activeApplications ?? 0 };
       case 'meets':
@@ -36,6 +45,7 @@ export default function JobApplicationWorkspaceLayout({
   workspace,
   activeView,
   onChangeView,
+  onCreateJob,
   onCreateApplication,
   onEditApplication,
   onArchiveApplication,
@@ -52,7 +62,17 @@ export default function JobApplicationWorkspaceLayout({
 }) {
   const navItems = useMemo(() => resolveNavItems(workspace), [workspace]);
 
-  const { summary, statusBreakdown, recommendedActions, applications, interviews, favourites, responses } = workspace ?? {};
+  const {
+    summary,
+    statusBreakdown,
+    recommendedActions,
+    applications,
+    interviews,
+    favourites,
+    responses,
+    jobListings,
+    pipelineSnapshot,
+  } = workspace ?? {};
 
   let panel = null;
   switch (activeView) {
@@ -106,6 +126,28 @@ export default function JobApplicationWorkspaceLayout({
         </section>
       );
       break;
+    case 'company':
+    case 'headhunter':
+    case 'agency':
+      panel = (
+        <section id={`job-hub-overview-${activeView}`} className="h-full">
+          <OverviewPanel
+            summary={summary}
+            statusBreakdown={statusBreakdown ?? []}
+            recommendedActions={recommendedActions ?? []}
+            jobListings={jobListings ?? []}
+            pipelineSnapshot={pipelineSnapshot ?? null}
+            applications={applications ?? []}
+            onCreateJob={onCreateJob}
+            onCreateApplication={onCreateApplication}
+            onCreateInterview={onCreateInterview}
+            onCreateFavourite={onCreateFavourite}
+            onCreateResponse={onCreateResponse}
+            defaultPersona={activeView}
+          />
+        </section>
+      );
+      break;
     default:
       panel = (
         <section id="job-hub-overview" className="h-full">
@@ -113,10 +155,15 @@ export default function JobApplicationWorkspaceLayout({
             summary={summary}
             statusBreakdown={statusBreakdown ?? []}
             recommendedActions={recommendedActions ?? []}
+            jobListings={jobListings ?? []}
+            pipelineSnapshot={pipelineSnapshot ?? null}
+            applications={applications ?? []}
+            onCreateJob={onCreateJob}
             onCreateApplication={onCreateApplication}
             onCreateInterview={onCreateInterview}
             onCreateFavourite={onCreateFavourite}
             onCreateResponse={onCreateResponse}
+            defaultPersona="company"
           />
         </section>
       );
@@ -174,6 +221,8 @@ JobApplicationWorkspaceLayout.propTypes = {
     interviews: PropTypes.array,
     favourites: PropTypes.array,
     responses: PropTypes.array,
+    jobListings: PropTypes.array,
+    pipelineSnapshot: PropTypes.object,
   }),
   activeView: PropTypes.string.isRequired,
   onChangeView: PropTypes.func.isRequired,
@@ -190,9 +239,11 @@ JobApplicationWorkspaceLayout.propTypes = {
   onEditResponse: PropTypes.func.isRequired,
   onDeleteResponse: PropTypes.func.isRequired,
   actionError: PropTypes.shape({ message: PropTypes.string }),
+  onCreateJob: PropTypes.func,
 };
 
 JobApplicationWorkspaceLayout.defaultProps = {
   workspace: null,
   actionError: null,
+  onCreateJob: undefined,
 };

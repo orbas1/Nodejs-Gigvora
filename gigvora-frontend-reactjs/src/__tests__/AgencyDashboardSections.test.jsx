@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 
 // Creation Studio mocks
@@ -873,11 +874,19 @@ describe('AgencyInboxSection', () => {
 
 describe('AgencyJobApplicationsSection', () => {
   it('renders workspace container for assigned owner and fallback otherwise', () => {
-    const { rerender } = render(<AgencyJobApplicationsSection ownerId={42} />);
+    const { rerender } = render(
+      <MemoryRouter>
+        <AgencyJobApplicationsSection ownerId={42} />
+      </MemoryRouter>,
+    );
     expect(jobWorkspaceSpy).toHaveBeenCalledWith(expect.objectContaining({ userId: 42 }));
     expect(screen.queryByText('Assign an agency owner to unlock the job application control centre.')).toBeNull();
 
-    rerender(<AgencyJobApplicationsSection ownerId={null} />);
+    rerender(
+      <MemoryRouter>
+        <AgencyJobApplicationsSection ownerId={null} />
+      </MemoryRouter>,
+    );
     expect(screen.getByText('Assign an agency owner to unlock the job application control centre.')).toBeInTheDocument();
   });
 });

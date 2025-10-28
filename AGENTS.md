@@ -11,7 +11,17 @@ user_experience.md
    8. Layered a mobile-first quick search dialog with curated trending deep links so small-screen users can instantly launch people, opportunity, and workspace discovery without diving into the mega menus.
    9. Instrumented global search submissions with persona-aware analytics and reset behaviour while echoing insights tracking inside the quick search drawer, ensuring navigation intelligence and query journeys stay observable across entry points.
    10. Rebuilt the authenticated navigation dock into a LinkedIn-style icon row that anchors Home, Network, Jobs, Projects, Messaging, Notifications, and Work with shared styling tokens while delegating previews to the inbox and alert popovers for consistency.
-1.B. Footer & System Bars
+1.B. Footer & System Bars ✅
+   1. Replaced the operations-heavy chrome footer with a purpose-built marketing surface anchored by a five-column grid so the home page alone carries the closing narrative while the rest of the application stays distraction-free.
+   2. Pivoted to a bright, white canvas with generous negative space, crisp typography, and softened dividers so the experience feels sunlit and premium while staying calm beside the hero modules.
+   3. Concentrated navigation into three curated link clusters—Product, Community, and Company—giving visitors the fastest routes to gigs, projects, events, and trust signals without redundant labels.
+   4. Elevated brand storytelling with the full-colour logomark standing alone beside the mission line, reinforcing GigVora’s collaborative promise without redundant wordmarks ahead of the conversion calls-to-action.
+   5. Added dual primary actions (“Join as talent” and “Hire teams”) styled as complementary pills that remain legible on any breakpoint while funnelling prospects into the highest-value funnels.
+   6. Crafted a refined social bar with consistent hover choreography, accessible aria labels, and discreet borders so outbound brand touchpoints feel premium rather than ornamental.
+   7. Embedded a responsive legal rail that presents the "© GigVora 2025. All rights reserved." statement alongside privacy, terms, community guidelines, and status links in one concise row for governance clarity.
+   8. Tuned the grid ratios and spacing tokens to keep columns airy on desktop while stacking gracefully on mobile, ensuring the footer never feels cramped or misaligned.
+   9. Removed the shared layout dependency on the footer so authenticated and interior marketing routes retain a clean shell with no residual system bar.
+   10. Harmonised copy tone and micro-interactions across links and CTAs, trimming legacy jargon to keep the closing moment friendly, direct, and conversion-oriented.
 1.C. Layout Containers
 1.D. Toasts & Feedback
 
@@ -26,7 +36,15 @@ user_experience.md
    9. Tuned focus, blur, and hover choreography around the search spotlight to eliminate flicker, providing act()-safe transitions in tests and accessible escape handling when users dismiss the experience.
    10. Maintained the inbox preview, notifications, language selector, and creation shortcuts in a slim action bar, spacing each control to align with the new search footprint while preserving single-click access for frequent workflows.
    11. Preserved the insights popover with updated styling tokens so persona pulse metrics and trending callouts inherit the refreshed translucency treatments introduced for the spotlight.
-   12. Synced the mobile navigation drawer with the new search services, delivering identical trending intelligence and analytics wiring on small screens so the quick-launch experience feels identical to desktop.
+12. Synced the mobile navigation drawer with the new search services, delivering identical trending intelligence and analytics wiring on small screens so the quick-launch experience feels identical to desktop.
+
+14. Job Listings & ATS Pipelines
+14.A. Job Listings & ATS Pipelines ✅
+   1. Refreshed `OverviewPanel.jsx` persona actions so every dashboard exposes a job-posting trigger alongside candidate, interview, and update controls from a single toolbar.【F:gigvora-frontend-reactjs/src/components/jobApplications/panels/OverviewPanel.jsx†L351-L360】
+   2. Embedded the job hub inside the company job management workspace and wired the side-nav entry so hiring teams land directly on the ATS console with a single click.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyJobManagementPage.jsx†L483-L498】【F:gigvora-frontend-reactjs/src/constants/companyDashboardMenu.js†L60-L63】
+   3. Routed the headhunter dashboard through a dedicated menu with a job hub section and inline job management studio, keeping listings, pipelines, and publishing flows in one canvas.【F:gigvora-frontend-reactjs/src/pages/dashboards/HeadhunterDashboardPage.jsx†L60-L204】
+   4. Tightened the agency dashboard section with tab-ready CTAs so teams can open job management instantly while keeping the workspace container focused on live requisitions.【F:gigvora-frontend-reactjs/src/pages/dashboards/agency/sections/AgencyJobApplicationsSection.jsx†L5-L33】
+   5. Kept the shared job hub available to every persona via the new menu scaffolding while preserving existing data hydration for listings, pipelines, and candidate stats.【F:gigvora-frontend-reactjs/src/components/jobApplications/JobApplicationWorkspaceContainer.jsx†L247-L311】
 
 5. Feed & Timeline
 5.A. Feed & Timeline ✅
@@ -48,6 +66,17 @@ user_experience.md
    5. Adjusted the group utility regression to consume the exported `ThreadCard` signature, ensuring helper coverage still exercises unread affordances after the workspace realignment.【F:gigvora-frontend-reactjs/src/pages/__tests__/Group103Pages.test.jsx†L456-L486】
    6. Introduced a reusable `DashboardInboxSection` bound to the messaging context so admin, company, user, headhunter, and mentor dashboards surface the shared workspace with consistent actions and membership gating.【F:gigvora-frontend-reactjs/src/components/dashboard/messaging/DashboardInboxSection.jsx†L1-L200】
    7. Trimmed the header inbox preview to hydrate only the four freshest threads, mirroring the workspace cards while keeping the dropdown focused across breakpoints.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L201-L236】
+15.B. Calendar & Task Management ✅
+   1. Evolved the project calendar shell into a four-card intelligence bar that surfaces total commitments, focus-hour coverage, task coverage, and at-risk counts with iconography and responsive progress meters so teams spot load, slack, and risk in seconds.【F:gigvora-frontend-reactjs/src/components/projectWorkspace/tabs/CalendarTab.jsx†L430-L510】
+   2. Centralised calendar analytics in a single insights engine that groups events by day, tracks focus ratios, maps upcoming commitments, and cross-references task assignments to understand coverage and backlog pressure in one pass.【F:gigvora-frontend-reactjs/src/components/projectWorkspace/tabs/CalendarTab.jsx†L154-L256】
+   3. Added schedule-from-task orchestration that pre-fills the composer with due dates, estimates, and context, while stamping metadata and tracking the originating task for downstream hydration and analytics continuity.【F:gigvora-frontend-reactjs/src/components/projectWorkspace/tabs/CalendarTab.jsx†L301-L355】
+   4. Hardened event authoring with date validation, chronological guards, and JSON sanitisation so teammate handoffs are resilient to malformed inputs without sacrificing flexibility for metadata-rich events.【F:gigvora-frontend-reactjs/src/components/projectWorkspace/tabs/CalendarTab.jsx†L264-L299】
+   5. Delivered a sprint timeline gallery that organises upcoming ceremonies by day, highlights categories with badge tokens, and promotes linked tasks to keep focus rituals anchored in real delivery work.【F:gigvora-frontend-reactjs/src/components/projectWorkspace/tabs/CalendarTab.jsx†L513-L566】
+   6. Introduced a proactive task time-boxing rail that spotlights overdue and soon-due work, tracks remaining unscheduled items, and offers one-click scheduling hooks with visual confirmation for the selected backlog item.【F:gigvora-frontend-reactjs/src/components/projectWorkspace/tabs/CalendarTab.jsx†L685-L717】
+   7. Elevated the upcoming commitments digest with dual time and metadata lanes, exposing task linkages, persona chips, and location context so stakeholders can prep, travel, and collaborate with confidence.【F:gigvora-frontend-reactjs/src/components/projectWorkspace/tabs/CalendarTab.jsx†L699-L754】
+   8. Refined event detail cards with category badges, linked-task chips, and humanised metadata rendering that supports arrays, numbers, and structured objects without sacrificing readability.【F:gigvora-frontend-reactjs/src/components/projectWorkspace/tabs/CalendarTab.jsx†L931-L969】
+   9. Extended the calendar’s domain contract to accept project task inventories, enabling insight coverage calculations and prop-type guardrails across workspace layouts.【F:gigvora-frontend-reactjs/src/components/projectWorkspace/tabs/CalendarTab.jsx†L140-L255】【F:gigvora-frontend-reactjs/src/components/projectWorkspace/tabs/CalendarTab.jsx†L1007-L1012】
+   10. Shipped a dedicated calendar preview harness that renders the upgraded experience with curated sample data, making stakeholder reviews and visual regression capture effortless for design and PM partners.【F:calendar-preview.html†L1-L47】【F:gigvora-frontend-reactjs/src/preview/calendar-preview.jsx†L1-L154】
 15.C. Collaboration & Kanban Workspaces ✅
    1. Normalised the kanban snapshot query to hydrate collaborator avatars, last-activity timestamps, and original card counts so the live toolbar mirrors production data instead of preview fixtures.【F:gigvora-backend-nodejs/src/services/agencyClientKanbanService.js†L467-L552】
    2. Added resilient collaborator normalisers that validate payloads, coerce metadata, and preserve Date-safe presence values before persisting them for analytics fidelity.【F:gigvora-backend-nodejs/src/services/agencyClientKanbanService.js†L130-L219】

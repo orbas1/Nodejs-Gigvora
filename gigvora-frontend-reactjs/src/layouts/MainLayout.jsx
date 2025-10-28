@@ -1,7 +1,6 @@
 import PropTypes from 'prop-types';
 import { Outlet } from 'react-router-dom';
 import Header from '../components/Header.jsx';
-import Footer from '../components/Footer.jsx';
 import MessagingDock from '../components/messaging/MessagingDock.jsx';
 import PolicyAcknowledgementBanner from '../components/policy/PolicyAcknowledgementBanner.jsx';
 import useSession from '../hooks/useSession.js';
@@ -75,7 +74,7 @@ function LayoutChrome() {
               <Outlet />
             </AppErrorBoundary>
           </main>
-          {!isAuthenticated ? <Footer /> : null}
+          {/* Footer is rendered by individual marketing pages to keep the app chrome minimal. */}
         </div>
       </div>
       {isAuthenticated ? <MessagingDock /> : null}

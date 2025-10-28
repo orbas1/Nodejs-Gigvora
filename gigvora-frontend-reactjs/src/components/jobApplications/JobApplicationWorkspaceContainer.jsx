@@ -36,7 +36,7 @@ function resolveInitialView() {
   return 'overview';
 }
 
-export default function JobApplicationWorkspaceContainer({ userId, initialData }) {
+export default function JobApplicationWorkspaceContainer({ userId, initialData, onCreateJob }) {
   const [workspace, setWorkspace] = useState(initialData ?? null);
   const [loading, setLoading] = useState(!initialData);
   const [error, setError] = useState(null);
@@ -252,10 +252,7 @@ export default function JobApplicationWorkspaceContainer({ userId, initialData }
       className="flex h-full flex-col gap-6 rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-slate-100 p-6 shadow-sm"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Job hub</h1>
-          <p className="text-sm text-slate-500">Manage applications, meetings, saved roles, and replies in one place.</p>
-        </div>
+        <h1 className="text-2xl font-semibold text-slate-900">Job hub</h1>
         <DataStatus
           loading={loading}
           error={error}
@@ -269,6 +266,7 @@ export default function JobApplicationWorkspaceContainer({ userId, initialData }
           workspace={workspace}
           activeView={activeView}
           onChangeView={setActiveView}
+          onCreateJob={onCreateJob}
           onCreateApplication={() => openForm('application', 'create')}
           onEditApplication={(application) => openForm('application', 'edit', application)}
           onArchiveApplication={handleArchiveApplication}
@@ -352,8 +350,10 @@ export default function JobApplicationWorkspaceContainer({ userId, initialData }
 JobApplicationWorkspaceContainer.propTypes = {
   userId: PropTypes.number.isRequired,
   initialData: PropTypes.object,
+  onCreateJob: PropTypes.func,
 };
 
 JobApplicationWorkspaceContainer.defaultProps = {
   initialData: null,
+  onCreateJob: undefined,
 };
