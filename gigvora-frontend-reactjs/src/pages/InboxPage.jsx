@@ -1,38 +1,37 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 import PageHeader from '../components/PageHeader.jsx';
 import useSession from '../hooks/useSession.js';
 import useMessaging from '../hooks/useMessaging.js';
-import useFreelancerInboxWorkspace from '../hooks/useFreelancerInboxWorkspace.js';
 import { resolveActorId } from '../utils/messaging.js';
 import { getMessagingMemberships, MESSAGING_ALLOWED_MEMBERSHIPS } from '../constants/access.js';
 import { DASHBOARD_LINKS } from '../constants/dashboardLinks.js';
-import analytics from '../services/analytics.js';
-import MessagesInbox from '../components/messaging/MessagesInbox.jsx';
-import ConversationView from '../components/messaging/ConversationView.jsx';
+import MessagingWorkspace from '../components/messaging/MessagingWorkspace.jsx';
 
 export { sortThreads } from '../utils/messaging.js';
 export { INBOX_REFRESH_INTERVAL } from '../context/MessagingContext.jsx';
+export { ThreadPreviewCard as ThreadCard } from '../components/messaging/MessagesInbox.jsx';
 
 export function formatMembershipLabel(key) {
   return DASHBOARD_LINKS[key]?.label ?? key.replace(/-/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-export { ThreadPreviewCard as ThreadCard } from '../components/messaging/MessagesInbox.jsx';
+function formatSyncedTimestamp(timestamp) {
+  if (!timestamp) {
+    return 'Syncing…';
+  }
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return 'Syncing…';
+  }
+  return `Synced ${date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`;
+}
 
 export default function InboxPage() {
   const { session, isAuthenticated } = useSession();
   const navigate = useNavigate();
   const actorId = resolveActorId(session);
-  const messaging = useMessaging();
-  const {
-    workspace,
-    loading: workspaceLoading,
-    pinThread: pinWorkspaceThread,
-    unpinThread: unpinWorkspaceThread,
-  } = useFreelancerInboxWorkspace({ userId: actorId, enabled: Boolean(isAuthenticated && actorId) });
-
   const {
     hasMessagingAccess,
     threads,
@@ -40,28 +39,16 @@ export default function InboxPage() {
     threadsError,
     refreshInbox,
     selectedThreadId,
-    selectedThread,
     selectThread,
     messages,
     messagesLoading,
     messagesError,
-    hasMoreHistory,
-    loadOlderMessages,
     composer,
     updateComposer,
     sendMessage,
     sending,
-    typingParticipants,
-    callSession,
-    callLoading,
-    callError,
-    startCall,
-    joinCall,
-    closeCall,
     lastSyncedAt,
-  } = messaging;
-  const [pinningThreadIds, setPinningThreadIds] = useState([]);
-  const [pinError, setPinError] = useState(null);
+  } = useMessaging();
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -79,102 +66,36 @@ export default function InboxPage() {
     [],
   );
 
-  const handlePinningState = useCallback((threadId, active) => {
-    setPinningThreadIds((current) => {
-      const next = new Set(current);
-      if (active) {
-        next.add(threadId);
-      } else {
-        next.delete(threadId);
-      }
-      return Array.from(next);
-    });
-  }, []);
-
-  const handleTogglePin = useCallback(
-    async (thread, shouldPin) => {
-      if (!thread?.id) {
-        return;
-      }
-      setPinError(null);
-      handlePinningState(thread.id, true);
-      try {
-        if (shouldPin) {
-          await pinWorkspaceThread(thread.id);
-        } else {
-          await unpinWorkspaceThread(thread.id);
-        }
-        await refreshInbox({ silent: true });
-      } catch (error) {
-        const message = error?.body?.message ?? error?.message ?? 'Unable to update pin state.';
-        setPinError(message);
-      } finally {
-        handlePinningState(thread.id, false);
-      }
-    },
-    [handlePinningState, pinWorkspaceThread, refreshInbox, unpinWorkspaceThread],
-  );
-
-  const savedReplies = useMemo(
-    () => (Array.isArray(workspace?.savedReplies) ? workspace.savedReplies : []),
-    [workspace?.savedReplies],
-  );
-
-  const pinningSet = useMemo(() => new Set(pinningThreadIds), [pinningThreadIds]);
-
-  const inboxError = useMemo(() => threadsError ?? pinError, [threadsError, pinError]);
+  const inboxError = useMemo(() => threadsError ?? messagesError ?? null, [threadsError, messagesError]);
+  const loading = loadingThreads || messagesLoading;
 
   const handleRefresh = useCallback(() => {
-    refreshInbox();
+    refreshInbox({ silent: false });
   }, [refreshInbox]);
 
-  const handleSavedReplyUsed = useCallback(
-    (reply) => {
-      if (!reply) {
+  const handleSelectThread = useCallback(
+    (threadId) => {
+      if (!threadId) {
         return;
       }
-      analytics.track('messaging.saved_reply_used', {
-        surface: 'web_inbox',
-        threadId: selectedThreadId ?? null,
-        replyId: reply.id ?? null,
-        title: reply.title ?? null,
-      });
+      selectThread(threadId);
     },
-    [selectedThreadId],
+    [selectThread],
   );
 
-  const handleStartCall = useCallback(
-    (type) => {
-      analytics.track('messaging.start_call', {
-        surface: 'web_inbox',
-        threadId: selectedThreadId ?? null,
-        callType: type,
-      });
-      return startCall(type);
+  const handleSendMessage = useCallback(
+    async (threadId, body) => {
+      const text = typeof body === 'string' ? body.trim() : '';
+      if (!threadId || !text) {
+        return;
+      }
+      if (threadId !== selectedThreadId) {
+        selectThread(threadId);
+      }
+      await sendMessage(text);
     },
-    [selectedThreadId, startCall],
+    [selectThread, selectedThreadId, sendMessage],
   );
-
-  const handleJoinCall = useCallback(
-    (metadata) => {
-      analytics.track('messaging.join_call', {
-        surface: 'web_inbox',
-        threadId: selectedThreadId ?? null,
-        callId: metadata?.id ?? null,
-      });
-      return joinCall(metadata);
-    },
-    [joinCall, selectedThreadId],
-  );
-
-  const handleCloseCall = useCallback(() => {
-    analytics.track('messaging.leave_call', {
-      surface: 'web_inbox',
-      threadId: selectedThreadId ?? null,
-      callId: callSession?.callId ?? null,
-    });
-    closeCall();
-  }, [callSession?.callId, closeCall, selectedThreadId]);
 
   if (isAuthenticated && !hasMessagingAccess) {
     return (
@@ -241,24 +162,32 @@ export default function InboxPage() {
 
   return (
     <section className="relative overflow-hidden py-20">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.35),_transparent_65%)]" aria-hidden="true" />
+      <div
+        className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.35),_transparent_65%)]"
+        aria-hidden="true"
+      />
       <div className="absolute -left-12 bottom-6 h-72 w-72 rounded-full bg-emerald-200/40 blur-[120px]" aria-hidden="true" />
       <div className="relative mx-auto max-w-6xl px-6">
         <PageHeader
           eyebrow="Messaging"
           title="Centralised inbox"
-          description="Secure messaging, enterprise-grade calling, and approvals across every workspace."
+          description="Secure messaging, social-style conversations, and rapid approvals in one streamlined workspace."
           actions={
             <button
               type="button"
-              onClick={() => refreshInbox()}
+              onClick={handleRefresh}
               className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
             >
               <ChatBubbleLeftRightIcon className="h-4 w-4" /> Refresh inbox
             </button>
           }
+          meta={
+            <span className="text-xs font-medium uppercase tracking-[0.3em] text-slate-400">
+              {formatSyncedTimestamp(lastSyncedAt)}
+            </span>
+          }
         />
-        <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(280px,0.85fr),minmax(0,2fr)]">
+        <div className="mt-10 grid gap-6 lg:grid-cols-[minmax(280px,0.9fr),minmax(0,2.1fr)]">
           <aside className="space-y-4">
             <div className="rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
               <p className="text-sm font-semibold text-slate-800">{session?.name ?? 'Gigvora member'}</p>
@@ -276,41 +205,19 @@ export default function InboxPage() {
                 </div>
               ) : null}
             </div>
-            <MessagesInbox
-              actorId={actorId}
-              threads={threads}
-              loading={loadingThreads}
-              error={inboxError}
-              lastSyncedAt={lastSyncedAt}
-              onRefresh={handleRefresh}
-              onSelectThread={selectThread}
-              selectedThreadId={selectedThreadId}
-              onTogglePin={handleTogglePin}
-              pinningThreadIds={pinningSet}
-            />
           </aside>
-          <ConversationView
+          <MessagingWorkspace
             actorId={actorId}
-            thread={selectedThread}
+            threads={threads}
+            loading={loading}
+            error={inboxError}
+            selectedThreadId={selectedThreadId}
+            onSelectThread={handleSelectThread}
+            onSendMessage={handleSendMessage}
             messages={messages}
-            messagesLoading={messagesLoading}
-            messagesError={messagesError}
-            hasMoreHistory={hasMoreHistory}
-            onLoadOlder={loadOlderMessages}
-            typingParticipants={typingParticipants}
-            onStartCall={handleStartCall}
-            onJoinCall={handleJoinCall}
-            onCloseCall={handleCloseCall}
-            callSession={callSession}
-            callLoading={callLoading}
-            callError={callError}
+            sending={sending}
             composerValue={composer}
             onComposerChange={updateComposer}
-            onSendMessage={sendMessage}
-            sending={sending}
-            savedReplies={savedReplies}
-            savedRepliesLoading={workspaceLoading}
-            onSavedReplyUsed={handleSavedReplyUsed}
           />
         </div>
       </div>

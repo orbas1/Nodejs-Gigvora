@@ -31,6 +31,7 @@ import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
 import { formatMetricCurrency, formatMetricNumber, formatMetricPercent } from '../../utils/metrics.js';
 import { COMPANY_DASHBOARD_MENU_SECTIONS } from '../../constants/companyDashboardMenu.js';
 import TimelineManagementSection from '../../components/company/TimelineManagementSection.jsx';
+import DashboardInboxSection from '../../components/dashboard/messaging/DashboardInboxSection.jsx';
 
 const menuSections = COMPANY_DASHBOARD_MENU_SECTIONS;
 
@@ -1147,6 +1148,14 @@ export default function CompanyDashboardPage() {
               session={session}
             />
           </section>
+
+          <DashboardInboxSection
+            id="communications-inbox"
+            eyebrow="Messaging"
+            title="Messaging workspace"
+            description="Monitor stakeholder conversations, candidate escalations, and hiring approvals with the same LinkedIn-inspired inbox used across Gigvora dashboards."
+            statusLabel="Inbox telemetry"
+          />
 
           {sections.map((section) => (
             <section

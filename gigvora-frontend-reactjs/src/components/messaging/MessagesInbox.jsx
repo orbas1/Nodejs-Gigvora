@@ -1,1041 +1,223 @@
-import { useCallback, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import {
-  ArrowPathIcon,
-  CalendarDaysIcon,
-  BoltIcon,
-  ChartBarIcon,
-  ClockIcon,
-  ArrowTrendingUpIcon,
-  ArrowTrendingDownIcon,
-  EnvelopeOpenIcon,
-  FunnelIcon,
+  ChatBubbleLeftRightIcon,
+  InboxIcon,
+  StarIcon,
+  BellAlertIcon,
   MagnifyingGlassIcon,
-  UserGroupIcon,
 } from '@heroicons/react/24/outline';
-import { StarIcon as StarOutlineIcon } from '@heroicons/react/24/outline';
-import { StarIcon as StarSolidIcon } from '@heroicons/react/24/solid';
 import { classNames } from '../../utils/classNames.js';
-import {
-  buildThreadTitle,
-  describeLastActivity,
-  formatThreadParticipants,
-  isThreadUnread,
-} from '../../utils/messaging.js';
-import { formatRelativeTime } from '../../utils/date.js';
 
-function parseDate(value) {
+const FILTERS = [
+  { key: 'all', label: 'Inbox', icon: InboxIcon },
+  { key: 'unread', label: 'Unread', icon: BellAlertIcon },
+  { key: 'starred', label: 'Starred', icon: StarIcon },
+];
+
+function formatTimestamp(value) {
   if (!value) {
-    return null;
+    return '';
   }
+
   const date = value instanceof Date ? value : new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  const now = new Date();
+  const isSameDay =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+
+  if (isSameDay) {
+    return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
+
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-function describeResponseDue(thread) {
-  const dueAt =
-    parseDate(thread?.metadata?.nextResponseDueAt) ??
-    parseDate(thread?.supportCase?.nextResponseDueAt) ??
-    parseDate(thread?.sla?.nextResponseDueAt) ??
-    null;
-  if (!dueAt) {
-    if (thread?.metadata?.status === 'awaiting_response') {
-      return 'Awaiting response';
-    }
-    return null;
-  }
-  const now = Date.now();
-  if (dueAt.getTime() < now) {
-    return `Response overdue by ${formatRelativeTime(dueAt.toISOString())}`;
-  }
-  return `Respond within ${formatRelativeTime(dueAt.toISOString())}`;
-}
-
-function getSlaStatus(thread) {
-  const dueAt =
-    parseDate(thread?.metadata?.nextResponseDueAt) ??
-    parseDate(thread?.supportCase?.nextResponseDueAt) ??
-    parseDate(thread?.sla?.nextResponseDueAt) ??
-    null;
-  if (!dueAt) {
-    return { severity: null, dueAt: null };
-  }
-  const now = Date.now();
-  const diff = dueAt.getTime() - now;
-  if (diff <= 0) {
-    return { severity: 'overdue', dueAt };
-  }
-  const twoDays = 2 * 24 * 60 * 60 * 1000;
-  if (diff <= twoDays) {
-    return { severity: 'dueSoon', dueAt };
-  }
-  return { severity: null, dueAt };
-}
-
-function isAwaitingResponse(thread) {
-  if (!thread) {
-    return false;
-  }
-  const status = thread?.metadata?.status ?? thread?.status;
-  if (status && ['awaiting_response', 'needs_action', 'requires_follow_up'].includes(status)) {
-    return true;
-  }
-  if (thread?.metrics?.awaitingResponse) {
-    return true;
-  }
-  const dueAt =
-    parseDate(thread?.metadata?.nextResponseDueAt) ??
-    parseDate(thread?.supportCase?.nextResponseDueAt) ??
-    parseDate(thread?.sla?.nextResponseDueAt) ??
-    null;
-  return Boolean(dueAt && dueAt.getTime() <= Date.now());
-}
-
-function hasUpcomingTouchpoint(thread) {
-  const scheduledAt =
-    parseDate(thread?.metadata?.nextMeetingAt) ??
-    parseDate(thread?.metadata?.nextTouchpointAt) ??
-    parseDate(thread?.upcomingMeetingAt) ??
-    parseDate(thread?.supportCase?.nextMeetingAt) ??
-    null;
-  if (!scheduledAt) {
-    return false;
-  }
-  const now = Date.now();
-  const diff = scheduledAt.getTime() - now;
-  const twoWeeks = 14 * 24 * 60 * 60 * 1000;
-  return diff > 0 && diff <= twoWeeks;
-}
-
-function getDormancyDays(thread) {
-  const lastActivity =
-    parseDate(thread?.lastActivityAt) ??
-    parseDate(thread?.updatedAt) ??
-    parseDate(thread?.createdAt) ??
-    null;
-  if (!lastActivity) {
-    return null;
-  }
-  const now = Date.now();
-  const diff = now - lastActivity.getTime();
-  if (diff <= 0) {
-    return 0;
-  }
-  const day = 24 * 60 * 60 * 1000;
-  return Math.floor(diff / day);
-}
-
-function resolveEngagementTrend(thread) {
-  const current =
-    thread?.metrics?.engagementScore ??
-    thread?.metadata?.engagementScore ??
-    thread?.insights?.engagementScore ??
-    null;
-  const previous =
-    thread?.metrics?.previousEngagementScore ??
-    thread?.metadata?.previousEngagementScore ??
-    thread?.insights?.previousEngagementScore ??
-    null;
-  const numericTrend =
-    thread?.metrics?.engagementTrend ??
-    thread?.metadata?.engagementTrend ??
-    thread?.insights?.engagementTrend ??
-    null;
-
-  let delta = null;
-  if (Number.isFinite(current) && Number.isFinite(previous)) {
-    delta = Math.round(Number(current) - Number(previous));
-  } else if (Number.isFinite(numericTrend)) {
-    delta = Math.round(Number(numericTrend));
+function ThreadAvatar({ name, avatarUrl }) {
+  if (avatarUrl) {
+    return <img src={avatarUrl} alt="" className="h-12 w-12 flex-none rounded-full object-cover" />;
   }
 
-  if (delta !== null) {
-    if (delta >= 3) {
-      return { direction: 'up', delta };
-    }
-    if (delta <= -3) {
-      return { direction: 'down', delta };
-    }
-    return { direction: 'flat', delta };
-  }
-
-  if (typeof numericTrend === 'string') {
-    const normalised = numericTrend.toLowerCase();
-    if (normalised.includes('up') || normalised.includes('gain')) {
-      return { direction: 'up', delta: null };
-    }
-    if (normalised.includes('down') || normalised.includes('cool')) {
-      return { direction: 'down', delta: null };
-    }
-  }
-
-  if (typeof current === 'number' && !Number.isFinite(previous)) {
-    return { direction: 'flat', delta: null };
-  }
-
-  return null;
-}
-
-function getPriorityScore(thread) {
-  let score = 0;
-  if (thread?.pinned) {
-    score += 10;
-  }
-  const priority = thread?.supportCase?.priority ?? thread?.metadata?.priority ?? thread?.priority;
-  if (priority === 'urgent') {
-    score += 8;
-  } else if (priority === 'high') {
-    score += 6;
-  } else if (priority === 'medium') {
-    score += 2;
-  }
-  if (isAwaitingResponse(thread)) {
-    score += 5;
-  }
-  const slaStatus = getSlaStatus(thread);
-  if (slaStatus.severity === 'overdue') {
-    score += 6;
-  } else if (slaStatus.severity === 'dueSoon') {
-    score += 4;
-  }
-  const dormancyDays = getDormancyDays(thread);
-  if (Number.isFinite(dormancyDays) && dormancyDays >= 10) {
-    score += 2;
-  }
-  const trend = resolveEngagementTrend(thread);
-  if (trend?.direction === 'down') {
-    score += 3;
-  }
-  if (thread?.metrics?.unreadCount || thread?.unreadCount) {
-    score += 3;
-  }
-  if (thread?.supportCase && !['resolved', 'closed'].includes(thread?.supportCase?.status)) {
-    score += 2;
-  }
-  return score;
-}
-
-const CHANNEL_LABELS = {
-  direct: 'Direct',
-  support: 'Support',
-  project: 'Project',
-  contract: 'Contract',
-  group: 'Group',
-};
-
-const FOCUS_OPTIONS = [
-  { value: 'all', label: 'All threads' },
-  { value: 'awaiting_response', label: 'Needs reply' },
-  { value: 'due_soon', label: 'Due soon' },
-  { value: 'upcoming', label: 'Upcoming touchpoints' },
-  { value: 'escalated', label: 'Escalated' },
-  { value: 'dormant', label: 'Dormant' },
-];
-
-const SORT_OPTIONS = [
-  { value: 'recent', label: 'Recent' },
-  { value: 'priority', label: 'Priority' },
-  { value: 'oldest', label: 'Oldest' },
-];
-
-function resolveChannelLabel(channel) {
-  if (!channel) {
-    return CHANNEL_LABELS.direct;
-  }
-  return CHANNEL_LABELS[channel] ?? channel.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
-function normaliseChannelType(thread) {
-  return thread?.channelType ?? 'direct';
-}
-
-function normaliseLabels(thread) {
-  const labels = thread?.labels;
-  if (Array.isArray(labels)) {
-    return labels
-      .map((label) => {
-        if (!label) {
-          return null;
-        }
-        if (typeof label === 'string') {
-          return label;
-        }
-        if (typeof label === 'object') {
-          return label.name ?? label.slug ?? null;
-        }
-        return null;
-      })
-      .filter(Boolean);
-  }
-  if (labels && typeof labels === 'object') {
-    return Object.entries(labels)
-      .filter(([, value]) => Boolean(value))
-      .map(([key]) => key);
-  }
-  if (Array.isArray(thread?.tags)) {
-    return thread.tags.filter(Boolean);
-  }
-  return [];
-}
-
-function StatSummary({ icon: Icon, label, helper, value }) {
-  return (
-    <div className="rounded-3xl border border-slate-200 bg-white/80 px-4 py-3 shadow-sm">
-      <div className="flex items-center gap-3">
-        <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-accent/10 text-accent">
-          <Icon className="h-4 w-4" />
-        </span>
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-          <p className="text-lg font-semibold text-slate-900">{value}</p>
-          {helper ? <p className="text-[11px] text-slate-400">{helper}</p> : null}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-StatSummary.propTypes = {
-  icon: PropTypes.elementType.isRequired,
-  label: PropTypes.string.isRequired,
-  helper: PropTypes.string,
-  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-};
-
-StatSummary.defaultProps = {
-  helper: null,
-};
-
-export function ThreadPreviewCard({
-  thread,
-  actorId,
-  active,
-  onSelect,
-  onTogglePin,
-  pinning,
-}) {
-  const title = buildThreadTitle(thread, actorId);
-  const participants = formatThreadParticipants(thread, actorId);
-  const unread = isThreadUnread(thread);
-  const lastActivity = describeLastActivity(thread);
-  const channel = resolveChannelLabel(normaliseChannelType(thread));
-  const labels = normaliseLabels(thread);
-  const awaitingResponse = isAwaitingResponse(thread);
-  const responseDue = describeResponseDue(thread);
-  const upcomingTouchpoint = hasUpcomingTouchpoint(thread);
-  const slaStatus = getSlaStatus(thread);
-  const stage = thread?.metadata?.pipelineStage ?? thread?.metadata?.dealStage ?? null;
-  const relationshipTier = thread?.metadata?.relationshipTier ?? thread?.metadata?.accountTier ?? null;
-  const estimatedValue = thread?.metadata?.dealValue ?? thread?.dealValue ?? null;
-  const dormancyDays = getDormancyDays(thread);
-  const isDormant = Number.isFinite(dormancyDays) && dormancyDays >= 10;
-  const engagementTrend = resolveEngagementTrend(thread);
-  const progressPercent = (() => {
-    const raw =
-      thread?.metrics?.progressPercent ??
-      thread?.metadata?.progressPercent ??
-      thread?.progressPercent ??
-      null;
-    if (!Number.isFinite(raw)) {
-      return null;
-    }
-    return Math.max(0, Math.min(100, Math.round(Number(raw))));
-  })();
-  const hasOpenEscalation = Boolean(
-    thread?.supportCase && !['resolved', 'closed'].includes(thread.supportCase.status),
-  );
-  const unreadCount = typeof thread?.unreadCount === 'number' ? thread.unreadCount : unread ? 1 : 0;
-  const slaBadgeLabel = (() => {
-    if (slaStatus.severity === 'overdue') {
-      return `Overdue ${formatRelativeTime(slaStatus.dueAt)}`;
-    }
-    if (slaStatus.severity === 'dueSoon') {
-      return `Due ${formatRelativeTime(slaStatus.dueAt)}`;
-    }
-    return null;
-  })();
-  const dormancyLabel = isDormant ? `${dormancyDays} days idle` : null;
-  const trendDescriptor = (() => {
-    if (!engagementTrend || engagementTrend.direction === 'flat') {
-      return null;
-    }
-    const directionLabel = engagementTrend.direction === 'up' ? 'Momentum rising' : 'Momentum cooling';
-    if (typeof engagementTrend.delta === 'number' && engagementTrend.delta !== 0) {
-      const signed = engagementTrend.delta > 0 ? `+${engagementTrend.delta}` : `${engagementTrend.delta}`;
-      return `${directionLabel} ${signed}`;
-    }
-    return directionLabel;
-  })();
-  const TrendIcon = engagementTrend?.direction === 'down' ? ArrowTrendingDownIcon : ArrowTrendingUpIcon;
-  const trendTone =
-    engagementTrend?.direction === 'down'
-      ? 'bg-amber-50 text-amber-600'
-      : 'bg-emerald-50 text-emerald-600';
-
-  const formattedValue = useMemo(() => {
-    if (!Number.isFinite(estimatedValue)) {
-      return null;
-    }
-    const currency = thread?.metadata?.currency ?? 'USD';
-    try {
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency,
-        maximumFractionDigits: 0,
-      }).format(estimatedValue);
-    } catch (error) {
-      return `$${Math.round(Number(estimatedValue)).toLocaleString()}`;
-    }
-  }, [estimatedValue, thread?.metadata?.currency]);
-
-  const handleSelect = useCallback(() => {
-    if (thread?.id && onSelect) {
-      onSelect(thread.id);
-    }
-  }, [onSelect, thread?.id]);
-
-  const handleKeyDown = useCallback(
-    (event) => {
-      if ((event.key === 'Enter' || event.key === ' ') && !pinning) {
-        event.preventDefault();
-        handleSelect();
-      }
-    },
-    [handleSelect, pinning],
-  );
-
-  const togglePin = useCallback(
-    (event) => {
-      event.stopPropagation();
-      if (!onTogglePin || !thread?.id || pinning) {
-        return;
-      }
-      onTogglePin(thread, !thread.pinned);
-    },
-    [onTogglePin, pinning, thread],
-  );
+  const initials = name
+    ?.split(' ')
+    .filter(Boolean)
+    .map((part) => part[0]?.toUpperCase())
+    .slice(0, 2)
+    .join('');
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={handleSelect}
-      onKeyDown={handleKeyDown}
-      className={classNames(
-        'group relative w-full rounded-3xl border px-5 py-4 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
-        active
-          ? 'border-accent bg-accentSoft shadow-soft'
-          : unread
-            ? 'border-slate-200 bg-white shadow-sm hover:border-accent/70 hover:shadow-soft'
-            : 'border-slate-200 bg-white hover:border-accent/60',
-        pinning ? 'cursor-wait opacity-70' : 'cursor-pointer',
-      )}
-      aria-pressed={active}
-      aria-label={`Open conversation ${title}`}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 space-y-1.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm font-semibold text-slate-900 group-hover:text-accent">{title}</p>
-            <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-              {channel}
-            </span>
-            {hasOpenEscalation ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
-                <BoltIcon className="h-3.5 w-3.5" /> Escalated
-              </span>
-            ) : null}
-            {thread?.pinned ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
-                <StarSolidIcon className="h-3.5 w-3.5" /> Pinned
-              </span>
-            ) : null}
+    <span className="flex h-12 w-12 flex-none items-center justify-center rounded-full bg-slate-200 text-sm font-semibold text-slate-700">
+      {initials || 'GV'}
+    </span>
+  );
+}
+
+ThreadAvatar.propTypes = {
+  name: PropTypes.string,
+  avatarUrl: PropTypes.string,
+};
+
+ThreadAvatar.defaultProps = {
+  name: '',
+  avatarUrl: null,
+};
+
+export function ThreadPreviewCard({ thread, active, onSelect }) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => onSelect?.(thread.id)}
+        className={classNames(
+          'flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left transition',
+          active ? 'bg-white shadow-sm ring-1 ring-accent/40' : 'hover:bg-white/70',
+        )}
+        aria-pressed={active}
+        aria-label={thread.title ? `Open conversation with ${thread.title}` : 'Open conversation'}
+        data-testid={`thread-${thread.id}`}
+      >
+        <ThreadAvatar name={thread.title} avatarUrl={thread.avatarUrl} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start gap-2">
+            <div className="flex flex-1 items-center gap-2">
+              <p className={classNames('truncate text-sm font-semibold', thread.unread ? 'text-slate-900' : 'text-slate-700')}>
+                {thread.title}
+              </p>
+              {thread.unread ? <span className="h-2.5 w-2.5 flex-none rounded-full bg-accent" aria-hidden="true" /> : null}
+            </div>
+            <span className="text-xs font-medium text-slate-400">{formatTimestamp(thread.lastActivityAt)}</span>
           </div>
-          {participants.length ? (
-            <p className="text-xs text-slate-500">{participants.join(', ')}</p>
-          ) : null}
-          {(stage || relationshipTier || formattedValue) && (
-            <div className="flex flex-wrap gap-2 pt-1 text-[11px] text-slate-500">
-              {stage ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 font-semibold uppercase tracking-wide">
-                  {stage}
-                </span>
-              ) : null}
-              {relationshipTier ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-semibold uppercase tracking-wide text-emerald-600">
-                  {relationshipTier}
-                </span>
-              ) : null}
-              {formattedValue ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 font-semibold uppercase tracking-wide text-amber-600">
-                  {formattedValue}
-                </span>
-              ) : null}
-            </div>
-          )}
-          {thread?.lastMessagePreview ? (
-            <p className="text-sm text-slate-600 line-clamp-2">{thread.lastMessagePreview}</p>
-          ) : null}
-          {(awaitingResponse || upcomingTouchpoint || responseDue || slaBadgeLabel || dormancyLabel) && (
-            <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-slate-500">
-              {awaitingResponse ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 font-semibold uppercase tracking-wide text-rose-600">
-                  Needs response
-                </span>
-              ) : null}
-              {upcomingTouchpoint ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 font-semibold uppercase tracking-wide text-sky-600">
-                  Touchpoint scheduled
-                </span>
-              ) : null}
-              {slaBadgeLabel ? (
-                <span
-                  className={classNames(
-                    'inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold uppercase tracking-wide',
-                    slaStatus.severity === 'overdue'
-                      ? 'bg-rose-50 text-rose-600'
-                      : 'bg-amber-50 text-amber-600',
-                  )}
-                >
-                  <ClockIcon className="h-3.5 w-3.5" /> {slaBadgeLabel}
-                </span>
-              ) : null}
-              {dormancyLabel ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 font-semibold uppercase tracking-wide text-slate-500">
-                  <ArrowTrendingDownIcon className="h-3.5 w-3.5" /> {dormancyLabel}
-                </span>
-              ) : null}
-              {responseDue ? <span className="text-[11px] text-slate-400">{responseDue}</span> : null}
-            </div>
-          )}
-          {trendDescriptor ? (
-            <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-slate-500">
-              <span className={classNames('inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold uppercase tracking-wide', trendTone)}>
-                <TrendIcon className="h-3.5 w-3.5" /> {trendDescriptor}
-              </span>
-            </div>
-          ) : null}
-          {labels.length ? (
-            <div className="flex flex-wrap gap-1 pt-1">
-              {labels.slice(0, 4).map((label) => (
-                <span
-                  key={label}
-                  className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700"
-                >
-                  {label}
-                </span>
-              ))}
-              {labels.length > 4 ? (
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                  +{labels.length - 4}
-                </span>
-              ) : null}
-            </div>
-          ) : null}
-          {Number.isFinite(progressPercent) ? (
-            <div className="pt-1">
-              <div className="flex items-center justify-between text-[11px] text-slate-400">
-                <span>Momentum</span>
-                <span>{progressPercent}%</span>
-              </div>
-              <div className="mt-1 h-1.5 rounded-full bg-slate-100">
-                <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${progressPercent}%` }} />
-              </div>
-            </div>
-          ) : null}
+          {thread.meta ? <p className="mt-0.5 text-[11px] uppercase tracking-wide text-slate-400">{thread.meta}</p> : null}
+          <p
+            className={classNames(
+              'mt-1 line-clamp-2 text-sm leading-5',
+              thread.unread ? 'font-medium text-slate-900' : 'text-slate-500',
+            )}
+          >
+            {thread.preview}
+          </p>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <span className="text-xs text-slate-400">{lastActivity}</span>
-          <div className="flex items-center gap-2">
-            {unreadCount > 0 ? (
-              <span className="inline-flex min-w-[1.75rem] justify-center rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-                {unreadCount}
-              </span>
-            ) : null}
-            {onTogglePin ? (
-              <button
-                type="button"
-                aria-label={thread?.pinned ? `Unpin ${title}` : `Pin ${title}`}
-                className={classNames(
-                  'rounded-full border px-2 py-1 text-slate-500 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
-                  thread?.pinned
-                    ? 'border-amber-400 bg-amber-100 text-amber-700 hover:bg-amber-200'
-                    : 'border-slate-200 bg-white hover:border-accent/60 hover:text-accent',
-                  pinning ? 'cursor-wait opacity-70' : '',
-                )}
-                onClick={togglePin}
-                disabled={pinning}
-              >
-                {thread?.pinned ? <StarSolidIcon className="h-4 w-4" /> : <StarOutlineIcon className="h-4 w-4" />}
-              </button>
-            ) : null}
-          </div>
-        </div>
-      </div>
-    </div>
+      </button>
+    </li>
   );
 }
 
 ThreadPreviewCard.propTypes = {
   thread: PropTypes.shape({
-    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-    pinned: PropTypes.bool,
-    priority: PropTypes.string,
-    state: PropTypes.string,
-    channelType: PropTypes.string,
-    unreadCount: PropTypes.number,
-    lastMessagePreview: PropTypes.string,
-    labels: PropTypes.oneOfType([PropTypes.array, PropTypes.object]),
-    tags: PropTypes.array,
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    title: PropTypes.string,
+    preview: PropTypes.string,
+    lastActivityAt: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.instanceOf(Date)]),
+    avatarUrl: PropTypes.string,
+    unread: PropTypes.bool,
+    meta: PropTypes.string,
+    participants: PropTypes.arrayOf(PropTypes.string),
   }).isRequired,
-  actorId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   active: PropTypes.bool,
   onSelect: PropTypes.func,
-  onTogglePin: PropTypes.func,
-  pinning: PropTypes.bool,
 };
 
 ThreadPreviewCard.defaultProps = {
-  actorId: null,
   active: false,
-  onSelect: null,
-  onTogglePin: null,
-  pinning: false,
+  onSelect: undefined,
 };
 
 export default function MessagesInbox({
-  actorId,
   threads,
-  loading,
-  error,
-  lastSyncedAt,
-  onRefresh,
-  onSelectThread,
   selectedThreadId,
-  onTogglePin,
-  pinningThreadIds,
+  onSelectThread,
+  filter,
+  onFilterChange,
+  searchTerm,
+  onSearchChange,
 }) {
-  const [query, setQuery] = useState('');
-  const [channelFilter, setChannelFilter] = useState(() => new Set());
-  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
-  const [showPinnedOnly, setShowPinnedOnly] = useState(false);
-  const [focusMode, setFocusMode] = useState('all');
-  const [sortMode, setSortMode] = useState('recent');
-
-  const pinningSet = useMemo(() => {
-    if (pinningThreadIds instanceof Set) {
-      return pinningThreadIds;
-    }
-    if (Array.isArray(pinningThreadIds)) {
-      return new Set(pinningThreadIds);
-    }
-    return new Set();
-  }, [pinningThreadIds]);
-
-  const metrics = useMemo(() => {
-    const total = threads.length;
-    const pinned = threads.filter((thread) => thread?.pinned).length;
-    const unread = threads.filter((thread) => isThreadUnread(thread)).length;
-    const escalated = threads.filter((thread) => {
-      const supportCase = thread?.supportCase;
-      if (!supportCase) {
-        return false;
-      }
-      const status = supportCase.status ?? null;
-      if (status && ['resolved', 'closed'].includes(status)) {
-        return false;
-      }
-      const priority = supportCase.priority ?? thread?.metadata?.priority;
-      return priority === 'high' || priority === 'urgent' || status === 'waiting_on_customer';
-    }).length;
-    const awaiting = threads.filter((thread) => isAwaitingResponse(thread)).length;
-    const upcoming = threads.filter((thread) => hasUpcomingTouchpoint(thread)).length;
-    const dueSoon = threads.filter((thread) => {
-      const status = getSlaStatus(thread);
-      return status.severity === 'dueSoon' || status.severity === 'overdue';
-    }).length;
-    const dormant = threads.filter((thread) => {
-      const days = getDormancyDays(thread);
-      return Number.isFinite(days) && days >= 10;
-    }).length;
-    const collaborators = new Set();
-    threads.forEach((thread) => {
-      thread?.participants?.forEach((participant) => {
-        if (participant?.userId) {
-          collaborators.add(participant.userId);
-        }
-      });
-    });
-    const responseDurations = threads
-      .map((thread) => {
-        if (Number.isFinite(thread?.metrics?.avgResponseMinutes)) {
-          return Number(thread.metrics.avgResponseMinutes);
-        }
-        if (Number.isFinite(thread?.metadata?.avgResponseMinutes)) {
-          return Number(thread.metadata.avgResponseMinutes);
-        }
-        const supportCase = thread?.supportCase;
-        if (Number.isFinite(supportCase?.metadata?.avgResponseMinutes)) {
-          return Number(supportCase.metadata.avgResponseMinutes);
-        }
-        return null;
-      })
-      .filter((value) => Number.isFinite(value) && value > 0);
-    const avgResponse =
-      responseDurations.length > 0
-        ? Math.round(responseDurations.reduce((sum, value) => sum + value, 0) / responseDurations.length)
-        : null;
-    return {
-      total,
-      pinned,
-      unread,
-      escalated,
-      awaiting,
-      upcoming,
-      dueSoon,
-      dormant,
-      collaborators: collaborators.size,
-      avgResponse,
-    };
-  }, [threads]);
-
-  const channelCatalog = useMemo(() => {
-    const catalog = new Map();
-    threads.forEach((thread) => {
-      const channel = normaliseChannelType(thread);
-      catalog.set(channel, (catalog.get(channel) ?? 0) + 1);
-    });
-    return Array.from(catalog.entries())
-      .map(([channel, count]) => ({ channel, count, label: resolveChannelLabel(channel) }))
-      .sort((a, b) => b.count - a.count);
-  }, [threads]);
-
-  const filteredThreads = useMemo(() => {
-    const lowerQuery = query.trim().toLowerCase();
-    const base = threads.filter((thread) => {
-      if (showPinnedOnly && !thread?.pinned) {
-        return false;
-      }
-      if (showUnreadOnly && !isThreadUnread(thread)) {
-        return false;
-      }
-      if (focusMode === 'awaiting_response' && !isAwaitingResponse(thread)) {
-        return false;
-      }
-      if (focusMode === 'due_soon') {
-        const status = getSlaStatus(thread);
-        if (status.severity !== 'dueSoon' && status.severity !== 'overdue') {
-          return false;
-        }
-      }
-      if (focusMode === 'upcoming' && !hasUpcomingTouchpoint(thread)) {
-        return false;
-      }
-      if (focusMode === 'escalated') {
-        const supportCase = thread?.supportCase;
-        if (!(supportCase && !['resolved', 'closed'].includes(supportCase.status))) {
-          return false;
-        }
-      }
-      if (focusMode === 'dormant') {
-        const days = getDormancyDays(thread);
-        if (!(Number.isFinite(days) && days >= 10)) {
-          return false;
-        }
-      }
-      if (channelFilter.size) {
-        const channel = normaliseChannelType(thread);
-        if (!channelFilter.has(channel)) {
-          return false;
-        }
-      }
-      if (!lowerQuery) {
-        return true;
-      }
-      const subject = thread?.subject?.toLowerCase() ?? '';
-      if (subject.includes(lowerQuery)) {
-        return true;
-      }
-      const preview = thread?.lastMessagePreview?.toLowerCase() ?? '';
-      if (preview.includes(lowerQuery)) {
-        return true;
-      }
-      const participants = formatThreadParticipants(thread, actorId).join(' ').toLowerCase();
-      if (participants.includes(lowerQuery)) {
-        return true;
-      }
-      const labels = normaliseLabels(thread)
-        .map((label) => `${label}`.toLowerCase())
-        .join(' ');
-      return labels.includes(lowerQuery);
-    });
-
-    const sorted = [...base];
-    if (sortMode === 'priority') {
-      sorted.sort((a, b) => getPriorityScore(b) - getPriorityScore(a));
-    } else if (sortMode === 'oldest') {
-      sorted.sort((a, b) => {
-        const aTime = parseDate(a?.lastActivityAt ?? a?.updatedAt ?? a?.createdAt)?.getTime() ?? 0;
-        const bTime = parseDate(b?.lastActivityAt ?? b?.updatedAt ?? b?.createdAt)?.getTime() ?? 0;
-        return aTime - bTime;
-      });
-    } else {
-      sorted.sort((a, b) => {
-        const aTime = parseDate(a?.lastActivityAt ?? a?.updatedAt ?? a?.createdAt)?.getTime() ?? 0;
-        const bTime = parseDate(b?.lastActivityAt ?? b?.updatedAt ?? b?.createdAt)?.getTime() ?? 0;
-        return bTime - aTime;
-      });
-    }
-    return sorted;
-  }, [actorId, channelFilter, focusMode, query, showPinnedOnly, showUnreadOnly, sortMode, threads]);
-
-  const pinnedThreads = useMemo(
-    () => filteredThreads.filter((thread) => thread?.pinned),
-    [filteredThreads],
-  );
-  const regularThreads = useMemo(
-    () => filteredThreads.filter((thread) => !thread?.pinned),
-    [filteredThreads],
-  );
-
-  const handleChannelToggle = useCallback((channel) => {
-    setChannelFilter((current) => {
-      const next = new Set(current);
-      if (next.has(channel)) {
-        next.delete(channel);
-      } else {
-        next.add(channel);
-      }
-      return next;
-    });
-  }, []);
-
   return (
-    <div className="space-y-4 rounded-3xl border border-slate-200 bg-white/80 p-5 shadow-soft backdrop-blur">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-slate-900">Inbox intelligence</p>
-          <p className="text-xs text-slate-500">
-            Curated threads, premium filters, and instant visibility into what needs your voice.
-          </p>
+    <div className="flex h-full flex-col rounded-3xl border border-slate-200 bg-slate-50/80">
+      <header className="border-b border-slate-200 px-5 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
+              <ChatBubbleLeftRightIcon className="h-4 w-4" />
+              Messaging
+            </p>
+            <h2 className="mt-2 text-xl font-semibold text-slate-900">Inbox</h2>
+          </div>
         </div>
-        <div className="flex items-center gap-2 text-[11px] text-slate-400">
-          {lastSyncedAt ? <span>Synced {formatRelativeTime(lastSyncedAt)}</span> : null}
-          <button
-            type="button"
-            onClick={onRefresh}
-            className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 font-semibold text-slate-500 transition hover:border-accent/60 hover:text-accent"
-            disabled={loading}
-          >
-            <ArrowPathIcon className={classNames('h-4 w-4', loading ? 'animate-spin' : '')} /> Sync
-          </button>
-        </div>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        <StatSummary icon={ChartBarIcon} label="Total conversations" value={metrics.total} helper={`${metrics.collaborators} collaborators`} />
-        <StatSummary icon={EnvelopeOpenIcon} label="Unread" value={metrics.unread} helper={metrics.unread ? 'Prioritise follow-ups' : 'All threads are read'} />
-        <StatSummary icon={StarOutlineIcon} label="Pinned" value={metrics.pinned} helper="Keep partners front and centre" />
-        <StatSummary icon={BoltIcon} label="Escalations" value={metrics.escalated} helper={metrics.avgResponse ? `Avg response ${metrics.avgResponse}m` : 'No active escalations'} />
-        <StatSummary icon={ArrowPathIcon} label="Awaiting reply" value={metrics.awaiting} helper={metrics.awaiting ? 'Focus your next response' : 'Everyone is up to speed'} />
-        <StatSummary icon={ClockIcon} label="Due soon" value={metrics.dueSoon} helper={metrics.dueSoon ? 'Respond within 48 hours' : 'No looming deadlines'} />
-        <StatSummary icon={CalendarDaysIcon} label="Upcoming touchpoints" value={metrics.upcoming} helper={metrics.upcoming ? 'Prep for planned sessions' : 'No upcoming meetings'} />
-        <StatSummary icon={ArrowTrendingDownIcon} label="Dormant" value={metrics.dormant} helper={metrics.dormant ? 'Reignite stalled threads' : 'All threads engaged'} />
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[14rem]">
-          <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <label className="mt-4 flex items-center gap-2 rounded-2xl bg-white px-3 py-2 shadow-inner" htmlFor="inbox-search">
+          <MagnifyingGlassIcon className="h-5 w-5 text-slate-400" />
           <input
+            id="inbox-search"
             type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search by name, topic, or label"
-            className="w-full rounded-full border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm text-slate-700 transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+            placeholder="Search messages"
+            value={searchTerm}
+            onChange={(event) => onSearchChange?.(event.target.value)}
+            className="w-full border-none bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
           />
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowUnreadOnly((value) => !value)}
-          className={classNames(
-            'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition',
-            showUnreadOnly
-              ? 'border-accent bg-accent text-white shadow-soft'
-              : 'border-slate-200 bg-white text-slate-600 hover:border-accent/60 hover:text-accent',
-          )}
-        >
-          <EnvelopeOpenIcon className="h-4 w-4" /> Unread
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowPinnedOnly((value) => !value)}
-          className={classNames(
-            'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition',
-            showPinnedOnly
-              ? 'border-amber-400 bg-amber-100 text-amber-700 shadow-soft'
-              : 'border-slate-200 bg-white text-slate-600 hover:border-amber-400/70 hover:text-amber-600',
-          )}
-        >
-          <StarOutlineIcon className="h-4 w-4" /> Pinned
-        </button>
-        <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-          <UserGroupIcon className="h-4 w-4" /> {metrics.collaborators} collaborators
-        </span>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
-        <span className="font-semibold uppercase tracking-wide text-slate-400">Focus</span>
-        {FOCUS_OPTIONS.map((option) => {
-          const active = focusMode === option.value;
-          return (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => setFocusMode(option.value)}
-              className={classNames(
-                'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition',
-                active
-                  ? 'border-accent bg-accent text-white shadow-soft'
-                  : 'border-slate-200 bg-white text-slate-600 hover:border-accent/60 hover:text-accent',
-              )}
-            >
-              {option.label}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
-        <span className="font-semibold uppercase tracking-wide text-slate-400">Sort</span>
-        <div className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white p-1">
-          {SORT_OPTIONS.map((option) => {
-            const active = sortMode === option.value;
+        </label>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {FILTERS.map((item) => {
+            const Icon = item.icon;
+            const isActive = filter === item.key;
             return (
               <button
-                key={option.value}
+                key={item.key}
                 type="button"
-                onClick={() => setSortMode(option.value)}
+                onClick={() => onFilterChange?.(item.key)}
                 className={classNames(
-                  'rounded-full px-3 py-1 text-xs font-semibold transition',
-                  active
-                    ? 'bg-accent text-white shadow-soft'
-                    : 'text-slate-500 hover:text-accent',
+                  'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition',
+                  isActive ? 'bg-slate-900 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-white/70',
                 )}
+                aria-pressed={isActive}
               >
-                {option.label}
+                <Icon className="h-4 w-4" />
+                {item.label}
               </button>
             );
           })}
         </div>
-      </div>
-
-      {channelCatalog.length ? (
-        <div className="flex flex-wrap gap-2">
-          {channelCatalog.map((channel) => {
-            const active = channelFilter.has(channel.channel);
-            return (
-              <button
-                key={channel.channel}
-                type="button"
-                onClick={() => handleChannelToggle(channel.channel)}
-                className={classNames(
-                  'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition',
-                  active
-                    ? 'border-accent bg-accent text-white shadow-soft'
-                    : 'border-slate-200 bg-white text-slate-600 hover:border-accent/60 hover:text-accent',
-                )}
-              >
-                <FunnelIcon className="h-4 w-4" />
-                <span>{channel.label}</span>
-                <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
-                  {channel.count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-
-      {error ? (
-        <p className="rounded-3xl bg-rose-50 px-4 py-3 text-xs text-rose-600" role="alert">
-          {error}
-        </p>
-      ) : null}
-
-      {loading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="h-20 rounded-3xl bg-slate-100" />
-          ))}
-        </div>
-      ) : filteredThreads.length ? (
-        <div className="space-y-4">
-          {pinnedThreads.length ? (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between px-1">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Pinned</p>
-                <span className="text-[11px] text-slate-400">{pinnedThreads.length} conversations</span>
-              </div>
-              <div className="space-y-3">
-                {pinnedThreads.map((thread) => (
-                  <ThreadPreviewCard
-                    key={thread.id}
-                    thread={thread}
-                    actorId={actorId}
-                    active={selectedThreadId === thread?.id}
-                    onSelect={onSelectThread}
-                    onTogglePin={onTogglePin}
-                    pinning={pinningSet.has(thread?.id)}
-                  />
-                ))}
-              </div>
-            </div>
-          ) : null}
-          <div className="space-y-3">
-            {regularThreads.map((thread) => (
+      </header>
+      <div className="flex-1 overflow-y-auto px-2 py-3">
+        {threads.length === 0 ? (
+          <p className="px-3 py-10 text-center text-sm text-slate-500">No conversations found.</p>
+        ) : (
+          <ul className="space-y-1" role="list">
+            {threads.map((thread) => (
               <ThreadPreviewCard
                 key={thread.id}
                 thread={thread}
-                actorId={actorId}
-                active={selectedThreadId === thread?.id}
+                active={`${thread.id}` === `${selectedThreadId}`}
                 onSelect={onSelectThread}
-                onTogglePin={onTogglePin}
-                pinning={pinningSet.has(thread?.id)}
               />
             ))}
-          </div>
-        </div>
-      ) : (
-        <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
-          No conversations match your filters yet. Reset filters or invite partners to kickstart collaboration.
-        </div>
-      )}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
 
 MessagesInbox.propTypes = {
-  actorId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-  threads: PropTypes.arrayOf(PropTypes.object),
-  loading: PropTypes.bool,
-  error: PropTypes.string,
-  lastSyncedAt: PropTypes.string,
-  onRefresh: PropTypes.func,
-  onSelectThread: PropTypes.func,
+  threads: PropTypes.arrayOf(ThreadPreviewCard.propTypes.thread),
   selectedThreadId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-  onTogglePin: PropTypes.func,
-  pinningThreadIds: PropTypes.oneOfType([PropTypes.instanceOf(Set), PropTypes.array]),
+  onSelectThread: PropTypes.func,
+  filter: PropTypes.oneOf(FILTERS.map((item) => item.key)),
+  onFilterChange: PropTypes.func,
+  searchTerm: PropTypes.string,
+  onSearchChange: PropTypes.func,
 };
 
 MessagesInbox.defaultProps = {
-  actorId: null,
   threads: [],
-  loading: false,
-  error: null,
-  lastSyncedAt: null,
-  onRefresh: () => {},
-  onSelectThread: () => {},
   selectedThreadId: null,
-  onTogglePin: null,
-  pinningThreadIds: undefined,
+  onSelectThread: undefined,
+  filter: 'all',
+  onFilterChange: undefined,
+  searchTerm: '',
+  onSearchChange: undefined,
 };
+
+export { FILTERS as INBOX_FILTERS };

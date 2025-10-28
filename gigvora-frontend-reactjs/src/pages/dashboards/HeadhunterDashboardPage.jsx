@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
+import DashboardInboxSection from '../../components/dashboard/messaging/DashboardInboxSection.jsx';
 import useSession from '../../hooks/useSession.js';
 
 const INSIGHTS = [
@@ -50,6 +51,16 @@ const AVAILABLE_DASHBOARDS = [
   { id: 'agency', label: 'Agency', href: '/dashboard/agency' },
 ];
 
+const MENU_SECTIONS = [
+  {
+    label: 'Workspace',
+    items: [
+      { id: 'headhunter-overview', name: 'Overview', sectionId: 'headhunter-overview' },
+      { id: 'headhunter-inbox', name: 'Inbox', sectionId: 'headhunter-inbox', href: '/inbox' },
+    ],
+  },
+];
+
 export default function HeadhunterDashboardPage() {
   const { session } = useSession();
   const displayName = session?.name || session?.firstName || 'Headhunter';
@@ -61,11 +72,11 @@ export default function HeadhunterDashboardPage() {
         title="Headhunter HQ"
         subtitle="Mandates & relationships"
         description="Monitor outreach momentum, upcoming interviews, and placement health in one workspace."
-        menuSections={[]}
+        menuSections={MENU_SECTIONS}
         availableDashboards={AVAILABLE_DASHBOARDS}
       >
         <div className="mx-auto max-w-6xl space-y-12 px-4 py-12 sm:px-6 lg:px-8">
-          <header className="space-y-4 border-b border-slate-200 pb-8">
+          <section id="headhunter-overview" className="space-y-4 border-b border-slate-200 pb-8">
             <div>
               <p className="text-sm uppercase tracking-[0.4em] text-slate-500">Headhunter HQ</p>
               <h1 className="mt-2 text-3xl font-semibold text-slate-900">Good morning, {displayName}</h1>
@@ -85,7 +96,7 @@ export default function HeadhunterDashboardPage() {
                 </div>
               ))}
             </div>
-          </header>
+          </section>
 
           <section className="grid gap-8 lg:grid-cols-[1.2fr_1fr]">
             <div className="space-y-6">
@@ -153,6 +164,14 @@ export default function HeadhunterDashboardPage() {
               </div>
             </aside>
           </section>
+
+          <DashboardInboxSection
+            id="headhunter-inbox"
+            eyebrow="Messaging"
+            title="Unified inbox"
+            description="Respond to clients and candidates without leaving your HQ. The messaging workspace mirrors the floating dock for a seamless experience."
+            statusLabel="Inbox status"
+          />
         </div>
       </DashboardLayout>
     </DashboardAccessGuard>

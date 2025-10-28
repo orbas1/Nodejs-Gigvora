@@ -40,6 +40,14 @@ user_experience.md
    8. Smoothed the feed shell with a tidier two-row header that separates logo/search/actions from navigation chips, preventing the top bar from feeling congested even on dense workstations.
 
 15. Collaboration & Workspaces
+15.A. Messaging & Inbox Surfaces ✅
+   1. Refined `MessagesInbox` so every thread preview ships with accessible labels, deterministic test identifiers, and reusable `ThreadPreviewCard` exports that mirror the floating dock semantics.【F:gigvora-frontend-reactjs/src/components/messaging/MessagesInbox.jsx†L1-L215】
+   2. Reworked `MessagingWorkspace` to normalise thread metadata with shared messaging utilities, honour controlled composer state from the realtime context, and surface loading or error overlays alongside optimistic echoes.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingWorkspace.jsx†L1-L219】
+   3. Rebuilt the standalone `InboxPage` around the shared workspace, aligning copy, membership guidance, and synced status with the floating bubble experience while exposing the modern layout to primary navigation routes.【F:gigvora-frontend-reactjs/src/pages/InboxPage.jsx†L1-L220】
+   4. Updated messaging component specs to target the new accessibility hooks and thread selectors, keeping search, filter, and send flows locked against the refreshed surface.【F:gigvora-frontend-reactjs/src/components/messaging/__tests__/MessagingComponents.test.jsx†L1-L162】
+   5. Adjusted the group utility regression to consume the exported `ThreadCard` signature, ensuring helper coverage still exercises unread affordances after the workspace realignment.【F:gigvora-frontend-reactjs/src/pages/__tests__/Group103Pages.test.jsx†L456-L486】
+   6. Introduced a reusable `DashboardInboxSection` bound to the messaging context so admin, company, user, headhunter, and mentor dashboards surface the shared workspace with consistent actions and membership gating.【F:gigvora-frontend-reactjs/src/components/dashboard/messaging/DashboardInboxSection.jsx†L1-L200】
+   7. Trimmed the header inbox preview to hydrate only the four freshest threads, mirroring the workspace cards while keeping the dropdown focused across breakpoints.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L201-L236】
 15.C. Collaboration & Kanban Workspaces ✅
    1. Normalised the kanban snapshot query to hydrate collaborator avatars, last-activity timestamps, and original card counts so the live toolbar mirrors production data instead of preview fixtures.【F:gigvora-backend-nodejs/src/services/agencyClientKanbanService.js†L467-L552】
    2. Added resilient collaborator normalisers that validate payloads, coerce metadata, and preserve Date-safe presence values before persisting them for analytics fidelity.【F:gigvora-backend-nodejs/src/services/agencyClientKanbanService.js†L130-L219】

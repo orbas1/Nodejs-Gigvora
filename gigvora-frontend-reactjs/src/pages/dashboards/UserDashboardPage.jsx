@@ -21,7 +21,6 @@ import UserLaunchpadJobsSection from '../../components/dashboard/client/UserLaun
 import UserVolunteerJobsSection from '../../components/dashboard/client/UserVolunteerJobsSection.jsx';
 import UserSettingsSection from '../../components/dashboard/client/UserSettingsSection.jsx';
 import UserSystemPreferencesSection from '../../components/dashboard/client/UserSystemPreferencesSection.jsx';
-import UserInboxSection from '../../components/dashboard/client/UserInboxSection.jsx';
 import UserWalletSection from '../../components/dashboard/client/UserWalletSection.jsx';
 import UserHubSection from '../../components/dashboard/client/UserHubSection.jsx';
 import UserMetricsSection from '../../components/dashboard/client/UserMetricsSection.jsx';
@@ -29,6 +28,7 @@ import useSession from '../../hooks/useSession.js';
 import useCachedResource from '../../hooks/useCachedResource.js';
 import { fetchUserDashboard } from '../../services/userDashboard.js';
 import DashboardInsightsBand from '../../components/dashboard/shared/DashboardInsightsBand.jsx';
+import DashboardInboxSection from '../../components/dashboard/messaging/DashboardInboxSection.jsx';
 
 const AVAILABLE_DASHBOARDS = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
 const ALLOWED_ROLES = AVAILABLE_DASHBOARDS;
@@ -764,7 +764,13 @@ function UserDashboardPage() {
 
           <UserOrdersSection userId={userId} initialWorkspace={projectGigManagement} />
 
-          <UserInboxSection userId={userId} />
+          <DashboardInboxSection
+            id="client-inbox"
+            eyebrow="Messaging"
+            title="Unified inbox"
+            description="Pick up conversations with recruiters, teammates, and agencies from any dashboard with a responsive, LinkedIn-style workspace."
+            statusLabel="Inbox health"
+          />
 
           <section id="escrow-management" className="space-y-6">
             <div className="flex flex-col gap-2">

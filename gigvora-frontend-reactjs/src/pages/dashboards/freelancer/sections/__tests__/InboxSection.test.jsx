@@ -1,134 +1,92 @@
-import React from 'react';
-import { MemoryRouter } from 'react-router-dom';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import InboxSection from '../InboxSection.jsx';
 
-const sessionStub = vi.hoisted(() => ({ session: { id: 500 } }));
-const inboxStub = vi.hoisted(() => ({ current: null }));
-const canAccessMessagingMock = vi.hoisted(() => vi.fn());
-const getMessagingMembershipsMock = vi.hoisted(() => vi.fn());
-const createThreadMock = vi.hoisted(() => vi.fn());
-const sendMessageMock = vi.hoisted(() => vi.fn());
-const markThreadReadMock = vi.hoisted(() => vi.fn());
-const updateSupportStatusMock = vi.hoisted(() => vi.fn());
+const refreshMock = vi.fn();
+const sendMessageMock = vi.fn(() => Promise.resolve());
 
 vi.mock('../../../../../hooks/useSession.js', () => ({
   __esModule: true,
-  default: () => sessionStub,
+  default: () => ({ session: { id: 500 } }),
 }));
 
 vi.mock('../../../../../hooks/useFreelancerInboxWorkspace.js', () => ({
   __esModule: true,
-  default: () => inboxStub.current,
-}));
-
-vi.mock('../../../../../constants/access.js', () => ({
-  __esModule: true,
-  canAccessMessaging: canAccessMessagingMock,
-  getMessagingMemberships: getMessagingMembershipsMock,
+  default: () => ({
+    workspace: {
+      activeThreads: [
+        {
+          id: 'thread-1',
+          title: 'Archie White',
+          preview: 'Great connecting earlier today.',
+          lastActivityAt: '2024-04-10T10:00:00Z',
+          unread: true,
+          messages: [
+            {
+              id: 'msg-1',
+              body: 'Great connecting earlier today.',
+              author: { id: 'thread-1-author', name: 'Archie White' },
+              createdAt: '2024-04-10T10:00:00Z',
+            },
+          ],
+        },
+        {
+          id: 'thread-2',
+          title: 'Jamila Thomas',
+          preview: 'Let’s sync tomorrow.',
+          lastActivityAt: '2024-04-09T12:00:00Z',
+          unread: false,
+          messages: [
+            {
+              id: 'msg-2',
+              body: 'Let’s sync tomorrow.',
+              author: { id: 'thread-2-author', name: 'Jamila Thomas' },
+              createdAt: '2024-04-09T12:00:00Z',
+            },
+          ],
+        },
+      ],
+    },
+    loading: false,
+    error: null,
+    fromCache: false,
+    lastSyncedAt: '2024-04-10T10:30:00Z',
+    refresh: refreshMock,
+  }),
 }));
 
 vi.mock('../../../../../services/messaging.js', () => ({
   __esModule: true,
-  createThread: createThreadMock,
-  sendMessage: sendMessageMock,
-  markThreadRead: markThreadReadMock,
-  updateSupportStatus: updateSupportStatusMock,
+  sendMessage: (...args) => sendMessageMock(...args),
 }));
-
-function buildWorkspace(overrides = {}) {
-  const addSavedReply = vi.fn().mockResolvedValue({ id: 1 });
-  inboxStub.current = {
-    workspace: {
-      summary: { unreadThreads: 0, awaitingReply: 0, avgResponseMinutes: 0, openSupportCases: 0 },
-      preferences: {
-        timezone: 'UTC',
-        notificationsEmail: 'freelancer@example.com',
-        notificationsPush: true,
-        autoArchiveAfterDays: 30,
-        autoResponderEnabled: false,
-        autoResponderMessage: '',
-        escalationKeywords: [],
-        workingHours: {
-          monday: { enabled: true, start: '09:00', end: '17:00' },
-          tuesday: { enabled: true, start: '09:00', end: '17:00' },
-          wednesday: { enabled: true, start: '09:00', end: '17:00' },
-          thursday: { enabled: true, start: '09:00', end: '17:00' },
-          friday: { enabled: true, start: '09:00', end: '17:00' },
-          saturday: { enabled: false, start: '09:00', end: '12:00' },
-          sunday: { enabled: false, start: '09:00', end: '12:00' },
-        },
-      },
-      participantDirectory: [],
-      savedReplies: [],
-      routingRules: [],
-      ...overrides.workspace,
-    },
-    loading: false,
-    error: null,
-    refresh: vi.fn(),
-    updatePreferences: vi.fn().mockResolvedValue({}),
-    addSavedReply,
-    editSavedReply: vi.fn().mockResolvedValue({}),
-    removeSavedReply: vi.fn().mockResolvedValue({}),
-    addRoutingRule: vi.fn().mockResolvedValue({}),
-    editRoutingRule: vi.fn().mockResolvedValue({}),
-    removeRoutingRule: vi.fn().mockResolvedValue({}),
-    ...overrides,
-  };
-  return inboxStub.current;
-}
 
 describe('InboxSection', () => {
   beforeEach(() => {
-    sessionStub.session = { id: 500, memberships: ['messaging:manage'] };
-    canAccessMessagingMock.mockReset();
-    getMessagingMembershipsMock.mockReset();
-    createThreadMock.mockReset();
-    sendMessageMock.mockReset();
-    markThreadReadMock.mockReset();
-    updateSupportStatusMock.mockReset();
+    refreshMock.mockClear();
+    sendMessageMock.mockClear();
   });
 
-  it('requires messaging memberships when access is absent', () => {
-    canAccessMessagingMock.mockReturnValue(false);
-    getMessagingMembershipsMock.mockReturnValue(['messaging:manage', 'support']);
-    buildWorkspace();
+  it('renders messaging header and thread list', () => {
+    render(<InboxSection />);
 
-    render(
-      <MemoryRouter>
-        <InboxSection />
-      </MemoryRouter>,
-    );
-
-    expect(screen.getByText(/Messaging memberships required/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Manage memberships/i })).toBeInTheDocument();
+    expect(screen.getByText('Messages')).toBeInTheDocument();
+    expect(screen.getByText(/Stay on top of recruiter/i)).toBeInTheDocument();
+    expect(screen.getAllByText('Archie White').length).toBeGreaterThan(0);
+    expect(screen.getByText('Inbox health')).toBeInTheDocument();
   });
 
-  it('creates saved replies through the workspace form', async () => {
-    canAccessMessagingMock.mockReturnValue(true);
-    getMessagingMembershipsMock.mockReturnValue(['messaging:manage']);
-    const workspaceState = buildWorkspace();
+  it('sends a message from the composer', async () => {
+    const user = userEvent.setup();
+    render(<InboxSection />);
 
-    render(
-      <MemoryRouter>
-        <InboxSection />
-      </MemoryRouter>,
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: /New reply/i }));
-    fireEvent.change(screen.getByLabelText(/^Title$/i), { target: { value: 'Welcome' } });
-    fireEvent.change(screen.getByLabelText(/Message body/i), { target: { value: 'Thanks for reaching out!' } });
-    fireEvent.click(screen.getByRole('button', { name: /Save reply/i }));
+    await user.type(screen.getByPlaceholderText(/Write a message/i), 'Appreciate the intro!');
+    await user.click(screen.getByRole('button', { name: /Send/i }));
 
     await waitFor(() => {
-      expect(workspaceState.addSavedReply).toHaveBeenCalledWith({
-        title: 'Welcome',
-        body: 'Thanks for reaching out!',
-        shortcut: '',
-        category: '',
-        isDefault: false,
+      expect(sendMessageMock).toHaveBeenCalledWith('thread-1', {
+        userId: 500,
+        body: 'Appreciate the intro!',
       });
     });
   });
