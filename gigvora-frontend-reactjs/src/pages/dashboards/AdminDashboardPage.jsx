@@ -10,6 +10,7 @@ import AdminFreelancerManagementSection from '../../components/admin/freelancer-
 import AdminUserManagementSection from '../../components/admin/user-management/AdminUserManagementSection.jsx';
 import AdminSettingsSection from '../../components/admin/settings/AdminSettingsSection.jsx';
 import AdminOperationsHubSection from '../../components/admin/hub/AdminOperationsHubSection.jsx';
+import DashboardInboxSection from '../../components/dashboard/messaging/DashboardInboxSection.jsx';
 import AccessDeniedPanel from '../../components/dashboard/AccessDeniedPanel.jsx';
 import useSession from '../../hooks/useSession.js';
 import { fetchAdminDashboard, updateAdminOverview } from '../../services/admin.js';
@@ -32,6 +33,7 @@ const MENU_SECTIONS = [
       { id: 'mentor-management', name: 'Mentors', sectionId: 'admin-mentors' },
       { id: 'freelancer-management', name: 'Freelancers', sectionId: 'admin-freelancers' },
       { id: 'user-management', name: 'Users', sectionId: 'admin-users' },
+      { id: 'admin-inbox', name: 'Inbox', sectionId: 'admin-inbox' },
     ],
   },
   {
@@ -56,6 +58,7 @@ const SECTIONS = [
   { id: 'admin-mentors', title: 'Mentors' },
   { id: 'admin-freelancers', title: 'Freelancers' },
   { id: 'admin-users', title: 'Users' },
+  { id: 'admin-inbox', title: 'Inbox' },
   { id: 'admin-settings', title: 'Settings' },
   { id: 'admin-hub', title: 'Hub' },
 ];
@@ -202,6 +205,13 @@ export default function AdminDashboardPage() {
         <AdminMentorManagementSection />
         <AdminFreelancerManagementSection />
         <AdminUserManagementSection />
+        <DashboardInboxSection
+          id="admin-inbox"
+          eyebrow="Messaging"
+          title="Unified messaging"
+          description="Coordinate cross-functional conversations, support escalations, and leadership updates in one premium workspace."
+          statusLabel="Inbox telemetry"
+        />
         <AdminSettingsSection />
         <AdminOperationsHubSection />
       </div>

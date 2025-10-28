@@ -49,6 +49,7 @@ const ROUTE_COLLECTION_DEFINITIONS = {
       { path: 'faq', module: 'pages/FaqPage.jsx' },
       { path: 'about', module: 'pages/AboutPage.jsx' },
       { path: 'preview/freelancer-reviews', module: 'pages/previews/FreelancerReviewsPreviewPage.jsx' },
+      { path: 'preview/messaging-inbox', module: 'pages/previews/MessagingInboxPreviewPage.jsx' },
       { path: 'blog', module: 'pages/BlogPage.jsx' },
       { path: 'blog/:slug', module: 'pages/BlogArticlePage.jsx' },
       { path: 'mentors', module: 'pages/MentorsPage.jsx' },

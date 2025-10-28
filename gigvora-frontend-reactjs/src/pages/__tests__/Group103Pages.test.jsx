@@ -472,14 +472,13 @@ describe('Inbox helpers', () => {
       <ThreadCard
         thread={{
           id: 'thread-1',
-          lastMessageAt: new Date().toISOString(),
-          lastMessagePreview: 'New update',
-          participants: [],
-          messages: [],
+          title: 'Thread example',
+          lastActivityAt: new Date().toISOString(),
+          preview: 'New update',
+          unread: true,
         }}
-        actorId="user-1"
+        active={false}
         onSelect={() => {}}
-        selected={false}
       />,
     );
 

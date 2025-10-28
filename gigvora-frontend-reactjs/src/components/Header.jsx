@@ -229,10 +229,10 @@ export default function Header() {
         userId: session?.id,
         includeParticipants: true,
         includeSupport: true,
-        pageSize: 5,
+        pageSize: 4,
       });
       const rawThreads = Array.isArray(response?.data) ? response.data : Array.isArray(response) ? response : [];
-      const threads = rawThreads.map(normaliseThreadPreview).filter(Boolean);
+      const threads = rawThreads.map(normaliseThreadPreview).filter(Boolean).slice(0, 4);
 
       if (!isMountedRef.current) {
         return;

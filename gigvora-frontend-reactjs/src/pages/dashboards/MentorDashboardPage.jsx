@@ -13,7 +13,7 @@ import MentorshipManagementSection from './mentor/sections/MentorshipManagementS
 import MentorshipClientsSection from './mentor/sections/MentorshipClientsSection.jsx';
 import MentorCalendarSection from './mentor/sections/MentorCalendarSection.jsx';
 import MentorSupportSection from './mentor/sections/MentorSupportSection.jsx';
-import MentorInboxSection from './mentor/sections/MentorInboxSection.jsx';
+import DashboardInboxSection from '../../components/dashboard/messaging/DashboardInboxSection.jsx';
 import MentorVerificationSection from './mentor/sections/MentorVerificationSection.jsx';
 import MentorWalletSection from './mentor/sections/MentorWalletSection.jsx';
 import MentorMetricsSection from './mentor/sections/MentorMetricsSection.jsx';
@@ -37,9 +37,6 @@ import {
   createMentorSupportTicket,
   updateMentorSupportTicket,
   deleteMentorSupportTicket,
-  createMentorMessage,
-  updateMentorMessage,
-  deleteMentorMessage,
   updateMentorVerificationStatus,
   createMentorVerificationDocument,
   updateMentorVerificationDocument,
@@ -703,21 +700,6 @@ export default function MentorDashboardPage() {
     [runEntityMutation],
   );
 
-  const handleCreateMessage = useCallback(
-    (payload) => runEntityMutation('messages', () => createMentorMessage(payload)),
-    [runEntityMutation],
-  );
-
-  const handleUpdateMessage = useCallback(
-    (messageId, payload) => runEntityMutation('messages', () => updateMentorMessage(messageId, payload)),
-    [runEntityMutation],
-  );
-
-  const handleDeleteMessage = useCallback(
-    (messageId) => runEntityMutation('messages', () => deleteMentorMessage(messageId)),
-    [runEntityMutation],
-  );
-
   const handleUpdateVerificationStatus = useCallback(
     (payload) => runEntityMutation('verification', () => updateMentorVerificationStatus(payload)),
     [runEntityMutation],
@@ -1046,13 +1028,12 @@ export default function MentorDashboardPage() {
 
     if (activeSection === 'inbox') {
       return (
-        <MentorInboxSection
-          messages={snapshot.inbox?.messages ?? []}
-          summary={snapshot.inbox?.summary}
-          onCreateMessage={handleCreateMessage}
-          onUpdateMessage={handleUpdateMessage}
-          onDeleteMessage={handleDeleteMessage}
-          saving={isSaving('messages')}
+        <DashboardInboxSection
+          id="mentor-inbox"
+          eyebrow="Messaging"
+          title="Unified inbox"
+          description="Manage mentee chats, partner escalations, and collaboration threads alongside the floating messaging dock."
+          statusLabel="Inbox health"
         />
       );
     }
