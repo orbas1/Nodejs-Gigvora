@@ -4,6 +4,7 @@ import useSession from '../hooks/useSession.js';
 import useHomeExperience from '../hooks/useHomeExperience.js';
 import analytics from '../services/analytics.js';
 import MarketingLayout from '../components/marketing/MarketingLayout.jsx';
+import Footer from '../components/Footer.jsx';
 import ProductTour from '../components/marketing/ProductTour.jsx';
 import PricingTable from '../components/marketing/PricingTable.jsx';
 
@@ -494,96 +495,99 @@ export default function HomePage() {
   );
 
   return (
-    <MarketingLayout
-      hero={{
-        id: 'marketing-home',
-        node: (
-          <HomeHeroSection
-            headline={heroHeadline}
-            subheading={heroSubheading}
-            keywords={heroKeywords}
+    <>
+      <MarketingLayout
+        hero={{
+          id: 'marketing-home',
+          node: (
+            <HomeHeroSection
+              headline={heroHeadline}
+              subheading={heroSubheading}
+              keywords={heroKeywords}
+              loading={homeLoading}
+              error={homeError}
+              onClaimWorkspace={() => navigate('/register')}
+              onBrowseOpportunities={() => navigate('/gigs')}
+              productMedia={heroMedia}
+              personaChips={heroPersonaChips}
+              insightStats={heroInsightStats}
+              valuePillars={heroValuePillars}
+            />
+          ),
+        }}
+        announcement={marketingAnnouncement}
+        metrics={communityStats}
+        trustBadges={marketingTrustBadges}
+        personaSwitcher={
+          marketingPersonas.length
+            ? {
+                personas: marketingPersonas,
+                selectedId: selectedPersonaId,
+                onSelect: handleMarketingPersonaSwitch,
+              }
+            : null
+        }
+        insight="Switch personas to tailor recommended modules, metrics, and case studies across the funnel."
+        analyticsMetadata={{ source: 'web_marketing_site' }}
+      >
+        <ProductTour
+          steps={marketingTourSteps}
+          personas={marketingPersonas}
+          initialPersonaId={selectedPersonaId}
+          analyticsMetadata={{ source: 'web_marketing_site' }}
+        />
+        <div className="flex flex-col">
+          <CommunityPulseSection
             loading={homeLoading}
             error={homeError}
-            onClaimWorkspace={() => navigate('/register')}
-            onBrowseOpportunities={() => navigate('/gigs')}
-            productMedia={heroMedia}
-            personaChips={heroPersonaChips}
-            insightStats={heroInsightStats}
-            valuePillars={heroValuePillars}
+            fromCache={fromCache}
+            lastUpdated={lastUpdated}
+            onRefresh={() => refresh().catch(() => {})}
+            statusLabel={isAuthenticated ? 'Redirecting to live experience' : 'Live community snapshot'}
+            homeData={homeData}
           />
-        ),
-      }}
-      announcement={marketingAnnouncement}
-      metrics={communityStats}
-      trustBadges={marketingTrustBadges}
-      personaSwitcher={
-        marketingPersonas.length
-          ? {
-              personas: marketingPersonas,
-              selectedId: selectedPersonaId,
-              onSelect: handleMarketingPersonaSwitch,
-            }
-          : null
-      }
-      insight="Switch personas to tailor recommended modules, metrics, and case studies across the funnel."
-      analyticsMetadata={{ source: 'web_marketing_site' }}
-    >
-      <ProductTour
-        steps={marketingTourSteps}
-        personas={marketingPersonas}
-        initialPersonaId={selectedPersonaId}
-        analyticsMetadata={{ source: 'web_marketing_site' }}
-      />
-      <div className="flex flex-col">
-        <CommunityPulseSection
-          loading={homeLoading}
-          error={homeError}
-          fromCache={fromCache}
-          lastUpdated={lastUpdated}
-          onRefresh={() => refresh().catch(() => {})}
-          statusLabel={isAuthenticated ? 'Redirecting to live experience' : 'Live community snapshot'}
-          homeData={homeData}
-        />
-        <OperationsTrustSection homeData={homeData} loading={homeLoading} error={homeError} />
-        <PersonaJourneysSection
-          loading={homeLoading}
-          error={homeError}
-          onSelectPersona={handlePersonaSelect}
-          personas={personaJourneys}
-          personaMetrics={personaMetrics}
-        />
-        <CommunitySpotlightsSection loading={homeLoading} error={homeError} />
-        <ExplorerShowcaseSection loading={homeLoading} error={homeError} creations={homeData?.creations} />
-        <TestimonialsSection
-          loading={homeLoading}
-          error={homeError}
-          testimonials={marketingTestimonials}
-        />
-        <MarketplaceLaunchesSection
-          loading={homeLoading}
-          error={homeError}
-          communityStats={communityStats}
-          trendingCreations={trendingCreations}
-        />
-        <CollaborationToolkitSection />
-        <CreationStudioWorkflowSection />
-        <CreationStudioSection loading={homeLoading} error={homeError} />
-        <PricingTable
-          plans={marketingPricingPlans}
-          featureMatrix={marketingPricingFeatureMatrix}
-          metrics={marketingPricingMetrics}
-          analyticsMetadata={{ source: 'web_marketing_site' }}
-          onPlanSelected={handlePricingPlanSelected}
-        />
-        <FeesShowcaseSection />
-        <ClosingConversionSection
-          onJoinAsTalentClick={handleJoinAsTalent}
-          onHireCrewClick={handleHireCrew}
-          onExploreMentorshipClick={handleExploreMentorship}
-          onGuidelinesClick={handleGuidelines}
-        />
-        <JoinCommunitySection />
-      </div>
-    </MarketingLayout>
+          <OperationsTrustSection homeData={homeData} loading={homeLoading} error={homeError} />
+          <PersonaJourneysSection
+            loading={homeLoading}
+            error={homeError}
+            onSelectPersona={handlePersonaSelect}
+            personas={personaJourneys}
+            personaMetrics={personaMetrics}
+          />
+          <CommunitySpotlightsSection loading={homeLoading} error={homeError} />
+          <ExplorerShowcaseSection loading={homeLoading} error={homeError} creations={homeData?.creations} />
+          <TestimonialsSection
+            loading={homeLoading}
+            error={homeError}
+            testimonials={marketingTestimonials}
+          />
+          <MarketplaceLaunchesSection
+            loading={homeLoading}
+            error={homeError}
+            communityStats={communityStats}
+            trendingCreations={trendingCreations}
+          />
+          <CollaborationToolkitSection />
+          <CreationStudioWorkflowSection />
+          <CreationStudioSection loading={homeLoading} error={homeError} />
+          <PricingTable
+            plans={marketingPricingPlans}
+            featureMatrix={marketingPricingFeatureMatrix}
+            metrics={marketingPricingMetrics}
+            analyticsMetadata={{ source: 'web_marketing_site' }}
+            onPlanSelected={handlePricingPlanSelected}
+          />
+          <FeesShowcaseSection />
+          <ClosingConversionSection
+            onJoinAsTalentClick={handleJoinAsTalent}
+            onHireCrewClick={handleHireCrew}
+            onExploreMentorshipClick={handleExploreMentorship}
+            onGuidelinesClick={handleGuidelines}
+          />
+          <JoinCommunitySection />
+        </div>
+      </MarketingLayout>
+      <Footer />
+    </>
   );
 }

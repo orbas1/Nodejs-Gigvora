@@ -11,7 +11,17 @@ user_experience.md
    8. Layered a mobile-first quick search dialog with curated trending deep links so small-screen users can instantly launch people, opportunity, and workspace discovery without diving into the mega menus.
    9. Instrumented global search submissions with persona-aware analytics and reset behaviour while echoing insights tracking inside the quick search drawer, ensuring navigation intelligence and query journeys stay observable across entry points.
    10. Rebuilt the authenticated navigation dock into a LinkedIn-style icon row that anchors Home, Network, Jobs, Projects, Messaging, Notifications, and Work with shared styling tokens while delegating previews to the inbox and alert popovers for consistency.
-1.B. Footer & System Bars
+1.B. Footer & System Bars ✅
+   1. Replaced the operations-heavy chrome footer with a purpose-built marketing surface anchored by a five-column grid so the home page alone carries the closing narrative while the rest of the application stays distraction-free.
+   2. Pivoted to a bright, white canvas with generous negative space, crisp typography, and softened dividers so the experience feels sunlit and premium while staying calm beside the hero modules.
+   3. Concentrated navigation into three curated link clusters—Product, Community, and Company—giving visitors the fastest routes to gigs, projects, events, and trust signals without redundant labels.
+   4. Elevated brand storytelling with the full-colour logomark standing alone beside the mission line, reinforcing GigVora’s collaborative promise without redundant wordmarks ahead of the conversion calls-to-action.
+   5. Added dual primary actions (“Join as talent” and “Hire teams”) styled as complementary pills that remain legible on any breakpoint while funnelling prospects into the highest-value funnels.
+   6. Crafted a refined social bar with consistent hover choreography, accessible aria labels, and discreet borders so outbound brand touchpoints feel premium rather than ornamental.
+   7. Embedded a responsive legal rail that presents the "© GigVora 2025. All rights reserved." statement alongside privacy, terms, community guidelines, and status links in one concise row for governance clarity.
+   8. Tuned the grid ratios and spacing tokens to keep columns airy on desktop while stacking gracefully on mobile, ensuring the footer never feels cramped or misaligned.
+   9. Removed the shared layout dependency on the footer so authenticated and interior marketing routes retain a clean shell with no residual system bar.
+   10. Harmonised copy tone and micro-interactions across links and CTAs, trimming legacy jargon to keep the closing moment friendly, direct, and conversion-oriented.
 1.C. Layout Containers
 1.D. Toasts & Feedback
 
