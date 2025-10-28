@@ -109,8 +109,11 @@ export default function Header() {
   const roleKey = resolvePrimaryRoleKey(session);
   const primaryNavigation = useMemo(() => resolvePrimaryNavigation(session), [session]);
   const roleOptions = useMemo(() => buildRoleOptions(session), [session]);
-  const marketingMenus = useMemo(() => PRIMARY_NAVIGATION.menus, []);
-  const marketingSearch = PRIMARY_NAVIGATION.search;
+  const marketingMenus = useMemo(
+    () => (isAuthenticated ? PRIMARY_NAVIGATION.menus : []),
+    [isAuthenticated],
+  );
+  const marketingSearch = isAuthenticated ? PRIMARY_NAVIGATION.search : null;
 
   const preferredShellTheme =
     session?.preferences?.shellTheme ?? session?.branding?.shellTheme ?? session?.shellTheme ?? null;

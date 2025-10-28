@@ -38,6 +38,13 @@ user_experience.md
    11. Preserved the insights popover with updated styling tokens so persona pulse metrics and trending callouts inherit the refreshed translucency treatments introduced for the spotlight.
 12. Synced the mobile navigation drawer with the new search services, delivering identical trending intelligence and analytics wiring on small screens so the quick-launch experience feels identical to desktop.
 
+2. Home & Hero Canvas
+2.A. Home & Hero Pages ✅
+   1. Re-centred `PublicHero` around a single white stage with balanced copy and paired CTAs so the marketing canvas feels calm and premium without extra modules.【F:gigvora-frontend-reactjs/src/components/marketing/PublicHero.jsx†L3-L88】
+   2. Trimmed `HomeHeroSection` to feed that minimalist hero with a single headline, subheading, adaptive media, and tracked primary and secondary joins.【F:gigvora-frontend-reactjs/src/pages/home/HomeHeroSection.jsx†L6-L83】
+   3. Reduced the unauthenticated home page to just the refreshed hero on a white background, keeping the landing moment focused on the core call to action.【F:gigvora-frontend-reactjs/src/pages/HomePage.jsx†L1-L41】
+   4. Locked the pre-login header to the logo and auth actions by disabling marketing search and menu rails whenever no session is present.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L109-L117】【F:gigvora-frontend-reactjs/src/components/navigation/AppTopBar.jsx†L1139-L1440】
+
 14. Job Listings & ATS Pipelines
 14.A. Job Listings & ATS Pipelines ✅
    1. Refreshed `OverviewPanel.jsx` persona actions so every dashboard exposes a job-posting trigger alongside candidate, interview, and update controls from a single toolbar.【F:gigvora-frontend-reactjs/src/components/jobApplications/panels/OverviewPanel.jsx†L351-L360】
