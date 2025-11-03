@@ -84,7 +84,7 @@ export const GIF_LIBRARY = deepFreeze([
   },
 ]);
 
-const allowedMembershipValues = ['user', 'freelancer', 'agency', 'company', 'headhunter', 'mentor', 'admin'];
+const allowedMembershipValues = ['user', 'professional', 'company', 'admin'];
 const allowedMembershipSet = new Set(allowedMembershipValues);
 
 export const ALLOWED_FEED_MEMBERSHIPS = Object.freeze({

@@ -7,18 +7,15 @@ import RouteAnalyticsListener from './routes/RouteAnalyticsListener.jsx';
 import AdminRoutes from './routes/AdminRoutes.jsx';
 import LoadableRoute from './routes/LoadableRoute.jsx';
 import {
-  AGENCY_ROUTES,
   ADMIN_ROUTES,
   COMMUNITY_ACCESS_MEMBERSHIPS,
   COMMUNITY_ROUTES,
   COMPANY_ROUTES,
   HOME_ROUTE,
-  FREELANCER_ROUTES,
-  HEADHUNTER_ROUTES,
+  PROFESSIONAL_ROUTES,
   LAUNCHPAD_ROUTES,
   LAUNCHPAD_ROUTES_PROTECTED,
   MainLayout,
-  MENTOR_ROUTES,
   PUBLIC_ROUTES,
   ADMIN_LOGIN_ROUTE,
   ADMIN_ROOT_ROUTE,
@@ -100,12 +97,12 @@ export default function App() {
           />
         ))}
 
-        {FREELANCER_ROUTES.map((route) => (
+        {PROFESSIONAL_ROUTES.map((route) => (
           <Route
             key={route.path}
             path={route.path}
             element={
-              <RequireRole allowedRoles={['freelancer']}>
+              <RequireRole allowedRoles={['professional']}>
                 <LoadableRoute modulePath={route.module} />
               </RequireRole>
             }
@@ -124,9 +121,6 @@ export default function App() {
           />
         ))}
 
-        {renderRequireRoleRoutes(AGENCY_ROUTES)}
-        {renderRequireRoleRoutes(HEADHUNTER_ROUTES)}
-        {renderRequireRoleRoutes(MENTOR_ROUTES)}
         {renderRequireRoleRoutes(LAUNCHPAD_ROUTES_PROTECTED)}
 
         <Route

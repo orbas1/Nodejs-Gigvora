@@ -12,24 +12,24 @@ import {
 describe('access constants', () => {
   it('normalises tokens and returns eligible messaging memberships', () => {
     const session = {
-      memberships: ['User', ' FreelancER '],
-      activeMembership: 'AGENCY',
-      accountTypes: ['HeadHunter'],
+      memberships: ['User', ' Professional '],
+      activeMembership: 'COMPANY',
+      accountTypes: ['Admin'],
     };
 
     const messagingMemberships = getMessagingMemberships(session);
-    expect(messagingMemberships.sort()).toEqual(['agency', 'freelancer', 'headhunter', 'user']);
+    expect(messagingMemberships.sort()).toEqual(['admin', 'company', 'professional', 'user']);
     expect(canAccessMessaging(session)).toBe(true);
   });
 
   it('evaluates launchpad access from combined role scopes', () => {
     const session = {
-      memberships: ['mentor'],
+      memberships: ['Professional'],
       roles: ['Launchpad:Manage'],
       primaryDashboard: 'COMPANY',
     };
 
-    expect(getLaunchpadMemberships(session)).toEqual(['mentor', 'company']);
+    expect(getLaunchpadMemberships(session)).toEqual(['professional', 'company']);
     expect(canAccessLaunchpad(session)).toBe(true);
   });
 
@@ -43,7 +43,7 @@ describe('access constants', () => {
     expect(getSecurityMemberships(session)).toEqual(['admin', 'security', 'trust']);
     expect(canAccessSecurityOperations(session)).toBe(true);
 
-    const readonlySession = { memberships: ['freelancer'] };
+    const readonlySession = { memberships: ['professional'] };
     expect(canAccessSecurityOperations(readonlySession)).toBe(false);
   });
 });
