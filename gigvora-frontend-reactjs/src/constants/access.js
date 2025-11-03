@@ -23,11 +23,8 @@ const createTokenSet = (values = []) => {
 
 export const MESSAGING_ALLOWED_MEMBERSHIPS = Object.freeze([
   'user',
-  'freelancer',
-  'agency',
+  'professional',
   'company',
-  'mentor',
-  'headhunter',
   'admin',
 ]);
 

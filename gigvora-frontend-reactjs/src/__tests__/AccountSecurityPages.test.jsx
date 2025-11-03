@@ -2,11 +2,7 @@ import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { act } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import RegisterPage from '../pages/RegisterPage.jsx';
-import ProfilePage from '../pages/ProfilePage.jsx';
-import UserProfileViewPage from '../pages/UserProfileViewPage.jsx';
-import SettingsPage from '../pages/SettingsPage.jsx';
+import { MemoryRouter } from 'react-router-dom';
 import SecurityOperationsPage from '../pages/SecurityOperationsPage.jsx';
 import TrustCenterPage from '../pages/TrustCenter.jsx';
 import useSession from '../hooks/useSession.js';
@@ -150,114 +146,6 @@ vi.mock('../utils/permissions.js', () => ({
 describe('Account and security pages', () => {
   beforeEach(() => {
     useSession.mockReset();
-  });
-
-  it('validates password confirmation on RegisterPage', async () => {
-    const user = userEvent.setup();
-    useSession.mockReturnValue({ session: null, isAuthenticated: false, login: vi.fn() });
-
-    render(
-      <MemoryRouter>
-        <RegisterPage />
-      </MemoryRouter>,
-    );
-
-    const submitButton = screen.getByRole('button', { name: /Create profile/i });
-
-    await act(async () => {
-      await user.type(screen.getByLabelText('First name'), 'Sam');
-      await user.type(screen.getByLabelText('Last name'), 'River');
-      await user.type(screen.getByLabelText('Email address'), 'sam@example.com');
-      await user.type(screen.getByLabelText('Date of birth'), '1990-01-01');
-      await user.type(screen.getByLabelText('Password'), 'password-one');
-      await user.type(screen.getByLabelText('Confirm password'), 'password-two');
-      await user.click(submitButton);
-    });
-
-    expect(await screen.findByText('Passwords do not match.')).toBeInTheDocument();
-  });
-
-  it('surfaces profile access restrictions for users without memberships', async () => {
-    useSession.mockReturnValue({ session: { memberships: [] }, isAuthenticated: true });
-
-    render(
-      <MemoryRouter initialEntries={['/profile/me']}>
-        <Routes>
-          <Route path="/profile/:id" element={<ProfilePage />} />
-        </Routes>
-      </MemoryRouter>,
-    );
-
-    expect(
-      await screen.findByRole('heading', { name: /Profile workspace required/i }),
-    ).toBeInTheDocument();
-    expect(
-      await screen.findByText(/Only freelancer, agency, or admin workspaces can open the profile cockpit/i),
-    ).toBeInTheDocument();
-  });
-
-  it('loads user and profile data on UserProfileViewPage', async () => {
-    const { fetchUser } = await import('../services/user.js');
-    const { fetchProfile } = await import('../services/profile.js');
-    const { listCreationStudioItems } = await import('../services/creationStudio.js');
-    useSession.mockReturnValue({ session: { userId: 'user-1' }, isAuthenticated: true });
-    fetchUser.mockResolvedValue({ id: 'user-1', profileId: 'profile-1', headline: 'Builder' });
-    fetchProfile.mockResolvedValue({ id: 'profile-1', headline: 'Builder', location: 'Remote' });
-    listCreationStudioItems.mockResolvedValue({ items: [] });
-
-    render(
-      <MemoryRouter initialEntries={['/users/user-1']}>
-        <Routes>
-          <Route path="/users/:userId" element={<UserProfileViewPage />} />
-        </Routes>
-      </MemoryRouter>,
-    );
-
-    await waitFor(() => {
-      expect(fetchUser).toHaveBeenCalledWith('user-1', expect.any(Object));
-      expect(fetchProfile).toHaveBeenCalledWith('profile-1', expect.any(Object));
-    });
-  });
-
-  it('updates consent preferences on SettingsPage', async () => {
-    const { fetchUserConsentSnapshot, updateUserConsent } = await import('../services/consent.js');
-    fetchUserConsentSnapshot.mockResolvedValue({
-      policies: [
-        {
-          policy: {
-            id: 'policy-email',
-            code: 'email_marketing',
-            title: 'Email',
-            audience: 'user',
-            region: 'global',
-            description: 'Marketing',
-            legalBasis: 'consent',
-            required: false,
-            revocable: true,
-          },
-          consent: { status: 'withdrawn' },
-          auditTrail: [],
-        },
-      ],
-      outstandingRequired: 0,
-    });
-    updateUserConsent.mockResolvedValue({});
-    useSession.mockReturnValue({ session: { id: 'user-1' }, isAuthenticated: true });
-
-    render(
-      <MemoryRouter>
-        <SettingsPage />
-      </MemoryRouter>,
-    );
-
-    const toggle = await screen.findByRole('button', { name: 'OFF' });
-    await act(async () => {
-      await userEvent.click(toggle);
-    });
-
-    await waitFor(() => {
-      expect(updateUserConsent).toHaveBeenCalledWith('user-1', 'email_marketing', expect.any(Object));
-    });
   });
 
   it('blocks access to security operations when permissions are missing', async () => {

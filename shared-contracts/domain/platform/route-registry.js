@@ -1,9 +1,9 @@
 import { freezeDeep } from '../utils/freezeDeep.js';
 
-const COMMUNITY_MEMBERSHIPS = ['user', 'freelancer', 'agency', 'company', 'mentor', 'headhunter'];
-const VOLUNTEER_MEMBERSHIPS = ['volunteer', 'mentor', 'admin'];
-const USER_ROLES = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
-const LAUNCHPAD_MEMBERSHIPS = ['freelancer', 'mentor', 'agency', 'company', 'admin'];
+const COMMUNITY_MEMBERSHIPS = ['user', 'professional', 'company', 'admin'];
+const VOLUNTEER_MEMBERSHIPS = ['volunteer', 'professional', 'admin'];
+const USER_ROLES = ['user', 'professional', 'company'];
+const LAUNCHPAD_MEMBERSHIPS = ['professional', 'company', 'admin'];
 const SECURITY_MEMBERSHIPS = ['security', 'trust', 'admin'];
 
 const ROUTE_COLLECTION_DEFINITIONS = {
@@ -41,7 +41,6 @@ const ROUTE_COLLECTION_DEFINITIONS = {
       { path: 'forgot-password', module: 'pages/ForgotPasswordPage.jsx' },
       { path: 'reset-password', module: 'pages/ResetPasswordPage.jsx' },
       { path: 'auth/callback', module: 'pages/SocialAuthCallbackPage.jsx' },
-      { path: 'profile/:id', module: 'pages/ProfilePage.jsx' },
       { path: 'terms', module: 'pages/TermsPage.jsx' },
       { path: 'privacy', module: 'pages/PrivacyPage.jsx' },
       { path: 'refunds', module: 'pages/RefundPolicyPage.jsx' },
@@ -67,14 +66,10 @@ const ROUTE_COLLECTION_DEFINITIONS = {
       { path: 'gigs', module: 'pages/GigsPage.jsx' },
       { path: 'projects', module: 'pages/ProjectsPage.jsx' },
       { path: 'creation-studio', module: 'pages/CreationStudioWizardPage.jsx' },
-      { path: 'users/:userId', module: 'pages/UserProfileViewPage.jsx' },
       { path: 'projects/new', module: 'pages/ProjectCreatePage.jsx' },
       { path: 'projects/:projectId', module: 'pages/ProjectDetailPage.jsx' },
       { path: 'projects/:projectId/auto-match', module: 'pages/ProjectAutoMatchPage.jsx' },
-      { path: 'groups', module: 'pages/GroupsPage.jsx' },
-      { path: 'groups/:groupId', module: 'pages/GroupProfilePage.jsx' },
       { path: 'community-events', module: 'pages/CommunityEventsPage.jsx', title: 'Community events', icon: 'calendar-days' },
-      { path: 'pages', module: 'pages/PagesPage.jsx' },
       { path: 'connections', module: 'pages/ConnectionsPage.jsx' },
       { path: 'notifications', module: 'pages/NotificationsPage.jsx' },
       { path: 'trust-center', module: 'pages/TrustCenter.jsx' },
@@ -124,221 +119,21 @@ const ROUTE_COLLECTION_DEFINITIONS = {
     icon: 'user-circle',
     defaultMemberships: USER_ROLES,
     defaultRoles: USER_ROLES,
-    routes: [
-      { path: 'dashboard/user', module: 'pages/dashboards/UserDashboardPage.jsx' },
-      { path: 'dashboard/user/creation-studio', module: 'pages/dashboards/UserCreationStudioPage.jsx' },
-      { path: 'dashboard/user/projects', module: 'pages/dashboards/UserProjectManagementPage.jsx' },
-      { path: 'dashboard/user/disputes', module: 'pages/dashboards/UserDisputesPage.jsx' },
-      { path: 'dashboard/user/calendar', module: 'pages/dashboards/user/UserCalendarPage.jsx' },
-      { path: 'dashboard/user/profile', module: 'pages/dashboards/UserProfileHubPage.jsx' },
-    ],
+    routes: [{ path: 'dashboard/user', module: 'pages/dashboards/UserDashboardPage.jsx' }],
   },
-  freelancer: {
-    persona: 'freelancer',
+  professional: {
+    persona: 'professional',
     icon: 'briefcase',
-    defaultRoles: ['freelancer'],
-    defaultMemberships: ['freelancer'],
-    routes: [
-      { path: 'dashboard/freelancer', module: 'pages/dashboards/FreelancerDashboardPage.jsx' },
-      { path: 'dashboard/freelancer/volunteer', module: 'pages/dashboards/FreelancerVolunteerPage.jsx' },
-      { path: 'dashboard/freelancer/planner', module: 'pages/dashboards/FreelancerPlannerPage.jsx' },
-      { path: 'dashboard/freelancer/automatch', module: 'pages/dashboards/FreelancerAutoMatchPage.jsx' },
-      { path: 'dashboard/freelancer/pipeline', module: 'pages/dashboards/FreelancerPipelinePage.jsx' },
-      { path: 'dashboard/freelancer/portfolio', module: 'pages/dashboards/FreelancerPortfolioPage.jsx' },
-      { path: 'dashboard/freelancer/creation-studio', module: 'pages/dashboards/FreelancerCreationStudioPage.jsx' },
-      { path: 'dashboard/freelancer/documents', module: 'pages/dashboards/freelancer/FreelancerDocumentsPage.jsx' },
-      { path: 'dashboard/freelancer/networking', module: 'pages/dashboards/freelancer/FreelancerNetworkingPage.jsx' },
-      { path: 'dashboard/freelancer/disputes', module: 'pages/dashboards/freelancer/FreelancerDisputesPage.jsx' },
-    ],
+    defaultRoles: ['professional'],
+    defaultMemberships: ['professional'],
+    routes: [{ path: 'dashboard/professional', module: 'pages/dashboards/ProfessionalDashboardPage.jsx' }],
   },
   company: {
     persona: 'company',
     icon: 'building-office',
     defaultRoles: ['company'],
     defaultMemberships: ['company'],
-    routes: [
-      { path: 'dashboard/company', module: 'pages/dashboards/CompanyDashboardPage.jsx' },
-      { path: 'dashboard/company/profile', module: 'pages/dashboards/CompanyProfileWorkspacePage.jsx' },
-      { path: 'dashboard/company/creation-studio', module: 'pages/dashboards/CompanyCreationStudioPage.jsx' },
-      { path: 'dashboard/company/hub', module: 'pages/dashboards/CompanyHubPage.jsx' },
-      { path: 'dashboard/company/metrics', module: 'pages/dashboards/CompanyMetricsPage.jsx' },
-      { path: 'dashboard/company/wallets', module: 'pages/dashboards/CompanyWalletManagementPage.jsx' },
-      { path: 'dashboard/company/settings', module: 'pages/dashboards/CompanySettingsPage.jsx' },
-      {
-        path: 'dashboard/company/system-preferences',
-        module: 'pages/dashboards/CompanySystemPreferencesPage.jsx',
-      },
-      { path: 'dashboard/company/analytics', module: 'pages/dashboards/CompanyAnalyticsPage.jsx' },
-      { path: 'dashboard/company/projects', module: 'pages/dashboards/CompanyProjectManagementPage.jsx' },
-      {
-        path: 'dashboard/company/workspace',
-        module: 'pages/dashboards/company/CompanyProjectWorkspacePage.jsx',
-      },
-      { path: 'dashboard/company/inbox', module: 'pages/dashboards/CompanyInboxPage.jsx' },
-      { path: 'dashboard/company/timeline', module: 'pages/dashboards/CompanyTimelineManagementPage.jsx' },
-      { path: 'dashboard/company/ats', module: 'pages/dashboards/CompanyAtsOperationsPage.jsx' },
-      { path: 'dashboard/company/calendar', module: 'pages/dashboards/CompanyCalendarPage.jsx' },
-      { path: 'dashboard/company/job-management', module: 'pages/dashboards/CompanyJobManagementPage.jsx' },
-      {
-        path: 'dashboard/company/launchpad-jobs',
-        module: 'pages/dashboards/CompanyLaunchpadJobManagementPage.jsx',
-      },
-      { path: 'dashboard/company/orders', module: 'pages/dashboards/CompanyOrdersPage.jsx' },
-      { path: 'dashboard/company/ads', module: 'pages/dashboards/CompanyAdsPage.jsx' },
-      { path: 'dashboard/company/groups', module: 'pages/dashboards/CompanyGroupManagementPage.jsx' },
-      {
-        path: 'dashboard/company/integrations',
-        module: 'pages/dashboards/CompanyIntegrationsPage.jsx',
-      },
-      { path: 'dashboard/company/escrow', module: 'pages/dashboards/CompanyEscrowManagementPage.jsx' },
-      { path: 'dashboard/company/pages', module: 'pages/dashboards/CompanyPagesManagementPage.jsx' },
-      { path: 'dashboard/company/id-verification', module: 'pages/dashboards/CompanyIdVerificationPage.jsx' },
-      {
-        path: 'dashboard/company/volunteering',
-        module: 'pages/dashboards/CompanyVolunteeringManagementPage.jsx',
-      },
-      {
-        path: 'dashboard/company/integrations/crm',
-        module: 'pages/dashboards/CompanyCrmIntegrationsPage.jsx',
-      },
-      { path: 'dashboard/company/ai-auto-reply', module: 'pages/dashboards/CompanyByokAutoReplyPage.jsx' },
-      {
-        path: 'dashboard/company/disputes',
-        module: 'pages/dashboards/company/CompanyDisputeManagementPage.jsx',
-      },
-      { path: 'dashboard/company/networking', module: 'pages/networking/CompanyNetworkingHubPage.jsx' },
-      {
-        path: 'dashboard/company/networking/sessions',
-        module: 'pages/networking/NetworkingSessionsPage.jsx',
-      },
-    ],
-  },
-  agency: {
-    persona: 'agency',
-    icon: 'users',
-    defaultRoles: ['agency'],
-    defaultMemberships: ['agency'],
-    routes: [
-      {
-        path: 'dashboard/agency',
-        module: 'pages/dashboards/AgencyDashboardPage.jsx',
-        allowedRoles: ['agency', 'agency_admin', 'admin'],
-        roles: ['agency', 'agency_admin', 'admin'],
-      },
-      {
-        path: 'dashboard/agency/disputes',
-        module: 'pages/dashboards/agency/DisputeManagementPage.jsx',
-        roles: ['agency'],
-      },
-      {
-        path: 'dashboard/agency/escrow',
-        module: 'pages/dashboards/agency/AgencyEscrowManagementPage.jsx',
-        roles: ['agency'],
-      },
-      {
-        path: 'dashboard/agency/crm',
-        module: 'pages/dashboards/AgencyCrmPipelinePage.jsx',
-        allowedRoles: ['agency', 'agency_admin'],
-        roles: ['agency', 'agency_admin'],
-      },
-      {
-        path: 'dashboard/agency/integrations',
-        module: 'pages/dashboards/AgencyIntegrationsPage.jsx',
-        allowedRoles: ['agency', 'agency_admin', 'admin'],
-        roles: ['agency', 'agency_admin', 'admin'],
-      },
-      {
-        path: 'dashboard/agency/ai',
-        module: 'pages/dashboards/AgencyAiAutomationPage.jsx',
-        allowedRoles: ['agency', 'agency_admin', 'admin'],
-        roles: ['agency', 'agency_admin', 'admin'],
-      },
-      {
-        path: 'dashboard/agency/profile',
-        module: 'pages/dashboards/AgencyProfileManagementPage.jsx',
-        allowedRoles: ['agency', 'agency_admin'],
-        roles: ['agency', 'agency_admin'],
-      },
-      {
-        path: 'dashboard/agency/client-kanban',
-        module: 'pages/dashboards/AgencyClientKanbanPage.jsx',
-        allowedRoles: ['agency', 'agency_admin', 'admin'],
-        roles: ['agency', 'agency_admin', 'admin'],
-      },
-      {
-        path: 'dashboard/agency/wallet',
-        module: 'pages/dashboards/agency/AgencyWalletManagementPage.jsx',
-        roles: ['agency'],
-      },
-      {
-        path: 'dashboard/agency/timeline',
-        module: 'pages/dashboards/agency/AgencyTimelineDashboardPage.jsx',
-        allowedRoles: ['agency', 'agency_admin', 'admin'],
-        roles: ['agency', 'agency_admin', 'admin'],
-      },
-      {
-        path: 'dashboard/agency/blog',
-        module: 'pages/dashboards/AgencyBlogManagementPage.jsx',
-        allowedRoles: ['agency', 'agency_admin', 'admin'],
-        roles: ['agency', 'agency_admin', 'admin'],
-      },
-      { path: 'dashboard/agency/inbox', module: 'pages/dashboards/agency/AgencyInboxPage.jsx', roles: ['agency'] },
-      {
-        path: 'dashboard/agency/workspace',
-        module: 'pages/dashboards/agency/ProjectWorkspacePage.jsx',
-        roles: ['agency'],
-      },
-      {
-        path: 'dashboard/agency/projects',
-        module: 'pages/dashboards/AgencyProjectManagementPage.jsx',
-        roles: ['agency'],
-      },
-      { path: 'dashboard/agency/mentoring', module: 'pages/dashboards/AgencyMentoringPage.jsx' },
-      {
-        path: 'dashboard/agency/job-management',
-        module: 'pages/dashboards/agency/AgencyJobManagementPage.jsx',
-        roles: ['agency'],
-      },
-      {
-        path: 'dashboard/agency/interviews',
-        module: 'pages/dashboards/agency/AgencyInterviewsPage.jsx',
-        allowedRoles: ['agency', 'agency_admin', 'admin'],
-        roles: ['agency', 'agency_admin', 'admin'],
-      },
-      { path: 'dashboard/agency/calendar', module: 'pages/dashboards/agency/AgencyCalendarPage.jsx', roles: ['agency'] },
-      {
-        path: 'dashboard/agency/id-verification',
-        module: 'pages/dashboards/agency/AgencyIdVerificationPage.jsx',
-        allowedRoles: ['agency', 'agency_admin', 'admin'],
-        roles: ['agency', 'agency_admin', 'admin'],
-      },
-      { path: 'dashboard/agency/support', module: 'pages/dashboards/agency/AgencySupportDeskPage.jsx', roles: ['agency'] },
-      { path: 'dashboard/agency/events', module: 'pages/dashboards/agency/AgencyEventManagementPage.jsx', roles: ['agency'] },
-      {
-        path: 'dashboard/agency/networking',
-        module: 'pages/dashboards/agency/AgencyNetworkingManagementPage.jsx',
-        allowedRoles: ['agency', 'agency_admin', 'admin'],
-        roles: ['agency', 'agency_admin', 'admin'],
-      },
-    ],
-  },
-  headhunter: {
-    persona: 'headhunter',
-    icon: 'magnifying-glass',
-    defaultRoles: ['headhunter'],
-    defaultMemberships: ['headhunter'],
-    routes: [
-      { path: 'dashboard/headhunter', module: 'pages/dashboards/HeadhunterDashboardPage.jsx', roles: ['headhunter'] },
-    ],
-  },
-  mentor: {
-    persona: 'mentor',
-    icon: 'academic-cap',
-    defaultRoles: ['mentor'],
-    defaultMemberships: ['mentor'],
-    routes: [
-      { path: 'dashboard/mentor', module: 'pages/dashboards/MentorDashboardPage.jsx', roles: ['mentor'] },
-    ],
+    routes: [{ path: 'dashboard/company', module: 'pages/dashboards/CompanyDashboardPage.jsx' }],
   },
   launchpadOps: {
     persona: 'launchpad-ops',

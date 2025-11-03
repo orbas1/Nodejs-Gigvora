@@ -186,22 +186,16 @@ export const PRIMARY_NAVIGATION = deepFreeze({
 
 export const roleDashboardMapping = deepFreeze({
   user: '/dashboard/user',
-  freelancer: '/dashboard/freelancer',
-  agency: '/dashboard/agency',
+  professional: '/dashboard/professional',
   company: '/dashboard/company',
-  mentor: '/dashboard/mentor',
-  headhunter: '/dashboard/headhunter',
   launchpad: '/dashboard/launchpad',
   admin: '/dashboard/admin',
 });
 
 export const timelineAccessRoles = Object.freeze([
   'user',
-  'freelancer',
-  'agency',
+  'professional',
   'company',
-  'mentor',
-  'headhunter',
   'admin',
 ]);
 
