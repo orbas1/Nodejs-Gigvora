@@ -68,6 +68,7 @@ import onboardingRoutes from './onboardingRoutes.js';
 import navigationRoutes from './navigationRoutes.js';
 import releaseEngineeringRoutes from './releaseEngineeringRoutes.js';
 import gigBlueprintRoutes from './gigBlueprintRoutes.js';
+import profileBlueprintRoutes from './profileBlueprintRoutes.js';
 
 const router = Router();
 
@@ -92,6 +93,7 @@ const routeDefinitions = [
   ['/presence', presenceRoutes],
   ['/onboarding', onboardingRoutes],
   ['/marketplace/gig-blueprints', gigBlueprintRoutes],
+  ['/profiles/blueprints', profileBlueprintRoutes],
   ['/company/creation-studio', creationStudioRoutes],
   ['/company/id-verifications', companyIdentityVerificationRoutes],
   ['/company/integrations', companyIntegrationRoutes],
