@@ -4,6 +4,7 @@ import {
   AdjustmentsHorizontalIcon,
   BellIcon,
   BookmarkIcon,
+  CommandLineIcon,
   ExclamationCircleIcon,
   LockClosedIcon,
   ListBulletIcon,
@@ -19,6 +20,7 @@ import ExplorerFilterDrawer from '../components/explorer/ExplorerFilterDrawer.js
 import ExplorerResultCard from '../components/explorer/ExplorerResultCard.jsx';
 import SavedSearchList from '../components/explorer/SavedSearchList.jsx';
 import ExplorerManagementPanel from '../components/explorer/ExplorerManagementPanel.jsx';
+import SearchCommandPalette from '../components/explorer/SearchCommandPalette.jsx';
 import SuggestionRail from '../components/discovery/SuggestionRail.jsx';
 import TrendingTopicsPanel from '../components/discovery/TrendingTopicsPanel.jsx';
 import ConnectionCard from '../components/discovery/ConnectionCard.jsx';
@@ -116,6 +118,9 @@ const CATEGORIES = [
     placeholder: 'Search agency names, services, or regions',
   },
 ];
+
+const RECENT_SEARCHES_STORAGE_KEY = 'explorer:recent-searches:v1';
+const RECENT_SEARCH_LIMIT = 12;
 
 function normalisePersonaKey(value) {
   if (!value) {
@@ -426,6 +431,113 @@ function hasFiltersApplied(filters) {
   return Object.keys(cleaned).length > 0;
 }
 
+function describeFiltersSummary(filters) {
+  if (!filters || typeof filters !== 'object') {
+    return null;
+  }
+  const entries = [];
+  if (filters.updatedWithin) {
+    const freshness = FRESHNESS_LABELS[filters.updatedWithin] ?? filters.updatedWithin;
+    entries.push(freshness.startsWith('Last') ? freshness : `Updated ${freshness}`);
+  }
+  if (filters.isRemote === true) {
+    entries.push('Remote friendly');
+  } else if (filters.isRemote === false) {
+    entries.push('On-site only');
+  }
+  const describeList = (key, label) => {
+    const values = Array.isArray(filters[key]) ? filters[key] : [];
+    if (!values.length) {
+      return;
+    }
+    if (values.length === 1) {
+      entries.push(`${values[0]} ${label}`.trim());
+      return;
+    }
+    const preview = values.slice(0, 2).join(', ');
+    const extra = values.length > 2 ? ` +${values.length - 2}` : '';
+    entries.push(`${preview}${extra}`);
+  };
+  describeList('locations', 'location');
+  describeList('countries', 'country');
+  describeList('regions', 'region');
+  describeList('cities', 'city');
+  describeList('employmentTypes', 'employment type');
+  describeList('tracks', 'track');
+  describeList('statuses', 'status');
+  if (!entries.length) {
+    const count = Object.keys(filters).length;
+    if (count) {
+      entries.push(`${count} filter${count === 1 ? '' : 's'} applied`);
+    }
+  }
+  return entries.slice(0, 3).join(' • ');
+}
+
+function loadStoredRecentSearches() {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+  try {
+    const raw = window.localStorage.getItem(RECENT_SEARCHES_STORAGE_KEY);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed
+      .map((entry) => {
+        if (!entry || typeof entry !== 'object') {
+          return null;
+        }
+        const cleanedFilters = cleanFilters(entry.filters ?? {});
+        return {
+          id: entry.id ?? `${entry.category}:${entry.query ?? ''}:${entry.sort ?? 'default'}`,
+          category: entry.category ?? DEFAULT_CATEGORY,
+          query: entry.query ?? '',
+          filters: cleanedFilters,
+          filtersLabel: entry.filtersLabel ?? describeFiltersSummary(cleanedFilters),
+          sort: entry.sort ?? 'default',
+          viewMode: entry.viewMode ?? 'list',
+          mapViewport: entry.mapViewport ?? null,
+          resultCount: entry.resultCount ?? null,
+          performedAt: entry.performedAt ?? entry.timestamp ?? null,
+        };
+      })
+      .filter(Boolean)
+      .slice(0, RECENT_SEARCH_LIMIT);
+  } catch (error) {
+    console.warn('Failed to read explorer recent searches from storage', error);
+    return [];
+  }
+}
+
+function createRecentSearchEntry({
+  category,
+  query,
+  filters,
+  sort,
+  viewMode,
+  mapViewport,
+  totalResults,
+}) {
+  const cleanedFilters = cleanFilters(filters);
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    category: category ?? DEFAULT_CATEGORY,
+    query: query ?? '',
+    filters: cleanedFilters,
+    filtersLabel: describeFiltersSummary(cleanedFilters),
+    sort: sort ?? 'default',
+    viewMode: viewMode ?? 'list',
+    mapViewport: viewMode === 'map' ? mapViewport ?? null : null,
+    resultCount: totalResults ?? null,
+    performedAt: new Date().toISOString(),
+  };
+}
+
 function getCategoryById(id) {
   return CATEGORIES.find((category) => category.id === id) ?? CATEGORIES[0];
 }
@@ -569,12 +681,17 @@ export default function SearchPage() {
   const [saveError, setSaveError] = useState(null);
   const [isSubmittingSavedSearch, setIsSubmittingSavedSearch] = useState(false);
   const [resultDialogState, setResultDialogState] = useState({ open: false, item: null, externalUrl: null });
+  const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+  const [paletteQuery, setPaletteQuery] = useState('');
+  const [recentSearches, setRecentSearches] = useState(() => loadStoredRecentSearches());
+  const [isMacClient, setIsMacClient] = useState(false);
   const debouncedQuery = useDebounce(query.trim(), 400);
   const lastTrackedQueryRef = useRef(null);
   const resultsContainerRef = useRef(null);
   const shouldFocusResultsRef = useRef(false);
   const focusTargetIdRef = useRef(null);
   const lastFocusedResultIdRef = useRef(null);
+  const recentSignatureRef = useRef(null);
 
   const explorerAccessEnabled = isAuthenticated && hasExplorerAccess(session);
   const isManagedCategory = useMemo(
@@ -590,6 +707,13 @@ export default function SearchPage() {
       : [];
     return memberships.some((membership) => ['admin', 'agency', 'company'].includes(membership));
   }, [isManagedCategory, session]);
+
+  useEffect(() => {
+    if (typeof navigator === 'undefined') {
+      return;
+    }
+    setIsMacClient(/Mac|iPhone|iPad/.test(navigator.platform));
+  }, []);
 
   const { items: savedSearches, loading: savedSearchesLoading, createSavedSearch, updateSavedSearch, deleteSavedSearch, canUseServer } =
     useSavedSearches({ enabled: explorerAccessEnabled });
@@ -726,6 +850,20 @@ export default function SearchPage() {
       return next;
     });
   }, [discoveryExperienceState.data]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    try {
+      window.localStorage.setItem(
+        RECENT_SEARCHES_STORAGE_KEY,
+        JSON.stringify(recentSearches.slice(0, RECENT_SEARCH_LIMIT)),
+      );
+    } catch (error) {
+      console.warn('Failed to persist explorer recent searches', error);
+    }
+  }, [recentSearches]);
 
   const cleanedFilters = useMemo(() => cleanFilters(filters), [filters]);
   const filtersParam = useMemo(
@@ -914,6 +1052,52 @@ export default function SearchPage() {
     focusTargetIdRef.current = preferredId ?? null;
   }, []);
 
+  const openPalette = useCallback(
+    (source = 'button') => {
+      if (!explorerAccessEnabled) {
+        return;
+      }
+      setIsPaletteOpen(true);
+      setPaletteQuery((current) => (current ? current : debouncedQuery || ''));
+      analytics.track('web_explorer_command_palette_opened', { source });
+    },
+    [debouncedQuery, explorerAccessEnabled],
+  );
+
+  const closePalette = useCallback(() => {
+    setIsPaletteOpen(false);
+    setPaletteQuery('');
+    analytics.track('web_explorer_command_palette_closed');
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+    const handler = (event) => {
+      if (event.defaultPrevented) {
+        return;
+      }
+      if (!event.key || event.key.toLowerCase() !== 'k') {
+        return;
+      }
+      if (!(event.metaKey || event.ctrlKey) || event.shiftKey) {
+        return;
+      }
+      const target = event.target;
+      if (target && typeof target.closest === 'function') {
+        const editable = target.closest('input, textarea, [contenteditable="true"]');
+        if (editable && !event.metaKey) {
+          return;
+        }
+      }
+      event.preventDefault();
+      openPalette(event.metaKey ? 'keyboard:command' : 'keyboard:control');
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [openPalette]);
+
   useEffect(() => {
     setPage(1);
     setViewportBounds(null);
@@ -1010,6 +1194,9 @@ export default function SearchPage() {
     },
   );
 
+  const results = searchState.data?.items ?? [];
+  const totalResults = searchState.data?.total ?? results.length;
+
   useEffect(() => {
     if (!explorerAccessEnabled || viewMode === 'map') {
       return undefined;
@@ -1095,8 +1282,67 @@ export default function SearchPage() {
     lastTrackedQueryRef.current = signature;
   }, [debouncedQuery, searchState.data, selectedCategory, cleanedFilters, sort, page]);
 
-  const results = searchState.data?.items ?? [];
-  const totalResults = searchState.data?.total ?? results.length;
+  useEffect(() => {
+    if (!explorerAccessEnabled) {
+      return;
+    }
+    if (!searchState.data || searchState.loading) {
+      return;
+    }
+    const hasQuery = Boolean(debouncedQuery);
+    const hasFilters = Object.keys(cleanedFilters).length > 0;
+    if (!hasQuery && !hasFilters) {
+      return;
+    }
+    const signaturePayload = {
+      category: selectedCategory,
+      query: debouncedQuery || '',
+      filters: cleanedFilters,
+      sort,
+      viewMode,
+      viewport: viewMode === 'map' ? viewportBounds : null,
+    };
+    const signature = JSON.stringify(signaturePayload);
+    if (recentSignatureRef.current === signature) {
+      return;
+    }
+    const entry = createRecentSearchEntry({
+      category: selectedCategory,
+      query: debouncedQuery || '',
+      filters: cleanedFilters,
+      sort,
+      viewMode,
+      mapViewport: viewMode === 'map' ? viewportBounds : null,
+      totalResults,
+    });
+    const filterKey = JSON.stringify(entry.filters);
+    setRecentSearches((prev) => {
+      const next = prev.filter((item) => {
+        const itemKey = JSON.stringify(item.filters);
+        return !(
+          item.category === entry.category &&
+          item.query === entry.query &&
+          itemKey === filterKey &&
+          item.sort === entry.sort &&
+          item.viewMode === entry.viewMode
+        );
+      });
+      return [entry, ...next].slice(0, RECENT_SEARCH_LIMIT);
+    });
+    recentSignatureRef.current = signature;
+  }, [
+    explorerAccessEnabled,
+    searchState.data,
+    searchState.loading,
+    debouncedQuery,
+    cleanedFilters,
+    selectedCategory,
+    sort,
+    viewMode,
+    viewportBounds,
+    totalResults,
+  ]);
+
   const totalPages = useMemo(() => {
     const reported = searchState.data?.totalPages;
     if (typeof reported === 'number' && Number.isFinite(reported)) {
@@ -1176,6 +1422,39 @@ export default function SearchPage() {
     scheduleFocus(null);
     analytics.track('web_explorer_filters_reset', { category: selectedCategory });
   }, [selectedCategory, scheduleFocus]);
+
+  const handleApplyRecentSearch = useCallback(
+    (recent) => {
+      if (!recent) {
+        return;
+      }
+      setSelectedCategory(recent.category ?? DEFAULT_CATEGORY);
+      setQuery(recent.query ?? '');
+      setFilters(normaliseFilters(recent.filters));
+      setSort(recent.sort ?? 'default');
+      setActiveSavedSearchId(null);
+      if (recent.viewMode === 'map' && recent.mapViewport) {
+        setViewportBounds(recent.mapViewport);
+        setViewMode('map');
+      } else {
+        setViewportBounds(null);
+        setViewMode('list');
+      }
+      setPage(1);
+      lastTrackedQueryRef.current = null;
+      scheduleFocus(null);
+      analytics.track('web_explorer_recent_search_applied', {
+        category: recent.category ?? DEFAULT_CATEGORY,
+        query: recent.query ?? '',
+      });
+      setRecentSearches((prev) => {
+        const next = prev.filter((entry) => entry.id !== recent.id);
+        const updated = { ...recent, performedAt: new Date().toISOString() };
+        return [updated, ...next].slice(0, RECENT_SEARCH_LIMIT);
+      });
+    },
+    [scheduleFocus],
+  );
 
   const updateSuggestionCard = useCallback((nextSuggestion) => {
     if (!nextSuggestion?.id) {
@@ -1423,6 +1702,7 @@ export default function SearchPage() {
     }
     openExternalLink(shareUrl);
   }, []);
+
 
   const handleConnectionConnect = useCallback(
     async (connection) => {
@@ -1717,6 +1997,46 @@ export default function SearchPage() {
     [scheduleFocus],
   );
 
+  const handlePaletteSelect = useCallback(
+    (entry) => {
+      if (!entry) {
+        return;
+      }
+      analytics.track('web_explorer_command_palette_selected', {
+        type: entry.type ?? 'unknown',
+        id: entry.data?.id ?? entry.id ?? null,
+      });
+      switch (entry.type) {
+        case 'saved-search':
+          handleApplySavedSearch(entry.data);
+          break;
+        case 'recent-search':
+          handleApplyRecentSearch(entry.data);
+          break;
+        case 'category':
+          handleCategoryChange(entry.data.id);
+          break;
+        case 'suggestion':
+          handleSuggestionView(entry.data);
+          break;
+        case 'trending-topic':
+          handleTrendingView(entry.data);
+          break;
+        default:
+          break;
+      }
+      closePalette();
+    },
+    [
+      handleApplySavedSearch,
+      handleApplyRecentSearch,
+      handleCategoryChange,
+      handleSuggestionView,
+      handleTrendingView,
+      closePalette,
+    ],
+  );
+
   const handleDeleteSavedSearch = useCallback(async (search) => {
     await deleteSavedSearch(search);
     if (activeSavedSearchId === search.id) {
@@ -1808,10 +2128,10 @@ export default function SearchPage() {
               </Link>
             </div>
           </div>
-        </div>
-      </section>
-    );
-  }
+      </div>
+    </section>
+  );
+}
 
   if (!explorerAccessEnabled) {
     const eligibleRoles = getExplorerAllowedMemberships()
@@ -1875,6 +2195,30 @@ export default function SearchPage() {
             />
           }
         />
+
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-white/80 px-6 py-4 shadow-soft">
+          <div className="max-w-2xl text-xs text-slate-500">
+            <p className="font-semibold uppercase tracking-wide text-slate-400">Command palette</p>
+            <p className="mt-1 text-sm text-slate-600">
+              Launch saved searches, curated suggestions, trending topics, and categories from anywhere. Use the shortcut below or trigger it manually.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="hidden items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-[11px] font-semibold text-slate-500 sm:inline-flex">
+              <span aria-hidden="true">{isMacClient ? '⌘' : 'Ctrl'}</span>
+              <span aria-hidden="true">K</span>
+              <span className="sr-only">{isMacClient ? 'Command + K' : 'Control + K'}</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => openPalette('button')}
+              className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-slate-700"
+            >
+              <CommandLineIcon className="h-4 w-4" aria-hidden="true" />
+              Open palette
+            </button>
+          </div>
+        </div>
 
         <div className="mt-8 grid gap-8 lg:grid-cols-[320px,minmax(0,1fr)]">
           <aside className="space-y-6">
@@ -2548,6 +2892,19 @@ export default function SearchPage() {
           </div>
         </Dialog>
       </Transition.Root>
+      <SearchCommandPalette
+        isOpen={isPaletteOpen}
+        onClose={closePalette}
+        onSelectEntry={handlePaletteSelect}
+        query={paletteQuery}
+        onQueryChange={setPaletteQuery}
+        savedSearches={savedSearches}
+        recentSearches={recentSearches}
+        suggestions={filteredSuggestions}
+        trendingTopics={trendingTopicRows}
+        categories={CATEGORIES}
+        activeCategory={selectedCategory}
+      />
     </section>
   );
 }
